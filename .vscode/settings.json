@@ -5,19 +5,15 @@
   "files.trimTrailingWhitespace": true,
   "files.eol": "\n",
 
-  "intelephense.environment.phpVersion": "8.2",
-  "intelephense.diagnostics.undefinedTypes": true,
-  "intelephense.diagnostics.undefinedMethods": true,
-  "intelephense.diagnostics.undefinedProperties": true,
-  "intelephense.diagnostics.undefinedConstants": true,
-  "intelephense.diagnostics.undefinedFunctions": true,
-  "intelephense.files.maxSize": 5000000,
-  "intelephense.files.exclude": [
-    "**/PHPMailer/**",
-    "**/vendor/**",
-    "**/uploads/**"
-  ],
-  "intelephese.environment.shortOpenTag": false,
+  "files.exclude": {
+    "**/PHPMailer/**": true,
+    "**/vendor/**": true,
+    "**/uploads/**": true
+  },
+  "files.watcherExclude": {
+    "**/PHPMailer/**": true,
+    "**/vendor/**": true
+  },
 
   "[php]": {
     "editor.defaultFormatter": "junstyle.php-cs-fixer",

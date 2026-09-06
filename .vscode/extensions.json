@@ -1,12 +1,7 @@
 {
   "recommendations": [
-    "bmewburn.vscode-intense-themes",
     "junstyle.php-cs-fixer",
-    "xdebug.php-debug",
-    "bmewburn.vscode-phpcs",
+    "phpactor.phpactor",
     "neilbrayfield.php-docblocker"
-  ],
-  "unwantedRecommendations": [
-    "felixfbecker.php-intellisense"
   ]
 }

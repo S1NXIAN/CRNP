@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "phpactor": {
+      "command": "phpactor",
+      "args": ["language-server"],
+      "fileTypes": [".php"],
+      "rootMarkers": [".git", "composer.json", ".omp"]
+    }
+  }
+}
