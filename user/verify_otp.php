@@ -17,8 +17,7 @@ if ($isResend) {
         flash('We couldn\'t find that email. Please sign up again.', 'danger');
         redirect('/user/signup.php');
     }
-    $db        = getDB();
-    $existing  = filter_by(rows($db->retrieve('/user')), 'email', $email);
+    $existing  = db_find_by_email('/user', $email);
     if (!$existing) {
         flash('We couldn\'t find that email. Please sign up again.', 'danger');
         redirect('/user/signup.php');
@@ -39,6 +38,7 @@ if ($isResend) {
 
     $otp     = gen_otp();
     $expires = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+    $db = getDB();
 
     try {
         $db->update('/user', $id, ['otp' => $otp, 'otp_expires' => $expires]);
@@ -78,8 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = null;
     $userId = null;
     if (!$errors) {
-        $db       = getDB();
-        $existing = filter_by(rows($db->retrieve('/user')), 'email', $email);
+        $existing = db_find_by_email('/user', $email);
         if (!$existing) {
             $errors[] = 'We couldn\'t find that account. Please sign up again.';
         } else {

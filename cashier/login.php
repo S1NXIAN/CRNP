@@ -11,8 +11,6 @@ if (!empty($_SESSION['cashier_email'])) {
     redirect('/cashier/');
 }
 
-$db = getDB();
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
     $email    = trim((string) post('email', ''));
@@ -30,14 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('/cashier/login.php');
     }
 
-    $cashier = null;
-    foreach (rows($db->retrieve('/cashiers')) as $row) {
-        if (is_array($row) && !empty($row['email'])
-            && strcasecmp((string) $row['email'], $email) === 0) {
-            $cashier = $row;
-            break;
-        }
-    }
+    $found = db_find_by_email('/cashiers', $email);
+    $cashier = $found ? reset($found) : null;
 
     if (!$cashier || empty($cashier['password_hash'])
         || !password_verify($password, (string) $cashier['password_hash'])) {

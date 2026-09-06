@@ -33,15 +33,25 @@ class firebaseRDB
 
     /**
      * GET a node. When $queryKey is supplied a server-side query is attempted;
-     * returns an associative array (decoded). On cURL failure returns [].
-     *
-     * Advanced options ($options map):
-     *   limitToLast => int
-     *   limitToFirst => int
-     *   startAt => string|int
-     *   endAt => string|int
+     * the queried field MUST be listed in database.rules.json (.indexOn) or
+     * Firebase answers 400 "Index not defined" (logged, read as []).
+     * Pass $queryVal null with startAt/endAt/limit options for an ordered
+     * range or ordered limit on $queryKey.
      */
-    public function retrieve(string $path, ?string $queryKey = null, string $queryType = self::EQUAL, $queryVal = null, array $options = [])
+    public function retrieve(string $path, ?string $queryKey = null, ?string $queryType = self::EQUAL, $queryVal = null, array $options = [])
+    {
+        $resp = $this->_exec($this->buildQueryUrl($path, $queryKey, $queryType, $queryVal, $options), 'GET');
+        if ($resp === null) {
+            return [];
+        }
+        return $this->parseGetResponse($resp);
+    }
+
+    /**
+     * Build the REST URL for a GET, without the access_token (added in _exec).
+     * Extracted so offline tests can pin the exact query strings.
+     */
+    public function buildQueryUrl(string $path, ?string $queryKey = null, ?string $queryType = self::EQUAL, $queryVal = null, array $options = []): string
     {
         $url = $this->url . '/' . ltrim($path, '/') . '.json';
         $qs = [];
@@ -55,6 +65,8 @@ class firebaseRDB
                 $qs[] = 'orderBy="' . rawurlencode($queryKey) . '"';
                 $qs[] = 'equalTo="' . rawurlencode($val) . '"';
             }
+        } elseif ($queryKey !== null) {
+            $qs[] = 'orderBy="' . rawurlencode($queryKey) . '"';
         }
         if (!empty($options['limitToLast'])) {
             $qs[] = 'limitToLast=' . (int) $options['limitToLast'];
@@ -71,12 +83,26 @@ class firebaseRDB
         if ($qs !== []) {
             $url .= '?' . implode('&', $qs);
         }
-        $resp = $this->_exec($url, 'GET');
-        if ($resp === null) {
+        return $url;
+    }
+
+    /**
+     * Decode a GET body. {"error": ...} (e.g. missing .indexOn) is logged
+     * and read as [] so pages keep rendering instead of iterating the error.
+     * @return mixed decoded rows, or [] when empty / failed
+     */
+    public function parseGetResponse(string $resp)
+    {
+        $data = json_decode($resp, true);
+        if ($data === null) {
             return [];
         }
-        $data = json_decode($resp, true);
-        return $data === null ? [] : $data;
+        if (is_array($data) && isset($data['error'])) {
+            $msg = is_string($data['error']) ? $data['error'] : json_encode($data['error']);
+            error_log('[firebaseRDB] GET failed: ' . $msg);
+            return [];
+        }
+        return $data;
     }
 
     /** POST — creates a new auto-key. Returns the new Firebase push key. */

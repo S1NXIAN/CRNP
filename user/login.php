@@ -36,8 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user   = null;
     $userId = null;
     if (!$errors) {
-        $db       = getDB();
-        $existing = filter_by(rows($db->retrieve('/user')), 'email', $email);
+        $existing = db_find_by_email('/user', $email);
         if (!$existing) {
             $errors[] = 'Invalid email or password.';
         } else {

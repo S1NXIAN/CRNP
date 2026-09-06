@@ -29,8 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('/kitchen/login.php');
     }
 
-    $db    = getDB();
-    $staff = filter_by(rows($db->retrieve('/kitchen')), 'email', $email);
+    $staff = db_find_by_email('/kitchen', $email);
     $k     = $staff ? reset($staff) : null;
 
     if ($k && !empty($k['password_hash']) && password_verify($password, $k['password_hash'])) {

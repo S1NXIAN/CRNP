@@ -1,0 +1,30 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+    "user": {
+      ".indexOn": ["email"]
+    },
+    "admins": {
+      ".indexOn": ["email"]
+    },
+    "cashiers": {
+      ".indexOn": ["email"]
+    },
+    "kitchen": {
+      ".indexOn": ["email"]
+    },
+    "orders": {
+      ".indexOn": ["user_email", "status", "created_at", "payment_status"]
+    },
+    "bookings": {
+      ".indexOn": ["user_email", "status", "created_at", "payment_status"]
+    },
+    "products": {
+      ".indexOn": ["name", "status", "category"]
+    },
+    "rent_items": {
+      ".indexOn": ["name", "status"]
+    }
+  }
+}

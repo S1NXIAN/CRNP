@@ -39,14 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash('Password must be at least 8 characters.', 'danger');
     } else {
         $db     = getDB();
-        $admins = rows($db->retrieve('/admins'));
-        $exists = false;
-        foreach ($admins as $a) {
-            if (is_array($a) && !empty($a['email']) && strcasecmp((string) $a['email'], $email) === 0) {
-                $exists = true;
-                break;
-            }
-        }
+        $exists = db_find_by_email('/admins', $email) !== [];
 
         if ($exists) {
             flash('An admin with that email already exists.', 'danger');

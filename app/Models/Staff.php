@@ -29,16 +29,10 @@ class Staff extends Model
         return $rows;
     }
 
-    /** Check if email exists in a given path. */
+    /** Check if email exists in a given path (indexed query + PHP refine). */
     public static function emailExists(string $path, string $email): bool
     {
-        $all = static::allFrom($path);
-        foreach ($all as $c) {
-            if (is_array($c) && !empty($c['email']) && strcasecmp((string) $c['email'], $email) === 0) {
-                return true;
-            }
-        }
-        return false;
+        return \db_find_by_email($path, $email) !== [];
     }
 
     /** Insert staff into a given path. */

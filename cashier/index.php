@@ -32,21 +32,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     /* --- Bulk: accept every pending order (no order_id required) --- */
     if ($action === 'accept_all_pending') {
-        $all = Order::raw();
+        $all = Order::where('status', 'pending');
         $now = now();
         $n   = 0;
         foreach ($all as $oid => $o) {
             if (!is_array($o)) {
                 continue;
             }
-            if ((string) ($o['status'] ?? '') === 'pending') {
-                $db->update('/orders', $oid, [
-                    'status'      => 'accepted',
-                    'accepted_at' => $now,
-                    'accepted_by' => $cashierName,
-                ]);
-                $n++;
-            }
+            $db->update('/orders', $oid, [
+                'status'      => 'accepted',
+                'accepted_at' => $now,
+                'accepted_by' => $cashierName,
+            ]);
+            $n++;
         }
         if ($n > 0) {
             Order::clearRawCache();
@@ -137,12 +135,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 /* ---------- GET: list + stats ---------- */
 $statusFilter = trim((string) ($_GET['status'] ?? ''));
 
-$allOrders = Order::raw();
-
-// Stats via model
+// Indexed count first: the ?check poll below must not touch the full table.
 $pendingCount = Order::pendingCount();
-$unpaidCount  = Order::unpaidCount();
-$todaySales   = Order::todaySales();
 
 /* Lightweight polling endpoint consumed by the inline JS below.
    Returns just the current pending count as JSON so the page can poll
@@ -152,6 +146,12 @@ if (isset($_GET['check'])) {
     echo json_encode(['pending' => (int) $pendingCount]);
     exit;
 }
+
+$allOrders = Order::raw();
+
+// Stats via model
+$unpaidCount  = Order::unpaidCount();
+$todaySales   = Order::todaySales();
 
 // Split active vs completed
 $activeOrders = [];
@@ -168,11 +168,8 @@ foreach ($allOrders as $oid => $o) {
     }
 }
 
-// Apply filter for display (only active orders get filtered)
-$orders = $activeOrders;
-if ($statusFilter !== '') {
-    $orders = filter_by($orders, 'status', $statusFilter);
-}
+// Apply filter for display (indexed; unfiltered view keeps the active split)
+$orders = $statusFilter !== '' ? Order::where('status', $statusFilter) : $activeOrders;
 
 // Newest first
 uasort($orders, function ($a, $b) {

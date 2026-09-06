@@ -10,8 +10,11 @@ Firebase client: `$db = getDB();` returns a firebaseRDB.
   - $db->insert('/orders', $data)               -> new push key (throws on error)
   - $db->update('/orders', $id, $data)          -> patched array (throws on error)
   - $db->delete('/orders', $id)                 -> true (throws on error)
-IMPORTANT: To list items belonging to a user/field, call retrieve('/table') then
-filter_by($rows,'user_email',$email) — do NOT rely on Firebase orderBy index rules.
+IMPORTANT: Use indexed server-side queries so list pages never download whole
+tables: Model::where($field,$val), ::whereAny, ::whereRange, ::recentBy, or
+db_find_by_email($table,$email). Queried fields MUST stay listed in
+database.rules.json (.indexOn). Keep PHP-side filter_by/filter_like only as a
+refine on top of an indexed result (case-insensitive match, text search).
 
 Layout: render header + footer:
   $pageTitle='...'; $activeNav='shop'; $layout='narrow|wide|';  // optional

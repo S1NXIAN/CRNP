@@ -75,39 +75,61 @@ abstract class Model
         return self::$rawCache[$table];
     }
 
+    /* ------------------------------------------------------------------ */
+    /*  Indexed queries (server-side; need database.rules.json .indexOn)   */
+    /*  Firebase allows ONE orderBy per request: compound filters issue    */
+    /*  one query per value and refine the rest in PHP.                    */
+    /* ------------------------------------------------------------------ */
+
+    /** Equality query on an indexed field. Returns rows keyed by Firebase key. */
+    public static function where(string $field, string $value): array
+    {
+        $rows = static::db()->retrieve('/' . static::$table, $field, \firebaseRDB::EQUAL, $value);
+        return \is_array($rows) ? $rows : [];
+    }
+
+    /** Multi-value equality (RTDB has no OR): one indexed query per value, merged. */
+    public static function whereAny(string $field, array $values): array
+    {
+        $out = [];
+        $seen = [];
+        foreach ($values as $value) {
+            $value = (string) $value;
+            if (isset($seen[$value])) {
+                continue;
+            }
+            $seen[$value] = true;
+            foreach (static::where($field, $value) as $k => $row) {
+                $out[$k] = $row;
+            }
+        }
+        return $out;
+    }
+
+    /** Ordered range on an indexed field (e.g. created_at month slice). */
+    public static function whereRange(string $field, string $start, string $end): array
+    {
+        $rows = static::db()->retrieve('/' . static::$table, $field, null, null, ['startAt' => $start, 'endAt' => $end]);
+        return \is_array($rows) ? $rows : [];
+    }
+
+    /** Latest $limit rows by $field, newest first (indexed orderBy + limitToLast). */
+    public static function recentBy(string $field, int $limit = 8): array
+    {
+        $rows = static::db()->retrieve('/' . static::$table, $field, null, null, ['limitToLast' => $limit]);
+        if (!\is_array($rows)) {
+            return [];
+        }
+        uasort($rows, function ($a, $b) use ($field) {
+            return strcmp((string) ($b[$field] ?? ''), (string) ($a[$field] ?? ''));
+        });
+        return $rows;
+    }
+
     /** Return the latest $limit rows by a date field, newest first (raw arrays). */
     public static function recentLimited(string $dateField, int $limit = 50): array
     {
-        $all = static::raw();
-        if (count($all) <= $limit) {
-            uasort($all, function ($a, $b) use ($dateField) {
-                $ta = strtotime((string) ($a[$dateField] ?? ''));
-                $tb = strtotime((string) ($b[$dateField] ?? ''));
-                if ($ta === false && $tb === false) {
-                    return 0;
-                }
-                if ($ta === false) {
-                    return 1;
-                }
-                if ($tb === false) {
-                    return -1;
-                }
-                return $tb <=> $ta;
-            });
-            return $all;
-        }
-        $timestamps = [];
-        foreach ($all as $k => $v) {
-            $t = strtotime((string) ($v[$dateField] ?? ''));
-            $timestamps[$k] = $t === false ? 0 : $t;
-        }
-        arsort($timestamps);
-        $keys = array_slice(array_keys($timestamps), 0, $limit, true);
-        $out = [];
-        foreach ($keys as $k) {
-            $out[$k] = $all[$k];
-        }
-        return $out;
+        return static::recentBy($dateField, $limit);
     }
 
     /** Paginate raw rows: returns ['data' => ..., 'page' => ..., 'perPage' => ..., 'total' => ...]. */

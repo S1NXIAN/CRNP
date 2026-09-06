@@ -145,6 +145,21 @@ function filter_like(array $rows, string $key, $val): array
     return $out;
 }
 
+/* ---------- indexed lookups (server-side; need database.rules.json) ----------
+ * Case-insensitive email match over an indexed equality query. Firebase
+ * equalTo is case-sensitive while filter_by is not, so refine in PHP and
+ * fall back to a full scan only on a miss (differently-cased stored email).
+ * Auth pages are rate-limited, so the rare fallback stays cheap. */
+function db_find_by_email(string $table, string $email): array
+{
+    $path = '/' . ltrim($table, '/');
+    $match = filter_by(rows(getDB()->retrieve($path, 'email', firebaseRDB::EQUAL, $email)), 'email', $email);
+    if ($match !== []) {
+        return $match;
+    }
+    return filter_by(rows(getDB()->retrieve($path)), 'email', $email);
+}
+
 /* ---------- file uploads (C4 hardened) ---------- */
 /**
  * Save an uploaded file. Returns the generated filename or null if no file.

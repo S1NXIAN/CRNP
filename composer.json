@@ -35,7 +35,7 @@
         "lint":    "php -d memory_limit=1G vendor/bin/php-cs-fixer fix --dry-run --diff --no-interaction",
         "format":  "php -d memory_limit=1G vendor/bin/php-cs-fixer fix --no-interaction",
         "analyse": "php -d memory_limit=1G vendor/bin/phpstan analyse --no-progress",
-        "smoke":   "php tests/smoke_token.php"
+        "smoke":   "php tests/smoke_token.php && php tests/indexed_rules.php"
     },
     "scripts-descriptions": {
         "lint":    "Check code style without applying changes",

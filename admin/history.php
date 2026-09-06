@@ -19,8 +19,9 @@ if ($date !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
 }
 $hasFilter = ($q !== '' || $date !== '');
 
-$orders   = Order::raw();
-$bookings = Booking::raw();
+// Date narrowing is an indexed range; the free-text search refines it in PHP.
+$orders   = $date !== '' ? Order::whereRange('created_at', $date, $date . '\uf8ff') : Order::raw();
+$bookings = $date !== '' ? Booking::whereRange('created_at', $date, $date . '\uf8ff') : Booking::raw();
 
 if ($hasFilter) {
     $needle = mb_strtolower($q);

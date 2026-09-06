@@ -24,7 +24,7 @@ if ($isResend) {
     }
 
     $db       = getDB();
-    $existing = filter_by(rows($db->retrieve('/user')), 'email', $email);
+    $existing = db_find_by_email('/user', $email);
     if (!$existing) {
         flash('No account found with that email.', 'danger');
         redirect('/user/forgot_password.php');
@@ -78,8 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user   = null;
     $userId = null;
     if (!$errors) {
-        $db       = getDB();
-        $existing = filter_by(rows($db->retrieve('/user')), 'email', $email);
+        $existing = db_find_by_email('/user', $email);
         if (!$existing) {
             $errors[] = 'Account not found. Please start over.';
         } else {

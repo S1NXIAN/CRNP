@@ -93,8 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('/kitchen/');
 }
 
-/* ---------- GET: list + filter ---------- */
-$allOrders = Order::raw();
+/* ---------- GET: list + filter (indexed; unfiltered 'all' keeps raw) ---------- */
 $statusFilter = isset($_GET['status']) ? (string) $_GET['status'] : 'active';
 $validFilters = ['all', 'active', 'accepted', 'preparing', 'ready', 'done'];
 if (!in_array($statusFilter, $validFilters, true)) {
@@ -102,9 +101,17 @@ if (!in_array($statusFilter, $validFilters, true)) {
 }
 $activeStatuses = ['accepted', 'preparing', 'ready'];
 
+if ($statusFilter === 'all') {
+    $fetched = Order::raw();
+} elseif ($statusFilter === 'active') {
+    $fetched = Order::whereAny('status', $activeStatuses);
+} else {
+    $fetched = Order::where('status', $statusFilter);
+}
+$orders = $fetched;
+
 // Sort: newest created_at first (missing dates sink to the bottom).
-$sorted = $allOrders;
-uasort($sorted, function ($a, $b) {
+uasort($orders, function ($a, $b) {
     $ta = strtotime((string) ($a['created_at'] ?? ''));
     $tb = strtotime((string) ($b['created_at'] ?? ''));
     if ($ta === false && $tb === false) {
@@ -119,37 +126,11 @@ uasort($sorted, function ($a, $b) {
     return $tb - $ta;
 });
 
-// Apply filter
-$orders = [];
-foreach ($sorted as $id => $o) {
-    if (!is_array($o)) {
-        continue;
-    }
-    $s = (string) ($o['status'] ?? 'pending');
-    if ($statusFilter === 'all') {
-        $orders[$id] = $o;
-    } elseif ($statusFilter === 'active') {
-        if (in_array($s, $activeStatuses, true)) {
-            $orders[$id] = $o;
-        }
-    } else {
-        if ($s === $statusFilter) {
-            $orders[$id] = $o;
-        }
-    }
-}
-
-// Stat strip counts (across ALL orders, ignoring the filter)
-$statCounts = ['preparing' => 0, 'ready' => 0];
-foreach ($allOrders as $o) {
-    if (!is_array($o)) {
-        continue;
-    }
-    $s = (string) ($o['status'] ?? '');
-    if (isset($statCounts[$s])) {
-        $statCounts[$s]++;
-    }
-}
+// Stat strip counts (indexed; independent of the filter)
+$statCounts = [
+    'preparing' => count(Order::where('status', 'preparing')),
+    'ready'     => count(Order::where('status', 'ready')),
+];
 
 $filterPills = [
     'active'    => 'Active',

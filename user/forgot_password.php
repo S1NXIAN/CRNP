@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $db       = getDB();
-    $existing = filter_by(rows($db->retrieve('/user')), 'email', $email);
+    $existing = db_find_by_email('/user', $email);
 
     if (!$existing) {
         flash('No account found with that email.', 'danger');

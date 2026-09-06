@@ -127,11 +127,8 @@ The repository ships with two files that make deployment nearly automatic:
    - [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials) → open the OAuth 2.0 Client ID
    - Under **Authorized JavaScript origins**, add `https://YOUR-SERVICE.onrender.com` (no trailing slash)
 
-6. **Lock down the database.** Firebase Console → **Realtime Database → Rules** → replace with:
-   ```json
-   { "rules": { ".read": "auth != null", ".write": "auth != null" } }
-   ```
-   Publish **after** step 4 is complete, otherwise the server loses database access.
+6. **Lock down the database.** Firebase Console → **Realtime Database → Rules** → replace with the contents of `database.rules.json` (auth-locked rules plus the `.indexOn` entries every list page queries with `orderBy`).
+   Publish **after** step 4 is complete, otherwise the server loses database access. Keep the file and the Console copy in sync — adding a new `Model::where()` field means adding its `.indexOn` here too.
 
 > **Regional URL warning.** Databases created outside US-central live on a `*.firebasedatabase.app` domain. Always copy the URL shown above your data tree in Firebase Console — pointing at a `.firebaseio.com` address makes every request fail with *"Database lives in a different region."*
 
@@ -227,12 +224,13 @@ CRNP/
 ├── PHPMailer/              # Vendored PHPMailer (Gmail SMTP)
 ├── uploads/                # User uploads (avatars, GCash proofs)
 ├── firebaseRDB.php         # Authenticated cURL wrapper over Firebase REST
+├── database.rules.json     # RTDB rules + .indexOn for every orderBy field
 ├── config.php              # .env loader, session hardening, constants
 ├── init.php                # Bootstrap + PSR-4 autoloader
 ├── mailer.php              # OTP, order & booking receipt emails
 ├── render.yaml             # Render Blueprint (service definition)
 ├── Dockerfile              # php:8.2-apache container image
-└── tests/smoke_token.php   # Offline checks for database authentication
+└── tests/                  # Offline checks (smoke_token, indexed_rules)
 ```
 
 ---

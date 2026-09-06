@@ -51,19 +51,10 @@ class Order extends Model
         return $sum;
     }
 
-    /** Pending count. */
+    /** Pending count (indexed). */
     public static function pendingCount(): int
     {
-        $n = 0;
-        foreach (static::raw() as $o) {
-            if (!is_array($o)) {
-                continue;
-            }
-            if ((string) ($o['status'] ?? '') === 'pending') {
-                $n++;
-            }
-        }
-        return $n;
+        return count(static::where('status', 'pending'));
     }
 
     /** Unpaid count (excludes cancelled). */
@@ -86,13 +77,7 @@ class Order extends Model
     /** Last N orders sorted newest-first (raw arrays keyed by Firebase key). */
     public static function recent(int $limit = 8): array
     {
-        $all = static::raw();
-        uasort($all, function ($a, $b) {
-            $ta = strtotime((string) ($a['created_at'] ?? $a['placed_at'] ?? 'now'));
-            $tb = strtotime((string) ($b['created_at'] ?? $b['placed_at'] ?? 'now'));
-            return $tb <=> $ta;
-        });
-        return array_slice($all, 0, $limit, true);
+        return static::recentBy('created_at', $limit);
     }
 
     /** Best-selling products: name => qty (top N, raw). */
@@ -207,11 +192,11 @@ class Order extends Model
         return $days;
     }
 
-    /** Filter orders by date range [startDate, endDate]. Returns raw arrays. */
+    /** Orders with created_at in [startDate, endDate] (indexed range + PHP refine). */
     public static function byDateRange(string $startDate, string $endDate): array
     {
         $out = [];
-        foreach (static::raw() as $k => $o) {
+        foreach (static::whereRange('created_at', $startDate, $endDate . '\uf8ff') as $k => $o) {
             if (!is_array($o)) {
                 continue;
             }

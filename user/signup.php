@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $existing  = [];
     $existingId = null;
     if (!$errors) {
-        $existing = filter_by(rows($db->retrieve('/user')), 'email', $email);
+        $existing = db_find_by_email('/user', $email);
         if ($existing) {
             $existingId = (string) array_key_first($existing);
             $first = reset($existing);

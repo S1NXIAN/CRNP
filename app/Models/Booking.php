@@ -67,20 +67,14 @@ class Booking extends Model
     /** Last N bookings sorted newest-first (raw arrays). */
     public static function recent(int $limit = 5): array
     {
-        $all = static::raw();
-        uasort($all, function ($a, $b) {
-            $ta = strtotime((string) ($a['created_at'] ?? '')) ?: 0;
-            $tb = strtotime((string) ($b['created_at'] ?? '')) ?: 0;
-            return $tb <=> $ta;
-        });
-        return array_slice($all, 0, $limit, true);
+        return static::recentBy('created_at', $limit);
     }
 
-    /** Filter bookings by date range [startDate, endDate]. */
+    /** Bookings with created_at in [startDate, endDate] (indexed range + PHP refine). */
     public static function byDateRange(string $startDate, string $endDate): array
     {
         $out = [];
-        foreach (static::raw() as $k => $b) {
+        foreach (static::whereRange('created_at', $startDate, $endDate . '\uf8ff') as $k => $b) {
             if (!is_array($b)) {
                 continue;
             }

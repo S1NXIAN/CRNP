@@ -23,17 +23,7 @@ if (!function_exists('k_format_ts')) {
     }
 }
 
-$all   = Order::raw();
-
-$done = [];
-foreach ($all as $id => $o) {
-    if (!is_array($o)) {
-        continue;
-    }
-    if ((string) ($o['status'] ?? '') === 'done') {
-        $done[$id] = $o;
-    }
-}
+$done = Order::where('status', 'done');
 
 uasort($done, function ($a, $b) {
     $ta = strtotime((string) ($a['done_at'] ?? $a['updated_at'] ?? ''));

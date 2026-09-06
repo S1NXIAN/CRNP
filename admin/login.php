@@ -25,15 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($email === '' || $password === '') {
         flash('Please enter your email and password.', 'danger');
     } else {
-        $db    = getDB();
-        $admins = rows($db->retrieve('/admins'));
-        $admin  = null;
-        foreach ($admins as $id => $a) {
-            if (is_array($a) && !empty($a['email']) && strcasecmp((string) $a['email'], $email) === 0) {
-                $admin = $a;
-                break;
-            }
-        }
+        $found = db_find_by_email('/admins', $email);
+        $admin = $found ? reset($found) : null;
 
         if (!$admin || empty($admin['password_hash']) || !password_verify($password, $admin['password_hash'])) {
             flash('Invalid administrator credentials.', 'danger');

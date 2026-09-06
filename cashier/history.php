@@ -12,22 +12,8 @@ use App\Models\Order;
 $orderStatuses   = ['cashier_cancelled', 'cancelled', 'done'];
 $bookingStatuses = ['rejected', 'returned', 'cancelled'];
 
-$orders   = Order::raw();
-$bookings = Booking::raw();
-
-// Filter
-$ordersHist = [];
-foreach ($orders as $id => $o) {
-    if (is_array($o) && in_array((string) ($o['status'] ?? ''), $orderStatuses, true)) {
-        $ordersHist[$id] = $o;
-    }
-}
-$bookingsHist = [];
-foreach ($bookings as $id => $b) {
-    if (is_array($b) && in_array((string) ($b['status'] ?? ''), $bookingStatuses, true)) {
-        $bookingsHist[$id] = $b;
-    }
-}
+$ordersHist   = Order::whereAny('status', $orderStatuses);
+$bookingsHist = Booking::whereAny('status', $bookingStatuses);
 
 // Sort newest first
 uasort($ordersHist, function ($a, $b) {

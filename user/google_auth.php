@@ -54,7 +54,7 @@ if (!filter_var($gEmail, FILTER_VALIDATE_EMAIL)) {
 
 // ---------- Upsert /user by email ----------
 $db       = getDB();
-$existing = filter_by(rows($db->retrieve('/user')), 'email', $gEmail);
+$existing = db_find_by_email('/user', $gEmail);
 $userId   = null;
 $userName = $gName !== '' ? $gName : explode('@', $gEmail)[0];
 $userImg  = $gPicture;

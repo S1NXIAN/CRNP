@@ -107,23 +107,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect($back);
 }
 
-/* ---------- GET: list ---------- */
-$bookings = Booking::raw();
-
-// Split into active (pending) and history (accepted/returned/rejected/cancelled)
-$activeBookings = [];
-$historyBookings = [];
-foreach ($bookings as $bid => $b) {
-    if (!is_array($b)) {
-        continue;
-    }
-    $st = (string) ($b['status'] ?? '');
-    if ($st === 'pending') {
-        $activeBookings[$bid] = $b;
-    } else {
-        $historyBookings[$bid] = $b;
-    }
-}
+/* ---------- GET: list (indexed) ---------- */
+// Active = pending; history = every other known status (closed set, see booking_status_label).
+$activeBookings  = Booking::where('status', 'pending');
+$historyBookings = Booking::whereAny('status', ['accepted', 'rejected', 'returned', 'cancelled']);
 
 // Newest first
 uasort($activeBookings, function ($a, $b) {
