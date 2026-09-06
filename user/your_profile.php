@@ -46,9 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action', '') === 'change_pass
     $current = (string) post('current_password', '');
     $new     = (string) post('new_password', '');
     $confirm = (string) post('confirm_password', '');
-    $isGoogle = ($user['provider'] ?? '') === 'google';
-
-    if (!$isGoogle && $current === '') {
+    if ($current === '') {
         flash('Please enter your current password.', 'danger');
     } elseif ($new === '') {
         flash('New password cannot be empty.', 'danger');
@@ -58,12 +56,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action', '') === 'change_pass
         flash('New passwords do not match.', 'danger');
     } else {
         $ok = true;
-        if (!$isGoogle) {
-            $hash = $user['password_hash'] ?? '';
-            if (!password_verify($current, $hash)) {
-                flash('Current password is incorrect.', 'danger');
-                $ok = false;
-            }
+        $hash = $user['password_hash'] ?? '';
+        if (!password_verify($current, $hash)) {
+            flash('Current password is incorrect.', 'danger');
+            $ok = false;
         }
         if ($ok) {
             try {
@@ -204,7 +200,6 @@ $verified  = !empty($user['email_verified']);
       </div>
     </div>
 
-    <?php if ($provider !== 'google'): ?>
     <div class="card">
       <div class="card__head">
         <h3>Change password</h3>
@@ -237,7 +232,6 @@ $verified  = !empty($user['email_verified']);
         </form>
       </div>
     </div>
-    <?php endif; ?>
 
   </section>
 

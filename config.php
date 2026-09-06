@@ -90,13 +90,6 @@ define('BRAND_TAGLINE', 'Diner');
 // "true" to opt in. NEVER enable this on production.
 define('DEV_MODE', getenv('DEV_MODE') === '1' || getenv('DEV_MODE') === 'true');
 
-// ---------- Google OAuth (optional) ----------
-// Set via env var or leave empty to disable Google sign-in.
-$googleClientId = getenv('GOOGLE_CLIENT_ID') ?: '';
-if (!defined('GOOGLE_CLIENT_ID')) {
-    define('GOOGLE_CLIENT_ID', $googleClientId);
-}
-
 // ---------- Uploads ----------
 // Uploads live under php-app/uploads/ and are served from /uploads/...
 define('UPLOAD_ROOT', __DIR__ . '/uploads');

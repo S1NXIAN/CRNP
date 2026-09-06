@@ -67,10 +67,6 @@ Timezone is Asia/Manila everywhere (set in config).
 Deploy assumption: app served at web root, so links use leading slash: /user/login.php,
 /assets/css/style.css, /uploads/...
 
-Google login: frontend posts a JWT to google_auth.php. Decode the payload segment
-(base64url) -> json -> {email,name,picture}. Create/update /user record by email,
-set $_SESSION['user_id'], 'user_email','user_name','user_image'. Regenerate session id.
-
 Password storage: password_hash($pw, PASSWORD_BCRYPT) on signup; password_verify on login.
 Signup flow: insert pending user with otp + otp_expires (now+10min), email OTP via sendOTP(),
 redirect to verify_otp.php?email=... ; on verify set email_verified=true.

@@ -8,10 +8,7 @@
 require_once __DIR__ . '/../init.php';
 security_headers();
 
-if (!defined('GOOGLE_CLIENT_ID')) {
-    define('GOOGLE_CLIENT_ID', 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com');
-}
-$googleConfigured = (GOOGLE_CLIENT_ID !== 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com');
+// Sign-in is email + password only (OTP verified). No third-party providers.
 
 $name  = '';
 $email = '';
@@ -186,7 +183,6 @@ $flashes = get_flashes();
     .auth__card .form-actions { margin-top: 2px; }
     .auth__card .divider { margin: 6px 0; }
     .auth__card .t-center.muted { margin-bottom: 4px; font-size: 12px; }
-    .auth__card .g_id_signin { margin-bottom: 0; }
 
     .auth__switch {
       margin-top: 4px;
@@ -201,9 +197,6 @@ $flashes = get_flashes();
     }
   </style>
   <link rel="icon" href="/assets/img/logo.png">
-  <?php if ($googleConfigured): ?>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <?php endif; ?>
 </head>
 <body>
 <button class="theme-toggle theme-toggle--floating" type="button" aria-label="Toggle dark mode" aria-pressed="false" data-theme-toggle title="Toggle theme">
@@ -272,28 +265,6 @@ $flashes = get_flashes();
           </div>
         </div>
       </form>
-
-      <?php if ($googleConfigured): ?>
-        <div class="divider"></div>
-        <div class="t-center muted">or continue with</div>
-        <div id="g_id_onload"
-             data-client_id="<?= e(GOOGLE_CLIENT_ID) ?>"
-             data-callback="handleGoogle"
-             data-auto_prompt="false"></div>
-        <div class="t-center">
-          <div class="g_id_signin" data-type="standard" data-shape="pill" data-size="large" data-theme="outline" data-text="continue_with" data-locale="en"></div>
-        </div>
-        <form id="googleForm" method="post" action="/user/google_auth.php" style="display:none;">
-          <?= csrf_field() ?>
-          <input type="hidden" name="credential" id="googleCredential">
-        </form>
-        <script>
-          function handleGoogle(response) {
-            document.getElementById('googleCredential').value = response.credential;
-            document.getElementById('googleForm').submit();
-          }
-        </script>
-      <?php endif; ?>
 
       <p class="auth__switch">
         Already have an account? <a href="/user/login.php">Sign in</a>

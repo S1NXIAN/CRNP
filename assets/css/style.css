@@ -1858,41 +1858,7 @@ table.tbl .muted {
   background: var(--line-2);
 }
 
-.auth__card .g_id_signin {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 2px;
-}
-
-/* Google sign-in button — premium outline style */
-.btn--google {
-  --b-bg: transparent;
-  --b-fg: var(--ink-soft);
-  --b-bd: var(--line);
-  font-size: 14px;
-  padding: 12px 16px;
-  border-radius: 999px;
-  transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
-}
-
-.btn--google:not([disabled]):hover {
-  --b-bd: var(--gold);
-  --b-fg: var(--gold-600);
-  background: rgba(192, 138, 46, 0.05);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(192, 138, 46, 0.12);
-}
-
-.btn--google:not([disabled]):active {
-  transform: translateY(0);
-}
-
-.btn--google[disabled] {
-  opacity: 0.55;
-  cursor: not-allowed;
-  filter: grayscale(0.4);
-}
-
+/* (google sign-in removed: auth is email + password only) */
 .auth__card .btn--outline[disabled] {
   opacity: 0.6;
 }

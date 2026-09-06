@@ -90,7 +90,7 @@ Access is enforced per page by role guards (`includes/auth.php`). Each role uses
 | Frontend | Server-rendered PHP pages, vanilla HTML/CSS/JS, mobile-first |
 | Backend | PHP 8.2 (procedural pages + lightweight OOP models) |
 | Database | Firebase Realtime Database via its REST API (`firebaseRDB.php`) |
-| Auth | Email + password with OTP verification, optional Google Sign-In, bcrypt hashing |
+| Auth | Email + password with OTP verification, bcrypt hashing |
 | Email | PHPMailer over Gmail SMTP (STARTTLS, port 587) |
 | Hosting | Render (Docker runtime, `php:8.2-apache`) |
 
@@ -115,7 +115,6 @@ The repository ships with two files that make deployment nearly automatic:
    - `FIREBASE_URL` — copy **verbatim** from Firebase Console → Realtime Database (see the regional-URL warning below)
    - `SMTP_USER` / `SMTP_PASS` — Gmail address and a 16-character App Password ([create one here](https://myaccount.google.com/apppasswords); requires 2-Step Verification)
    - `MAIL_FROM` — optional; defaults to `SMTP_USER`
-   - `GOOGLE_CLIENT_ID` — optional OAuth client ID enabling customer Google sign-in
    - `FIREBASE_CREDENTIALS` — full contents of a Firebase service-account JSON key (steps below)
 
 4. **Create the Firebase service-account key** (one time):
@@ -123,11 +122,8 @@ The repository ships with two files that make deployment nearly automatic:
    - **Generate new private key** → a JSON file downloads
    - Open it, copy *everything* (including the outer `{ }`), paste into Render's `FIREBASE_CREDENTIALS`
 
-5. **Add your Render URL to Google sign-in** (only if using Google login):
-   - [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials) → open the OAuth 2.0 Client ID
-   - Under **Authorized JavaScript origins**, add `https://YOUR-SERVICE.onrender.com` (no trailing slash)
+5. **Lock down the database.** Firebase Console → **Realtime Database → Rules** → replace with the contents of `database.rules.json` (auth-locked rules plus the `.indexOn` entries every list page queries with `orderBy`).
 
-6. **Lock down the database.** Firebase Console → **Realtime Database → Rules** → replace with the contents of `database.rules.json` (auth-locked rules plus the `.indexOn` entries every list page queries with `orderBy`).
    Publish **after** step 4 is complete, otherwise the server loses database access. Keep the file and the Console copy in sync — adding a new `Model::where()` field means adding its `.indexOn` here too.
 
 > **Regional URL warning.** Databases created outside US-central live on a `*.firebasedatabase.app` domain. Always copy the URL shown above your data tree in Firebase Console — pointing at a `.firebaseio.com` address makes every request fail with *"Database lives in a different region."*
@@ -141,7 +137,7 @@ After the first successful deploy:
 2. Sign in as admin → **Staff** → create cashier and kitchen accounts.
 3. **Settings** → fill in business info, opening hours, GCash number and QR image.
 4. **Products / Rent Items** → populate the menu and rental inventory.
-5. Customer self-service: `/user/signup.php` (email + OTP verification) or Google sign-in if configured.
+5. Customer self-service: `/user/signup.php` (email + OTP verification).
 
 ## Configuration Reference
 
@@ -153,7 +149,6 @@ All configuration is environment-based — nothing sensitive is stored in code.
 | `SMTP_USER` | yes | Gmail account that sends OTP, order, and receipt emails |
 | `SMTP_PASS` | yes | 16-character Gmail App Password (never the login password) |
 | `MAIL_FROM` | no | Outgoing "from" address; defaults to `SMTP_USER` |
-| `GOOGLE_CLIENT_ID` | no | OAuth client ID; when set, the customer login page shows a Google button |
 | `FIREBASE_CREDENTIALS` | prod | Full service-account JSON key. Signs every database request; required once rules require `auth != null`. Treat as a root secret. |
 | `DEV_MODE` | no | `1` shows OTPs on screen when SMTP is down. Development only — never enable in production. |
 
@@ -170,7 +165,6 @@ Requirements: PHP 8.0+ with `curl` and `fileinfo` extensions, Apache (e.g. XAMPP
    SMTP_USER="your@gmail.com"
    SMTP_PASS="16-char-app-password"
    MAIL_FROM="your@gmail.com"
-   GOOGLE_CLIENT_ID=""
    DEV_MODE="0"
    ```
 3. Start Apache and open the site. No build step, no migrations.
@@ -194,8 +188,6 @@ Known limitation of the free plan: uploaded files are ephemeral (see note under 
 | Symptom | Cause | Fix |
 |---|---|---|
 | *"Database lives in a different region"* in logs; logins fail | `FIREBASE_URL` uses `.firebaseio.com` but DB is regional | Copy exact URL from Firebase Console → Realtime Database |
-| *"Access blocked: Authorization Error"* on Google sign-in | Render URL missing from OAuth client origins | Add `https://…onrender.com` under Authorized JavaScript origins, wait ~5 min |
-| *"Could not sign you in with Google"* repeatedly | Server-side database write failed | Render Logs → search `[firebaseRDB]`; usually credentials or rules mismatch |
 | *"Security token expired"* after submitting a form | Page was open across a redeploy; session reset | Reload the page and retry |
 | Site slow on first visit after a quiet period | Free instance woke from spin-down | Expected on free plan; upgrade plan to remove |
 | OTP email not arriving | Wrong/rotated App Password | Verify `SMTP_PASS`; check spam folder |
@@ -212,7 +204,7 @@ CRNP/
 │                           #   GCash verification, receipts, manual bookings)
 ├── kitchen/                # Kitchen display + forward-only status workflow
 ├── user/                   # Customer app (shop, cart, checkout, bookings,
-│                           #   orders, profile, auth incl. OTP + Google)
+│                           #   orders, profile, auth incl. OTP)
 ├── app/
 │   ├── Core/Model.php      # ActiveRecord-style base model
 │   └── Models/             # Order, Booking, Product, RentItem, Staff
