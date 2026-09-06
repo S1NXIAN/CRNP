@@ -12,3 +12,16 @@ Thumbs.db
 
 # Runtime logs
 *.log
+
+# Composer (dev tooling — never deployed)
+vendor/
+composer.lock
+
+# Tooling caches
+.php-cs-fixer.cache
+.phpunit.result.cache
+.phpunit.cache/
+
+# Editor / IDE
+.idea/
+*.swp

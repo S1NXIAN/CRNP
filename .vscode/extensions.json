@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "bmewburn.vscode-intense-themes",
+    "junstyle.php-cs-fixer",
+    "xdebug.php-debug",
+    "bmewburn.vscode-phpcs",
+    "neilbrayfield.php-docblocker"
+  ],
+  "unwantedRecommendations": [
+    "felixfbecker.php-intellisense"
+  ]
+}

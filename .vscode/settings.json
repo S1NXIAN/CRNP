@@ -1,0 +1,37 @@
+{
+  "editor.tabSize": 4,
+  "editor.formatOnSave": false,
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.eol": "\n",
+
+  "intelephense.environment.phpVersion": "8.2",
+  "intelephense.diagnostics.undefinedTypes": true,
+  "intelephense.diagnostics.undefinedMethods": true,
+  "intelephense.diagnostics.undefinedProperties": true,
+  "intelephense.diagnostics.undefinedConstants": true,
+  "intelephense.diagnostics.undefinedFunctions": true,
+  "intelephense.files.maxSize": 5000000,
+  "intelephense.files.exclude": [
+    "**/PHPMailer/**",
+    "**/vendor/**",
+    "**/uploads/**"
+  ],
+  "intelephese.environment.shortOpenTag": false,
+
+  "[php]": {
+    "editor.defaultFormatter": "junstyle.php-cs-fixer",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 4,
+    "editor.rulers": [120]
+  },
+  "[javascript]": {
+    "editor.tabSize": 2
+  },
+  "[css]": {
+    "editor.tabSize": 2
+  },
+  "[html]": {
+    "editor.tabSize": 2
+  }
+}
