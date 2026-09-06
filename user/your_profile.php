@@ -14,7 +14,9 @@ if (!is_array($user) || !isset($user['email'])) {
     // Stale session — force re-auth.
     $_SESSION = [];
     session_destroy();
-    if (session_status() === PHP_SESSION_NONE) session_start();
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     flash('Your session expired. Please sign in again.', 'warn');
     redirect('/user/login.php');
 }

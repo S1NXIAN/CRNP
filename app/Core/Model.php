@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Core;
 
 /**
@@ -61,7 +62,9 @@ abstract class Model
     public static function find(string $key): ?static
     {
         $row = static::db()->retrieve('/' . static::$table . '/' . $key);
-        if (!is_array($row)) return null;
+        if (!is_array($row)) {
+            return null;
+        }
         $model = new static($row);
         $model->key = $key;
         return $model;
@@ -93,18 +96,24 @@ abstract class Model
         $all = static::raw();
         if (count($all) <= $limit) {
             uasort($all, function ($a, $b) use ($dateField) {
-                $ta = strtotime((string)($a[$dateField] ?? ''));
-                $tb = strtotime((string)($b[$dateField] ?? ''));
-                if ($ta === false && $tb === false) return 0;
-                if ($ta === false) return 1;
-                if ($tb === false) return -1;
+                $ta = strtotime((string) ($a[$dateField] ?? ''));
+                $tb = strtotime((string) ($b[$dateField] ?? ''));
+                if ($ta === false && $tb === false) {
+                    return 0;
+                }
+                if ($ta === false) {
+                    return 1;
+                }
+                if ($tb === false) {
+                    return -1;
+                }
                 return $tb <=> $ta;
             });
             return $all;
         }
         $timestamps = [];
         foreach ($all as $k => $v) {
-            $t = strtotime((string)($v[$dateField] ?? ''));
+            $t = strtotime((string) ($v[$dateField] ?? ''));
             $timestamps[$k] = $t === false ? 0 : $t;
         }
         arsort($timestamps);
@@ -129,7 +138,7 @@ abstract class Model
             'page'    => $page,
             'perPage' => $perPage,
             'total'   => $total,
-            'pages'   => max(1, (int)ceil($total / $perPage)),
+            'pages'   => max(1, (int) ceil($total / $perPage)),
         ];
     }
 
@@ -245,7 +254,9 @@ abstract class Model
     protected function toFillableArray(): array
     {
         $fillable = static::$fillable;
-        if (empty($fillable)) return $this->attributes;
+        if (empty($fillable)) {
+            return $this->attributes;
+        }
         return array_intersect_key($this->attributes, array_flip($fillable));
     }
 

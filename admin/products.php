@@ -58,7 +58,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $price       = (float) post('price', 0);
         if ($name === '' || $category === '' || $price < 0) {
             flash('Name, category and a valid price are required.', 'danger');
-            if ($id) redirect('/admin/products.php?edit=' . urlencode($id));
+            if ($id) {
+                redirect('/admin/products.php?edit=' . urlencode($id));
+            }
             redirect('/admin/products.php');
         }
 
@@ -93,7 +95,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     @unlink(UPLOAD_ROOT . '/cache/products/' . $id . '.img.meta');
                 }
                 $product = Product::find($id);
-                if ($product) $product->update($data);
+                if ($product) {
+                    $product->update($data);
+                }
                 flash('Product updated.', 'ok');
             } else {
                 $data['image']      = $data['image']      ?? '';
@@ -104,7 +108,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Throwable $ex) {
             flash('Could not save product: ' . $ex->getMessage(), 'danger');
-            if ($id) redirect('/admin/products.php?edit=' . urlencode($id));
+            if ($id) {
+                redirect('/admin/products.php?edit=' . urlencode($id));
+            }
             redirect('/admin/products.php');
         }
         redirect('/admin/products.php');
@@ -112,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 /* ---------- List data ---------- */
-$page  = max(1, (int)($_GET['page'] ?? 1));
+$page  = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 50;
 $productPage = Product::paginate($page, $perPage);
 $products = $productPage['data'];
@@ -193,7 +199,7 @@ require_once __DIR__ . '/../includes/header.php';
         <?php else: foreach ($products as $pid => $p):
             $isAvailable = ($p['status'] ?? 'available') === 'available';
             $img = product_image_url($p['image'] ?? '', $pid, 'products');
-        ?>
+            ?>
           <tr>
             <td>
               <div class="img-row">

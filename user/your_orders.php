@@ -6,8 +6,8 @@
  */
 require_once __DIR__ . '/../init.php';
 require_user();
-use App\Models\Order;
 use App\Models\Booking;
+use App\Models\Order;
 
 /* ---------- Cancel order ---------- */
 $cancelOrder = $_GET['cancel_order'] ?? post('cancel_order');
@@ -17,11 +17,11 @@ if ($cancelOrder) {
         flash('Order not found.', 'danger');
         redirect('/user/your_orders.php');
     }
-    if (strcasecmp((string)($order->user_email ?? ''), user_email()) !== 0) {
+    if (strcasecmp((string) ($order->user_email ?? ''), user_email()) !== 0) {
         flash('You can only cancel your own orders.', 'danger');
         redirect('/user/your_orders.php');
     }
-    if ((string)($order->status ?? '') !== 'pending') {
+    if ((string) ($order->status ?? '') !== 'pending') {
         flash('That order can no longer be cancelled.', 'warn');
         redirect('/user/your_orders.php');
     }
@@ -42,17 +42,24 @@ $pageTitle = 'My Orders';
 $layout    = 'wide';
 
 /** Human-friendly datetime formatting. Output is escaped by the caller. */
-function fmt_time(?string $t): string {
-    if (!$t) return '—';
+function fmt_time(?string $t): string
+{
+    if (!$t) {
+        return '—';
+    }
     $ts = strtotime($t);
     return $ts ? date('M j, Y \a\t g:i A', $ts) : $t;
 }
 
-$orders   = filter_by(Order::raw(),   'user_email', user_email());
+$orders   = filter_by(Order::raw(), 'user_email', user_email());
 $bookings = filter_by(Booking::raw(), 'user_email', user_email());
 
-usort($orders,   function ($a, $b) { return strcmp((string)($b['created_at'] ?? ''), (string)($a['created_at'] ?? '')); });
-usort($bookings, function ($a, $b) { return strcmp((string)($b['created_at'] ?? ''), (string)($a['created_at'] ?? '')); });
+usort($orders, function ($a, $b) {
+    return strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? ''));
+});
+usort($bookings, function ($a, $b) {
+    return strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? ''));
+});
 
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -108,13 +115,13 @@ require_once __DIR__ . '/../includes/header.php';
         </thead>
         <tbody>
           <?php foreach ($orders as $id => $o):
-            [$pLabel, $pCls] = payment_status_label((string)($o['payment_status'] ?? ''));
-            [$sLabel, $sCls] = order_status_label((string)($o['status'] ?? ''));
-            $shortId = strtoupper(substr((string)$id, 0, 6));
-            $placed  = fmt_time($o['created_at'] ?? null);
-            $receipt = $o['receipt'] ?? null;
-            $method  = (string)($o['payment_method'] ?? '');
-          ?>
+              [$pLabel, $pCls] = payment_status_label((string) ($o['payment_status'] ?? ''));
+              [$sLabel, $sCls] = order_status_label((string) ($o['status'] ?? ''));
+              $shortId = strtoupper(substr((string) $id, 0, 6));
+              $placed  = fmt_time($o['created_at'] ?? null);
+              $receipt = $o['receipt'] ?? null;
+              $method  = (string) ($o['payment_method'] ?? '');
+              ?>
             <tr>
               <td><code class="kbd"><?= e($shortId) ?></code><?php if (!empty($o['pickup_time'])): $pt = date('g:i A', strtotime($o['pickup_time'])); ?><br><small class="muted"><?= e($pt) ?></small><?php endif; ?></td>
               <td>
@@ -124,7 +131,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php endif; ?>
               </td>
               <td class="num"><?= money($o['total'] ?? 0) ?></td>
-              <td><?= order_tracker_html((string)($o['status'] ?? '')) ?></td>
+              <td><?= order_tracker_html((string) ($o['status'] ?? '')) ?></td>
               <td>
                 <span class="badge <?= e($pCls) ?>"><?= e($pLabel) ?></span>
                 <?php if ($method === 'gcash' && !empty($receipt)): ?>
@@ -133,7 +140,7 @@ require_once __DIR__ . '/../includes/header.php';
               </td>
               <td class="muted"><?= e($placed) ?></td>
               <td class="t-right">
-                <?php if ((string)($o['status'] ?? '') === 'pending'): ?>
+                <?php if ((string) ($o['status'] ?? '') === 'pending'): ?>
                   <a class="btn btn--ghost btn--sm" href="/user/your_orders.php?cancel_order=<?= e($id) ?>" data-confirm="Cancel this order?">Cancel</a>
                 <?php endif; ?>
               </td>
@@ -182,12 +189,12 @@ require_once __DIR__ . '/../includes/header.php';
         </thead>
         <tbody>
           <?php foreach ($bookings as $id => $b):
-            [$sLabel, $sCls] = booking_status_label((string)($b['status'] ?? ''));
-            $shortId   = strtoupper(substr((string)$id, 0, 6));
-            $canCancel = (string)($b['status'] ?? '') === 'pending';
-            $receipt   = $b['receipt'] ?? null;
-            $method    = (string)($b['payment_method'] ?? '');
-          ?>
+              [$sLabel, $sCls] = booking_status_label((string) ($b['status'] ?? ''));
+              $shortId   = strtoupper(substr((string) $id, 0, 6));
+              $canCancel = (string) ($b['status'] ?? '') === 'pending';
+              $receipt   = $b['receipt'] ?? null;
+              $method    = (string) ($b['payment_method'] ?? '');
+              ?>
             <tr>
               <td><code class="kbd"><?= e($shortId) ?></code></td>
               <td>

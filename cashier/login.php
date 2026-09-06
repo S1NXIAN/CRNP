@@ -15,8 +15,8 @@ $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
-    $email    = trim((string)post('email', ''));
-    $password = (string)post('password', '');
+    $email    = trim((string) post('email', ''));
+    $password = (string) post('password', '');
 
     // Rate limit: 5 attempts per 15 minutes per email (fallback to IP).
     $rlKey = 'login_' . ($email !== '' ? $email : ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
@@ -33,14 +33,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cashier = null;
     foreach (rows($db->retrieve('/cashiers')) as $row) {
         if (is_array($row) && !empty($row['email'])
-            && strcasecmp((string)$row['email'], $email) === 0) {
+            && strcasecmp((string) $row['email'], $email) === 0) {
             $cashier = $row;
             break;
         }
     }
 
     if (!$cashier || empty($cashier['password_hash'])
-        || !password_verify($password, (string)$cashier['password_hash'])) {
+        || !password_verify($password, (string) $cashier['password_hash'])) {
         flash('Invalid credentials. Please try again.', 'danger');
         redirect('/cashier/login.php');
     }

@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use App\Core\Model;
@@ -26,9 +27,13 @@ class Booking extends Model
         $today = date('Y-m-d');
         $n = 0;
         foreach (static::raw() as $b) {
-            if (!is_array($b)) continue;
-            $d = substr((string)($b['created_at'] ?? ''), 0, 10);
-            if ($d === $today) $n++;
+            if (!is_array($b)) {
+                continue;
+            }
+            $d = substr((string) ($b['created_at'] ?? ''), 0, 10);
+            if ($d === $today) {
+                $n++;
+            }
         }
         return $n;
     }
@@ -44,8 +49,10 @@ class Booking extends Model
     {
         $statuses = [];
         foreach (static::raw() as $b) {
-            if (!is_array($b)) continue;
-            $st = (string)($b['status'] ?? 'unknown');
+            if (!is_array($b)) {
+                continue;
+            }
+            $st = (string) ($b['status'] ?? 'unknown');
             [$label] = \booking_status_label($st);
             $statuses[$label] = ($statuses[$label] ?? 0) + 1;
         }
@@ -58,13 +65,21 @@ class Booking extends Model
     {
         $sales = [];
         foreach (static::raw() as $b) {
-            if (!is_array($b)) continue;
-            if (in_array(($b['status'] ?? ''), ['cancelled', 'rejected'], true)) continue;
+            if (!is_array($b)) {
+                continue;
+            }
+            if (in_array(($b['status'] ?? ''), ['cancelled', 'rejected'], true)) {
+                continue;
+            }
             foreach (($b['items'] ?? []) as $rid => $info) {
-                if (!is_array($info)) continue;
-                $qty = (int)($info['qty'] ?? 0);
-                if ($qty <= 0) continue;
-                $name = (string)($rentItems[$rid]['name'] ?? $info['name'] ?? 'Item');
+                if (!is_array($info)) {
+                    continue;
+                }
+                $qty = (int) ($info['qty'] ?? 0);
+                if ($qty <= 0) {
+                    continue;
+                }
+                $name = (string) ($rentItems[$rid]['name'] ?? $info['name'] ?? 'Item');
                 $sales[$name] = ($sales[$name] ?? 0) + $qty;
             }
         }
@@ -77,8 +92,8 @@ class Booking extends Model
     {
         $all = static::raw();
         uasort($all, function ($a, $b) {
-            $ta = strtotime((string)($a['created_at'] ?? '')) ?: 0;
-            $tb = strtotime((string)($b['created_at'] ?? '')) ?: 0;
+            $ta = strtotime((string) ($a['created_at'] ?? '')) ?: 0;
+            $tb = strtotime((string) ($b['created_at'] ?? '')) ?: 0;
             return $tb <=> $ta;
         });
         return array_slice($all, 0, $limit, true);
@@ -89,8 +104,10 @@ class Booking extends Model
     {
         $out = [];
         foreach (static::raw() as $k => $b) {
-            if (!is_array($b)) continue;
-            $d = substr((string)($b['created_at'] ?? ''), 0, 10);
+            if (!is_array($b)) {
+                continue;
+            }
+            $d = substr((string) ($b['created_at'] ?? ''), 0, 10);
             if ($d >= $startDate && $d <= $endDate) {
                 $out[$k] = $b;
             }
@@ -104,14 +121,16 @@ class Booking extends Model
         $bookings = static::byDateRange($startDate, $endDate);
         $stats = [];
         foreach ($bookings as $b) {
-            if (!is_array($b)) continue;
-            $day = substr((string)($b['created_at'] ?? ''), 0, 10);
+            if (!is_array($b)) {
+                continue;
+            }
+            $day = substr((string) ($b['created_at'] ?? ''), 0, 10);
             if (!isset($stats[$day])) {
                 $stats[$day] = ['revenue' => 0.0, 'count' => 0];
             }
             $stats[$day]['count']++;
-            if ((string)($b['payment_status'] ?? '') === 'paid') {
-                $stats[$day]['revenue'] += (float)($b['total'] ?? 0);
+            if ((string) ($b['payment_status'] ?? '') === 'paid') {
+                $stats[$day]['revenue'] += (float) ($b['total'] ?? 0);
             }
         }
         return $stats;

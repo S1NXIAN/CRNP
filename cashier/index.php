@@ -22,10 +22,10 @@ $cashierName = $_SESSION['cashier_name'] ?? 'Cashier';
 /* ---------- POST: per-row + bulk actions ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
-    $action  = (string)post('action', '');
-    $orderId = (string)post('order_id', '');
+    $action  = (string) post('action', '');
+    $orderId = (string) post('order_id', '');
     $back    = '/cashier/';
-    $qs      = trim((string)post('back_query', ''));
+    $qs      = trim((string) post('back_query', ''));
     if ($qs !== '') {
         $back .= '?' . $qs;
     }
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!is_array($o)) {
                 continue;
             }
-            if ((string)($o['status'] ?? '') === 'pending') {
+            if ((string) ($o['status'] ?? '') === 'pending') {
                 $db->update('/orders', $oid, [
                     'status'      => 'accepted',
                     'accepted_at' => $now,
@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($orderId !== '') {
         $order = Order::find($orderId);
         if ($order) {
-            $current = (string)$order->status;
+            $current = (string) $order->status;
             $short   = substr($orderId, 0, 6);
 
             if ($action === 'accept' && $current === 'pending') {
@@ -78,10 +78,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($customerEmail !== '' && $customerEmail !== 'walk-in') {
                         sendOrderReceipt($customerEmail, $orderData);
                     }
-                } catch (Throwable $ex) {}
+                } catch (Throwable $ex) {
+                }
                 flash('Order #' . $short . ' accepted.', 'ok');
             } elseif ($action === 'cancel') {
-                $note = trim((string)post('cancel_note', ''));
+                $note = trim((string) post('cancel_note', ''));
                 $order->update([
                     'status'        => 'cashier_cancelled',
                     'cancelled_by'  => $cashierName,
@@ -134,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 /* ---------- GET: list + stats ---------- */
-$statusFilter = trim((string)($_GET['status'] ?? ''));
+$statusFilter = trim((string) ($_GET['status'] ?? ''));
 
 $allOrders = Order::raw();
 
@@ -148,7 +149,7 @@ $todaySales   = Order::todaySales();
    cheaply every 20s without re-fetching the whole table. */
 if (isset($_GET['check'])) {
     header('Content-Type: application/json');
-    echo json_encode(['pending' => (int)$pendingCount]);
+    echo json_encode(['pending' => (int) $pendingCount]);
     exit;
 }
 
@@ -156,8 +157,10 @@ if (isset($_GET['check'])) {
 $activeOrders = [];
 $doneOrders   = [];
 foreach ($allOrders as $oid => $o) {
-    if (!is_array($o)) continue;
-    $st = (string)($o['status'] ?? '');
+    if (!is_array($o)) {
+        continue;
+    }
+    $st = (string) ($o['status'] ?? '');
     if ($st === 'done') {
         $doneOrders[$oid] = $o;
     } else {
@@ -173,13 +176,13 @@ if ($statusFilter !== '') {
 
 // Newest first
 uasort($orders, function ($a, $b) {
-    $ta = strtotime((string)($a['created_at'] ?? $a['placed_at'] ?? 'now'));
-    $tb = strtotime((string)($b['created_at'] ?? $b['placed_at'] ?? 'now'));
+    $ta = strtotime((string) ($a['created_at'] ?? $a['placed_at'] ?? 'now'));
+    $tb = strtotime((string) ($b['created_at'] ?? $b['placed_at'] ?? 'now'));
     return $tb <=> $ta;
 });
 uasort($doneOrders, function ($a, $b) {
-    $ta = strtotime((string)($a['created_at'] ?? $a['placed_at'] ?? 'now'));
-    $tb = strtotime((string)($b['created_at'] ?? $b['placed_at'] ?? 'now'));
+    $ta = strtotime((string) ($a['created_at'] ?? $a['placed_at'] ?? 'now'));
+    $tb = strtotime((string) ($b['created_at'] ?? $b['placed_at'] ?? 'now'));
     return $tb <=> $ta;
 });
 
@@ -202,7 +205,7 @@ $itemsCount = static function (array $order): int {
     $n = 0;
     foreach (($order['items'] ?? []) as $info) {
         if (is_array($info)) {
-            $n += (int)($info['qty'] ?? 0);
+            $n += (int) ($info['qty'] ?? 0);
         }
     }
     return $n;
@@ -241,12 +244,12 @@ $backAction = '/cashier/' . ($statusFilter !== '' ? '?status=' . rawurlencode($s
 <section class="grid grid--stat mb-4" aria-label="Order summary" style="margin-top:40px;">
   <div class="stat">
     <div class="stat__label">Pending orders</div>
-    <div class="stat__value"><?= (int)$pendingCount ?></div>
+    <div class="stat__value"><?= (int) $pendingCount ?></div>
     <div class="stat__delta">Awaiting acceptance</div>
   </div>
   <div class="stat">
     <div class="stat__label">Unpaid orders</div>
-    <div class="stat__value"><?= (int)$unpaidCount ?></div>
+    <div class="stat__value"><?= (int) $unpaidCount ?></div>
     <div class="stat__delta">Awaiting payment confirmation</div>
   </div>
   <div class="stat">
@@ -296,23 +299,23 @@ $backAction = '/cashier/' . ($statusFilter !== '' ? '?status=' . rawurlencode($s
           </thead>
           <tbody>
           <?php foreach ($orders as $id => $o):
-              $st       = (string)($o['status'] ?? '');
+              $st       = (string) ($o['status'] ?? '');
               [$sLabel,$sCls] = order_status_label($st);
-              $pm       = (string)($o['payment_method'] ?? '');
-              $ps       = (string)($o['payment_status'] ?? '');
+              $pm       = (string) ($o['payment_method'] ?? '');
+              $ps       = (string) ($o['payment_status'] ?? '');
               [$pLabel,$pCls] = payment_status_label($ps);
-              $custName = (string)($o['customer_name'] ?? $o['user_name'] ?? '');
-              $contact  = (string)($o['contact'] ?? $o['phone'] ?? $o['customer_contact'] ?? '');
+              $custName = (string) ($o['customer_name'] ?? $o['user_name'] ?? '');
+              $contact  = (string) ($o['contact'] ?? $o['phone'] ?? $o['customer_contact'] ?? '');
               $rawPlaced = $o['created_at'] ?? $o['placed_at'] ?? '';
               $placed    = $rawPlaced ? date('M j, Y \a\t g:i A', strtotime($rawPlaced)) : '';
-              $total    = (float)($o['total'] ?? 0);
+              $total    = (float) ($o['total'] ?? 0);
               $count    = $itemsCount($o);
-              $receipt  = (string)($o['receipt'] ?? $o['gcash_receipt'] ?? '');
+              $receipt  = (string) ($o['receipt'] ?? $o['gcash_receipt'] ?? '');
               $isGcash  = $pm === 'gcash';
               $isPaid   = $ps === 'paid';
-          ?>
+              ?>
             <tr>
-              <td><strong>#<?= e(substr((string)$id, 0, 6)) ?></strong></td>
+              <td><strong>#<?= e(substr((string) $id, 0, 6)) ?></strong></td>
               <td>
                 <?= e($custName ?: '—') ?>
                 <?php if ($contact !== ''): ?>
@@ -356,7 +359,7 @@ $backAction = '/cashier/' . ($statusFilter !== '' ? '?status=' . rawurlencode($s
                   <?php endif; ?>
 
                   <?php if ($st !== 'cashier_cancelled' && $st !== 'cancelled' && $st !== 'done'): ?>
-                    <form method="post" action="<?= e($backAction) ?>" data-confirm="Cancel order #<?= e(substr((string)$id, 0, 6)) ?>? The kitchen will be notified.">
+                    <form method="post" action="<?= e($backAction) ?>" data-confirm="Cancel order #<?= e(substr((string) $id, 0, 6)) ?>? The kitchen will be notified.">
                       <?= csrf_field() ?>
                       <input type="hidden" name="action" value="cancel">
                       <input type="hidden" name="order_id" value="<?= e($id) ?>">
@@ -367,7 +370,7 @@ $backAction = '/cashier/' . ($statusFilter !== '' ? '?status=' . rawurlencode($s
                   <?php endif; ?>
 
                   <?php if ($st === 'cashier_cancelled'): ?>
-                    <form method="post" action="<?= e($backAction) ?>" data-confirm="Restore order #<?= e(substr((string)$id, 0, 6)) ?> back to pending?">
+                    <form method="post" action="<?= e($backAction) ?>" data-confirm="Restore order #<?= e(substr((string) $id, 0, 6)) ?> back to pending?">
                       <?= csrf_field() ?>
                       <input type="hidden" name="action" value="restore">
                       <input type="hidden" name="order_id" value="<?= e($id) ?>">
@@ -437,15 +440,15 @@ $backAction = '/cashier/' . ($statusFilter !== '' ? '?status=' . rawurlencode($s
           <tbody>
           <?php foreach ($doneOrders as $id => $o):
               $custName = e($o['customer_name'] ?? $o['full_name'] ?? $o['user_name'] ?? '—');
-              $pm       = (string)($o['payment_method'] ?? '');
-              $ps       = (string)($o['payment_status'] ?? '');
+              $pm       = (string) ($o['payment_method'] ?? '');
+              $ps       = (string) ($o['payment_status'] ?? '');
               [$pLabel,$pCls] = payment_status_label($ps);
-              $total    = (float)($o['total'] ?? 0);
+              $total    = (float) ($o['total'] ?? 0);
               $rawPlaced = $o['created_at'] ?? $o['placed_at'] ?? '';
               $placed    = $rawPlaced ? date('M j, Y \a\t g:i A', strtotime($rawPlaced)) : '';
-          ?>
+              ?>
             <tr>
-              <td><strong>#<?= e(substr((string)$id, 0, 6)) ?></strong></td>
+              <td><strong>#<?= e(substr((string) $id, 0, 6)) ?></strong></td>
               <td><?= e($custName) ?></td>
               <td>
                 <?= items_html($o['items'] ?? []) ?>
@@ -591,7 +594,7 @@ $backAction = '/cashier/' . ($statusFilter !== '' ? '?status=' . rawurlencode($s
         would interrupt the cashier mid-action).
      ============================================================ */
   (function () {
-    var lastPending = <?= (int)$pendingCount ?>;
+    var lastPending = <?= (int) $pendingCount ?>;
     var pollUrl     = window.location.pathname + '?check=1';
 
     function showToast(message) {

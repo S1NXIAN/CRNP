@@ -10,36 +10,46 @@ use App\Models\Order;
 
 /* ---------- small display helpers (shared shape with index.php) ---------- */
 if (!function_exists('k_short_id')) {
-    function k_short_id(string $id): string {
+    function k_short_id(string $id): string
+    {
         return substr($id, 0, 8);
     }
 }
 if (!function_exists('k_customer_name')) {
-    function k_customer_name(array $order): string {
+    function k_customer_name(array $order): string
+    {
         $n = $order['customer_name'] ?? $order['user_name'] ?? $order['name'] ?? '';
-        return trim((string)$n) !== '' ? (string)$n : 'Guest';
+        return trim((string) $n) !== '' ? (string) $n : 'Guest';
     }
 }
 if (!function_exists('k_items_html')) {
-    function k_items_html($items): string {
+    function k_items_html($items): string
+    {
         if (!is_array($items) || empty($items)) {
             return '<span class="muted">No items</span>';
         }
         $parts = [];
         foreach ($items as $it) {
-            if (!is_array($it)) continue;
-            $name = (string)($it['name'] ?? 'Item');
-            $qty  = (int)($it['qty'] ?? $it['quantity'] ?? 1);
+            if (!is_array($it)) {
+                continue;
+            }
+            $name = (string) ($it['name'] ?? 'Item');
+            $qty  = (int) ($it['qty'] ?? $it['quantity'] ?? 1);
             $parts[] = e($name) . ' <span class="muted">&times;' . $qty . '</span>';
         }
         return $parts ? implode(', ', $parts) : '<span class="muted">No items</span>';
     }
 }
 if (!function_exists('k_format_ts')) {
-    function k_format_ts(?string $ts): string {
-        if ($ts === null || $ts === '') return '—';
+    function k_format_ts(?string $ts): string
+    {
+        if ($ts === null || $ts === '') {
+            return '—';
+        }
         $t = strtotime($ts);
-        if ($t === false) return '—';
+        if ($t === false) {
+            return '—';
+        }
         return date('M j, Y g:i A', $t);
     }
 }
@@ -48,18 +58,26 @@ $all   = Order::raw();
 
 $done = [];
 foreach ($all as $id => $o) {
-    if (!is_array($o)) continue;
-    if ((string)($o['status'] ?? '') === 'done') {
+    if (!is_array($o)) {
+        continue;
+    }
+    if ((string) ($o['status'] ?? '') === 'done') {
         $done[$id] = $o;
     }
 }
 
 uasort($done, function ($a, $b) {
-    $ta = strtotime((string)($a['done_at'] ?? $a['updated_at'] ?? ''));
-    $tb = strtotime((string)($b['done_at'] ?? $b['updated_at'] ?? ''));
-    if ($ta === false && $tb === false) return 0;
-    if ($ta === false) return 1;
-    if ($tb === false) return -1;
+    $ta = strtotime((string) ($a['done_at'] ?? $a['updated_at'] ?? ''));
+    $tb = strtotime((string) ($b['done_at'] ?? $b['updated_at'] ?? ''));
+    if ($ta === false && $tb === false) {
+        return 0;
+    }
+    if ($ta === false) {
+        return 1;
+    }
+    if ($tb === false) {
+        return -1;
+    }
     return $tb - $ta; // newest completed first
 });
 
@@ -111,13 +129,13 @@ require_once __DIR__ . '/../includes/header.php';
       </thead>
       <tbody>
         <?php foreach ($done as $id => $o): ?>
-          <?php $total = (float)($o['total'] ?? $o['grand_total'] ?? 0); ?>
+          <?php $total = (float) ($o['total'] ?? $o['grand_total'] ?? 0); ?>
           <tr>
-            <td><span class="kbd">#<?= e(k_short_id((string)$id)) ?></span></td>
+            <td><span class="kbd">#<?= e(k_short_id((string) $id)) ?></span></td>
             <td><?= e(k_customer_name($o)) ?></td>
             <td><?= k_items_html($o['items'] ?? []) ?></td>
             <td><?= e($o['done_by'] ?? '') ?></td>
-            <td class="muted"><?= e(k_format_ts((string)($o['done_at'] ?? $o['updated_at'] ?? ''))) ?></td>
+            <td class="muted"><?= e(k_format_ts((string) ($o['done_at'] ?? $o['updated_at'] ?? ''))) ?></td>
             <td class="num"><?= e(money($total)) ?></td>
           </tr>
         <?php endforeach; ?>

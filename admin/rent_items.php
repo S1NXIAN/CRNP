@@ -47,7 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($name === '' || $price < 0) {
             flash('Name and a valid price are required.', 'danger');
-            if ($id) redirect('/admin/rent_items.php?edit=' . urlencode($id));
+            if ($id) {
+                redirect('/admin/rent_items.php?edit=' . urlencode($id));
+            }
             redirect('/admin/rent_items.php');
         }
 
@@ -71,7 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     @unlink(UPLOAD_ROOT . '/cache/rent_items/' . $id . '.img.meta');
                 }
                 $item = RentItem::find($id);
-                if ($item) $item->update($data);
+                if ($item) {
+                    $item->update($data);
+                }
                 flash('Rent item updated.', 'ok');
             } else {
                 $data['image']      = $data['image']      ?? '';
@@ -82,7 +86,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Throwable $ex) {
             flash('Could not save rent item: ' . $ex->getMessage(), 'danger');
-            if ($id) redirect('/admin/rent_items.php?edit=' . urlencode($id));
+            if ($id) {
+                redirect('/admin/rent_items.php?edit=' . urlencode($id));
+            }
             redirect('/admin/rent_items.php');
         }
         redirect('/admin/rent_items.php');
@@ -149,7 +155,7 @@ require_once __DIR__ . '/../includes/header.php';
             $qty = (int) ($r['quantity'] ?? 0);
             $qtyClass = $qty === 0 ? 'qty-out' : ($qty <= 2 ? 'qty-low' : '');
             $img = product_image_url($r['image'] ?? '', $rid, 'rent_items');
-        ?>
+            ?>
           <tr>
             <td>
               <div class="img-row">

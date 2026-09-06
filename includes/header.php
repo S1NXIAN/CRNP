@@ -79,7 +79,7 @@ $userLabel = match ($role) {
     <div class="topbar__inner">
       <a class="brand" href="<?= $role === 'guest' ? '/user/login.php' : (
           $role === 'customer' ? '/user/products.php' :
-          ($role === 'admin' ? '/admin/' : ('/'.$role.'/'))
+          ($role === 'admin' ? '/admin/' : ('/' . $role . '/'))
       ) ?>">
         <span class="brand__mark"><img src="/assets/img/logo.png" alt="CRATES N' PLATES" class="brand__logo"></span>
         <span>
@@ -98,7 +98,8 @@ $userLabel = match ($role) {
             <?php if (cart_count() > 0): ?><span class="count"><?= cart_count() ?></span><?php endif; ?>
           </a>
           <a class="nav-link <?= $activeNav === 'profile' ? 'is-active' : '' ?>" href="/user/your_profile.php">
-            <?php $navAvatar = user_image(); if ($navAvatar): ?>
+            <?php $navAvatar = user_image();
+            if ($navAvatar): ?>
               <img src="<?= e(upload_web('user/profile', $navAvatar)) ?>" alt="" width="22" height="22"
                    style="width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:5px;border:1.5px solid var(--surface);">
             <?php endif; ?><?= e($userLabel) ?></a>

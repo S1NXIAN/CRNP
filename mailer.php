@@ -1,4 +1,5 @@
 <?php
+
 /**
  * mailer.php — PHPMailer configured for Gmail SMTP (STARTTLS, port 587).
  * Exposes sendOTP($email, $otp).
@@ -7,13 +8,14 @@ require_once __DIR__ . '/PHPMailer/PHPMailer.php';
 require_once __DIR__ . '/PHPMailer/SMTP.php';
 require_once __DIR__ . '/PHPMailer/Exception.php';
 
-use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
+use PHPMailer\PHPMailer\PHPMailer;
 
 /**
  * Send a 6-digit OTP verification email. Returns true on success.
  */
-function sendOTP(string $email, string $otp): bool {
+function sendOTP(string $email, string $otp): bool
+{
     $mail = new PHPMailer(true);
     try {
         // Server settings
@@ -35,7 +37,7 @@ function sendOTP(string $email, string $otp): bool {
         $mail->isHTML(true);
         $mail->Subject = 'Your ' . BRAND_NAME . ' verification code';
         $mail->Body    = otp_email_html($otp);
-        $mail->AltBody = "Your " . BRAND_NAME . " verification code is: " . $otp . "\nThis code expires in 10 minutes.";
+        $mail->AltBody = 'Your ' . BRAND_NAME . ' verification code is: ' . $otp . "\nThis code expires in 10 minutes.";
 
         $mail->send();
         return true;
@@ -48,7 +50,8 @@ function sendOTP(string $email, string $otp): bool {
 /**
  * Generic mailer for receipts / notifications.
  */
-function sendMail(string $to, string $subject, string $htmlBody, string $altBody = ''): bool {
+function sendMail(string $to, string $subject, string $htmlBody, string $altBody = ''): bool
+{
     $mail = new PHPMailer(true);
     try {
         $mail->isSMTP();
@@ -73,7 +76,8 @@ function sendMail(string $to, string $subject, string $htmlBody, string $altBody
     }
 }
 
-function otp_email_html(string $otp): string {
+function otp_email_html(string $otp): string
+{
     $brand   = BRAND_NAME;
     $tagline = BRAND_TAGLINE;
     return <<<HTML
@@ -106,14 +110,15 @@ HTML;
  * Visually consistent with otp_email_html() — dark header, gold accent,
  * warm cream body. Returns true on success, false on failure.
  */
-function sendOrderReceipt(string $email, array $order): bool {
+function sendOrderReceipt(string $email, array $order): bool
+{
     $brand   = BRAND_NAME;
     $tagline = BRAND_TAGLINE;
 
     $orderId     = (string) ($order['id'] ?? '');
     $shortId     = $orderId !== '' ? substr($orderId, 0, 8) : '—';
     $fullName    = (string) ($order['full_name'] ?? '');
-    $total       = (float)  ($order['total'] ?? 0);
+    $total       = (float) ($order['total'] ?? 0);
     $method      = (string) ($order['payment_method'] ?? 'counter');
     $payStatus   = (string) ($order['payment_status'] ?? '');
     $createdAt   = (string) ($order['created_at'] ?? '');
@@ -131,11 +136,13 @@ function sendOrderReceipt(string $email, array $order): bool {
     /* Items table rows. */
     $rowsHtml = '';
     foreach ($items as $row) {
-        if (!is_array($row)) continue;
+        if (!is_array($row)) {
+            continue;
+        }
         $name      = htmlspecialchars((string) ($row['name'] ?? 'Item'), ENT_QUOTES, 'UTF-8');
-        $qty       = (int)    ($row['qty'] ?? 1);
-        $price     = (float)  ($row['price'] ?? 0);
-        $subtotal  = (float)  ($row['subtotal'] ?? ($price * $qty));
+        $qty       = (int) ($row['qty'] ?? 1);
+        $price     = (float) ($row['price'] ?? 0);
+        $subtotal  = (float) ($row['subtotal'] ?? ($price * $qty));
         $priceTxt    = "\u{20B1}" . number_format($price, 2);
         $subtotalTxt = "\u{20B1}" . number_format($subtotal, 2);
         $rowsHtml .= <<<HTML
@@ -219,10 +226,10 @@ HTML;
 </body></html>
 HTML;
 
-    $alt = "Your " . $brand . " order #" . $shortId . "\n"
-         . "Total: " . $totalTxt . "\n"
-         . "Payment: " . $payLine . "\n\n"
-         . "Special instructions: " . ($notes !== '' ? $notes : "None") . "\n\n"
+    $alt = 'Your ' . $brand . ' order #' . $shortId . "\n"
+         . 'Total: ' . $totalTxt . "\n"
+         . 'Payment: ' . $payLine . "\n\n"
+         . 'Special instructions: ' . ($notes !== '' ? $notes : 'None') . "\n\n"
          . "Please present this confirmation at the counter.\n"
          . "We'll notify you when your order is ready for pickup.";
 
@@ -236,14 +243,15 @@ HTML;
  * full_name, payment_method ('gcash' | 'counter'), payment_status,
  * appointment_time, return_time, created_at, contact, address.
  */
-function sendBookingReceipt(string $email, array $booking): bool {
+function sendBookingReceipt(string $email, array $booking): bool
+{
     $brand   = BRAND_NAME;
     $tagline = BRAND_TAGLINE;
 
     $bookingId = (string) ($booking['id'] ?? '');
     $shortId   = $bookingId !== '' ? substr($bookingId, 0, 8) : '—';
     $fullName  = (string) ($booking['full_name'] ?? $booking['user_name'] ?? '');
-    $total     = (float)  ($booking['total'] ?? 0);
+    $total     = (float) ($booking['total'] ?? 0);
     $method    = (string) ($booking['payment_method'] ?? 'counter');
     $payStatus = (string) ($booking['payment_status'] ?? '');
     $apptTime  = (string) ($booking['appointment_time'] ?? '');
@@ -262,11 +270,13 @@ function sendBookingReceipt(string $email, array $booking): bool {
 
     $rowsHtml = '';
     foreach ($items as $row) {
-        if (!is_array($row)) continue;
+        if (!is_array($row)) {
+            continue;
+        }
         $name      = htmlspecialchars((string) ($row['name'] ?? 'Item'), ENT_QUOTES, 'UTF-8');
-        $qty       = (int)    ($row['qty'] ?? 1);
-        $price     = (float)  ($row['price'] ?? 0);
-        $subtotal  = (float)  ($row['subtotal'] ?? ($price * $qty));
+        $qty       = (int) ($row['qty'] ?? 1);
+        $price     = (float) ($row['price'] ?? 0);
+        $subtotal  = (float) ($row['subtotal'] ?? ($price * $qty));
         $priceTxt    = "\u{20B1}" . number_format($price, 2);
         $subtotalTxt = "\u{20B1}" . number_format($subtotal, 2);
         $rowsHtml .= <<<HTML
@@ -350,12 +360,12 @@ HTML;
 </body></html>
 HTML;
 
-    $alt = "Your " . $brand . " booking #" . $shortId . "\n"
-         . "Total: " . $totalTxt . "\n"
-         . "Payment: " . $payLine . "\n\n"
-         . "Special instructions: " . ($notes !== '' ? $notes : "None") . "\n\n"
+    $alt = 'Your ' . $brand . ' booking #' . $shortId . "\n"
+         . 'Total: ' . $totalTxt . "\n"
+         . 'Payment: ' . $payLine . "\n\n"
+         . 'Special instructions: ' . ($notes !== '' ? $notes : 'None') . "\n\n"
          . "Please present this confirmation when picking up your rental items.\n"
-         . "We will confirm your booking shortly.";
+         . 'We will confirm your booking shortly.';
 
     return sendMail($email, $subject, $html, $alt);
 }

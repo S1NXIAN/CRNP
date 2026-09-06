@@ -16,10 +16,10 @@ $cashierName = $_SESSION['cashier_name'] ?? 'Cashier';
 /* ---------- POST: actions ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
-    $action    = (string)post('action', '');
-    $bookingId = (string)post('booking_id', '');
+    $action    = (string) post('action', '');
+    $bookingId = (string) post('booking_id', '');
     $back      = '/cashier/bookings.php';
-    $qs        = trim((string)post('back_query', ''));
+    $qs        = trim((string) post('back_query', ''));
     if ($qs !== '') {
         $back .= '?' . $qs;
     }
@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($bookingId !== '') {
         $booking = Booking::find($bookingId);
         if ($booking) {
-            $current = (string)($booking->status ?? '');
+            $current = (string) ($booking->status ?? '');
             $short   = substr($bookingId, 0, 6);
             $items   = is_array($booking->get('items') ?? null) ? $booking->get('items') : [];
 
@@ -45,12 +45,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($customerEmail !== '' && $customerEmail !== 'walk-in') {
                         sendBookingReceipt($customerEmail, $bookingData);
                     }
-                } catch (Throwable $ex) {}
+                } catch (Throwable $ex) {
+                }
                 flash('Booking #' . $short . ' approved.', 'ok');
             } elseif ($action === 'reject' && $current === 'pending') {
                 // Restore rent stock by KEY (only on pending → rejected)
                 foreach ($items as $itemId => $info) {
-                    RentItem::restoreStock((string)$itemId, (int)($info['qty'] ?? 0));
+                    RentItem::restoreStock((string) $itemId, (int) ($info['qty'] ?? 0));
                 }
                 $booking->update([
                     'status'       => 'rejected',
@@ -61,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($action === 'return' && $current === 'accepted') {
                 // Restore rent stock by KEY (only on accepted → returned)
                 foreach ($items as $itemId => $info) {
-                    RentItem::restoreStock((string)$itemId, (int)($info['qty'] ?? 0));
+                    RentItem::restoreStock((string) $itemId, (int) ($info['qty'] ?? 0));
                 }
                 $booking->update([
                     'status'       => 'returned',
@@ -113,8 +114,10 @@ $bookings = Booking::raw();
 $activeBookings = [];
 $historyBookings = [];
 foreach ($bookings as $bid => $b) {
-    if (!is_array($b)) continue;
-    $st = (string)($b['status'] ?? '');
+    if (!is_array($b)) {
+        continue;
+    }
+    $st = (string) ($b['status'] ?? '');
     if ($st === 'pending') {
         $activeBookings[$bid] = $b;
     } else {
@@ -124,13 +127,13 @@ foreach ($bookings as $bid => $b) {
 
 // Newest first
 uasort($activeBookings, function ($a, $b) {
-    $ta = strtotime((string)($a['created_at'] ?? 'now'));
-    $tb = strtotime((string)($b['created_at'] ?? 'now'));
+    $ta = strtotime((string) ($a['created_at'] ?? 'now'));
+    $tb = strtotime((string) ($b['created_at'] ?? 'now'));
     return $tb <=> $ta;
 });
 uasort($historyBookings, function ($a, $b) {
-    $ta = strtotime((string)($a['created_at'] ?? 'now'));
-    $tb = strtotime((string)($b['created_at'] ?? 'now'));
+    $ta = strtotime((string) ($a['created_at'] ?? 'now'));
+    $tb = strtotime((string) ($b['created_at'] ?? 'now'));
     return $tb <=> $ta;
 });
 
@@ -143,7 +146,7 @@ $itemsCount = static function (array $b): int {
     $n = 0;
     foreach (($b['items'] ?? []) as $info) {
         if (is_array($info)) {
-            $n += (int)($info['qty'] ?? 0);
+            $n += (int) ($info['qty'] ?? 0);
         }
     }
     return $n;
@@ -192,25 +195,25 @@ $itemsCount = static function (array $b): int {
           </thead>
           <tbody>
           <?php foreach ($activeBookings as $id => $b):
-              $st       = (string)($b['status'] ?? '');
+              $st       = (string) ($b['status'] ?? '');
               [$sLabel,$sCls] = booking_status_label($st);
-              $pm       = (string)($b['payment_method'] ?? '');
-              $ps       = (string)($b['payment_status'] ?? '');
+              $pm       = (string) ($b['payment_method'] ?? '');
+              $ps       = (string) ($b['payment_status'] ?? '');
               [$pLabel,$pCls] = payment_status_label($ps);
-              $custName = (string)($b['customer_name'] ?? $b['full_name'] ?? $b['user_name'] ?? '');
-              $contact  = (string)($b['contact'] ?? $b['phone'] ?? '');
-              $total    = (float)($b['total'] ?? 0);
-              $appt     = (string)($b['appointment_time'] ?? '');
-              $ret      = (string)($b['return_time'] ?? '');
-              $created  = (string)($b['created_at'] ?? '');
-              $receipt  = (string)($b['receipt'] ?? '');
+              $custName = (string) ($b['customer_name'] ?? $b['full_name'] ?? $b['user_name'] ?? '');
+              $contact  = (string) ($b['contact'] ?? $b['phone'] ?? '');
+              $total    = (float) ($b['total'] ?? 0);
+              $appt     = (string) ($b['appointment_time'] ?? '');
+              $ret      = (string) ($b['return_time'] ?? '');
+              $created  = (string) ($b['created_at'] ?? '');
+              $receipt  = (string) ($b['receipt'] ?? '');
               $isGcash  = $pm === 'gcash';
               $fmtAppt  = $appt ? date('M j, Y \a\t g:i A', strtotime($appt)) : '';
-              $fmtRet   = $ret  ? date('M j, Y \a\t g:i A', strtotime($ret))  : '';
+              $fmtRet   = $ret ? date('M j, Y \a\t g:i A', strtotime($ret)) : '';
               $fmtCreated = $created ? date('M j, Y', strtotime($created)) : '';
-          ?>
+              ?>
             <tr>
-              <td><strong>#<?= e(substr((string)$id, 0, 6)) ?></strong>
+              <td><strong>#<?= e(substr((string) $id, 0, 6)) ?></strong>
                 <?php if (($b['user_email'] ?? '') === 'walk-in'): ?>
                   <br><span class="badge badge--gold" style="font-size:10px">Walk-in</span>
                 <?php endif; ?>
@@ -255,7 +258,7 @@ $itemsCount = static function (array $b): int {
                     <input type="hidden" name="back_query" value="">
                     <button class="btn btn--ok btn--sm" type="submit">Approve</button>
                   </form>
-                  <form method="post" action="/cashier/bookings.php" data-confirm="Reject booking #<?= e(substr((string)$id, 0, 6)) ?>? Rental stock will be restored.">
+                  <form method="post" action="/cashier/bookings.php" data-confirm="Reject booking #<?= e(substr((string) $id, 0, 6)) ?>? Rental stock will be restored.">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="reject">
                     <input type="hidden" name="booking_id" value="<?= e($id) ?>">
@@ -305,25 +308,25 @@ $itemsCount = static function (array $b): int {
           </thead>
           <tbody>
           <?php foreach ($historyBookings as $id => $b):
-              $st       = (string)($b['status'] ?? '');
+              $st       = (string) ($b['status'] ?? '');
               [$sLabel,$sCls] = booking_status_label($st);
-              $pm       = (string)($b['payment_method'] ?? '');
-              $ps       = (string)($b['payment_status'] ?? '');
+              $pm       = (string) ($b['payment_method'] ?? '');
+              $ps       = (string) ($b['payment_status'] ?? '');
               [$pLabel,$pCls] = payment_status_label($ps);
-              $custName = (string)($b['customer_name'] ?? $b['full_name'] ?? $b['user_name'] ?? '');
-              $contact  = (string)($b['contact'] ?? $b['phone'] ?? '');
-              $total    = (float)($b['total'] ?? 0);
-              $appt     = (string)($b['appointment_time'] ?? '');
-              $ret      = (string)($b['return_time'] ?? '');
-              $created  = (string)($b['created_at'] ?? '');
-              $receipt  = (string)($b['receipt'] ?? '');
+              $custName = (string) ($b['customer_name'] ?? $b['full_name'] ?? $b['user_name'] ?? '');
+              $contact  = (string) ($b['contact'] ?? $b['phone'] ?? '');
+              $total    = (float) ($b['total'] ?? 0);
+              $appt     = (string) ($b['appointment_time'] ?? '');
+              $ret      = (string) ($b['return_time'] ?? '');
+              $created  = (string) ($b['created_at'] ?? '');
+              $receipt  = (string) ($b['receipt'] ?? '');
               $isGcash  = $pm === 'gcash';
               $canPrint = in_array($st, ['accepted', 'returned'], true);
               $fmtAppt  = $appt ? date('M j, Y \a\t g:i A', strtotime($appt)) : '';
-              $fmtRet   = $ret  ? date('M j, Y \a\t g:i A', strtotime($ret))  : '';
-          ?>
+              $fmtRet   = $ret ? date('M j, Y \a\t g:i A', strtotime($ret)) : '';
+              ?>
             <tr>
-              <td><strong>#<?= e(substr((string)$id, 0, 6)) ?></strong>
+              <td><strong>#<?= e(substr((string) $id, 0, 6)) ?></strong>
                 <?php if ($created !== ''): ?>
                   <br><small class="muted"><?= e(date('M j, Y', strtotime($created))) ?></small>
                 <?php endif; ?>
@@ -355,7 +358,7 @@ $itemsCount = static function (array $b): int {
               <td class="t-right">
                 <div class="row" style="justify-content:flex-end;gap:6px">
                   <?php if ($st === 'accepted'): ?>
-                    <form method="post" action="/cashier/bookings.php" data-confirm="Mark booking #<?= e(substr((string)$id, 0, 6)) ?> as returned? Rental stock will be restored.">
+                    <form method="post" action="/cashier/bookings.php" data-confirm="Mark booking #<?= e(substr((string) $id, 0, 6)) ?> as returned? Rental stock will be restored.">
                       <?= csrf_field() ?>
                       <input type="hidden" name="action" value="return">
                       <input type="hidden" name="booking_id" value="<?= e($id) ?>">

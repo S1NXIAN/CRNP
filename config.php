@@ -1,4 +1,5 @@
 <?php
+
 /**
  * config.php — global configuration for CRATES N' PLATES.
  * Starts the session (with hardened cookie settings), sets timezone,
@@ -61,7 +62,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 /* Idle session timeout — 24h since last activity destroys the session. */
 $inactive = 86400;
-if (!empty($_SESSION) && isset($_SESSION['_last_activity']) && time() - (int)$_SESSION['_last_activity'] > $inactive) {
+if (!empty($_SESSION) && isset($_SESSION['_last_activity']) && time() - (int) $_SESSION['_last_activity'] > $inactive) {
     $_SESSION = [];
 }
 $_SESSION['_last_activity'] = time();
@@ -99,7 +100,7 @@ if (!defined('GOOGLE_CLIENT_ID')) {
 // ---------- Uploads ----------
 // Uploads live under php-app/uploads/ and are served from /uploads/...
 define('UPLOAD_ROOT', __DIR__ . '/uploads');
-define('UPLOAD_WEB',  '/uploads');
+define('UPLOAD_WEB', '/uploads');
 
 // ---------- Dev error reporting (turn off display_errors in production) ----------
 ini_set('display_errors', '1');

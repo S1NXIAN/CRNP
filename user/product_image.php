@@ -1,4 +1,5 @@
 <?php
+
 /**
  * product_image.php — serves product/rent-item images from Firebase b64 data.
  * ?id=KEY&table=products (default) or table=rent_items

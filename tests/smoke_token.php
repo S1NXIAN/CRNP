@@ -1,4 +1,5 @@
 <?php
+
 /**
  * smoke_token.php — offline checks for firebaseRDB service-account auth.
  *
@@ -11,10 +12,13 @@ declare(strict_types=1);
 require __DIR__ . '/../firebaseRDB.php';
 
 $fails = 0;
-function check(string $name, bool $ok): void {
+function check(string $name, bool $ok): void
+{
     global $fails;
     echo ($ok ? 'PASS' : 'FAIL') . "  $name\n";
-    if (!$ok) $fails++;
+    if (!$ok) {
+        $fails++;
+    }
 }
 
 $db       = new firebaseRDB('https://example-default-rtdb.firebaseio.com');

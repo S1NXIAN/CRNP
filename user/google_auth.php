@@ -1,4 +1,5 @@
 <?php
+
 /**
  * google_auth.php — Google Identity Services callback.
  * Receives a JWT `credential` from the GIS button, decodes the payload,
@@ -14,7 +15,8 @@ csrf_verify();
 /**
  * Decode a base64url string (with URL-safe -/_ and missing padding).
  */
-function base64url_decode(string $s): string {
+function base64url_decode(string $s): string
+{
     $pad = strlen($s) % 4;
     if ($pad) {
         $s .= str_repeat('=', 4 - $pad);

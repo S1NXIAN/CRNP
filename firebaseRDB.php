@@ -1,4 +1,5 @@
 <?php
+
 /**
  * firebaseRDB — thin cURL wrapper over the Firebase Realtime Database REST API.
  *
@@ -14,7 +15,8 @@
  * is signed with a cached OAuth2 access token (see accessToken()). Without it,
  * requests go out unauthenticated — pair with locked-down RTDB rules in prod.
  */
-class firebaseRDB {
+class firebaseRDB
+{
     public const EQUAL = 'EQUAL';
     public const LIKE  = 'LIKE';
 
@@ -24,7 +26,8 @@ class firebaseRDB {
     /** @var string */
     private $lastError = '';
 
-    public function __construct(string $url) {
+    public function __construct(string $url)
+    {
         $this->url = rtrim($url, '/');
     }
 
@@ -38,11 +41,12 @@ class firebaseRDB {
      *   startAt => string|int
      *   endAt => string|int
      */
-    public function retrieve(string $path, ?string $queryKey = null, string $queryType = self::EQUAL, $queryVal = null, array $options = []) {
+    public function retrieve(string $path, ?string $queryKey = null, string $queryType = self::EQUAL, $queryVal = null, array $options = [])
+    {
         $url = $this->url . '/' . ltrim($path, '/') . '.json';
         $qs = [];
         if ($queryKey !== null && $queryVal !== null) {
-            $val = (string)$queryVal;
+            $val = (string) $queryVal;
             if ($queryType === self::LIKE) {
                 $qs[] = 'orderBy="' . rawurlencode($queryKey) . '"';
                 $qs[] = 'startAt="' . rawurlencode($val) . '"';
@@ -52,10 +56,18 @@ class firebaseRDB {
                 $qs[] = 'equalTo="' . rawurlencode($val) . '"';
             }
         }
-        if (!empty($options['limitToLast']))  $qs[] = 'limitToLast=' . (int)$options['limitToLast'];
-        if (!empty($options['limitToFirst'])) $qs[] = 'limitToFirst=' . (int)$options['limitToFirst'];
-        if (isset($options['startAt']))       $qs[] = 'startAt="' . rawurlencode((string)$options['startAt']) . '"';
-        if (isset($options['endAt']))         $qs[] = 'endAt="' . rawurlencode((string)$options['endAt']) . '"';
+        if (!empty($options['limitToLast'])) {
+            $qs[] = 'limitToLast=' . (int) $options['limitToLast'];
+        }
+        if (!empty($options['limitToFirst'])) {
+            $qs[] = 'limitToFirst=' . (int) $options['limitToFirst'];
+        }
+        if (isset($options['startAt'])) {
+            $qs[] = 'startAt="' . rawurlencode((string) $options['startAt']) . '"';
+        }
+        if (isset($options['endAt'])) {
+            $qs[] = 'endAt="' . rawurlencode((string) $options['endAt']) . '"';
+        }
         if ($qs !== []) {
             $url .= '?' . implode('&', $qs);
         }
@@ -68,7 +80,8 @@ class firebaseRDB {
     }
 
     /** POST — creates a new auto-key. Returns the new Firebase push key. */
-    public function insert(string $table, array $data) {
+    public function insert(string $table, array $data)
+    {
         $url  = $this->url . '/' . ltrim($table, '/') . '.json';
         $resp = $this->_exec($url, 'POST', json_encode($data, JSON_UNESCAPED_UNICODE));
         if ($resp === null) {
@@ -80,7 +93,8 @@ class firebaseRDB {
     }
 
     /** PATCH — partial update of a child node. */
-    public function update(string $table, string $id, array $data) {
+    public function update(string $table, string $id, array $data)
+    {
         $url  = $this->url . '/' . ltrim($table, '/') . '/' . rawurlencode($id) . '.json';
         $resp = $this->_exec($url, 'PATCH', json_encode($data, JSON_UNESCAPED_UNICODE));
         if ($resp === null) {
@@ -92,7 +106,8 @@ class firebaseRDB {
     }
 
     /** PATCH a whole node directly (e.g. /settings) without a child id. */
-    public function updateNode(string $path, array $data) {
+    public function updateNode(string $path, array $data)
+    {
         $url  = $this->url . '/' . ltrim($path, '/') . '.json';
         $resp = $this->_exec($url, 'PATCH', json_encode($data, JSON_UNESCAPED_UNICODE));
         if ($resp === null) {
@@ -104,7 +119,8 @@ class firebaseRDB {
     }
 
     /** DELETE — remove a child node. */
-    public function delete(string $table, string $id): bool {
+    public function delete(string $table, string $id): bool
+    {
         $url  = $this->url . '/' . ltrim($table, '/') . '/' . rawurlencode($id) . '.json';
         $resp = $this->_exec($url, 'DELETE');
         if ($resp === null) {
@@ -210,7 +226,8 @@ class firebaseRDB {
         return rtrim(strtr(base64_encode($bytes), '+/', '-_'), '=');
     }
 
-    private function _exec(string $url, string $method, ?string $body = null): ?string {
+    private function _exec(string $url, string $method, ?string $body = null): ?string
+    {
         $token = $this->accessToken();
         if ($token !== null) {
             $url .= (str_contains($url, '?') ? '&' : '?') . 'access_token=' . rawurlencode($token);
@@ -240,7 +257,8 @@ class firebaseRDB {
     }
 
     /** @param mixed $arr decoded JSON */
-    private function _guardError($arr): void {
+    private function _guardError($arr): void
+    {
         if (is_array($arr) && isset($arr['error'])) {
             $msg = is_string($arr['error']) ? $arr['error'] : json_encode($arr['error']);
             throw new RuntimeException('Firebase error: ' . $msg);

@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use App\Core\Model;
@@ -32,8 +33,8 @@ class Order extends Model
     {
         $all = static::raw();
         uasort($all, function ($a, $b) {
-            $ta = strtotime((string)($a['created_at'] ?? $a['placed_at'] ?? 'now'));
-            $tb = strtotime((string)($b['created_at'] ?? $b['placed_at'] ?? 'now'));
+            $ta = strtotime((string) ($a['created_at'] ?? $a['placed_at'] ?? 'now'));
+            $tb = strtotime((string) ($b['created_at'] ?? $b['placed_at'] ?? 'now'));
             return $tb <=> $ta;
         });
         return $all;
@@ -44,8 +45,10 @@ class Order extends Model
     {
         $counts = [];
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            $st = (string)($o['status'] ?? 'unknown');
+            if (!is_array($o)) {
+                continue;
+            }
+            $st = (string) ($o['status'] ?? 'unknown');
             $counts[$st] = ($counts[$st] ?? 0) + 1;
         }
         return $counts;
@@ -56,9 +59,11 @@ class Order extends Model
     {
         $sum = 0.0;
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            if ((string)($o['payment_status'] ?? '') === 'paid') {
-                $sum += (float)($o['total'] ?? 0);
+            if (!is_array($o)) {
+                continue;
+            }
+            if ((string) ($o['payment_status'] ?? '') === 'paid') {
+                $sum += (float) ($o['total'] ?? 0);
             }
         }
         return $sum;
@@ -71,7 +76,7 @@ class Order extends Model
         $n = 0;
         foreach (($data['items'] ?? []) as $info) {
             if (is_array($info)) {
-                $n += (int)($info['qty'] ?? 0);
+                $n += (int) ($info['qty'] ?? 0);
             }
         }
         return $n;
@@ -89,9 +94,13 @@ class Order extends Model
         $today = static::today();
         $n = 0;
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            $d = substr((string)($o['created_at'] ?? ''), 0, 10);
-            if ($d === $today) $n++;
+            if (!is_array($o)) {
+                continue;
+            }
+            $d = substr((string) ($o['created_at'] ?? ''), 0, 10);
+            if ($d === $today) {
+                $n++;
+            }
         }
         return $n;
     }
@@ -102,10 +111,12 @@ class Order extends Model
         $today = static::today();
         $sum = 0.0;
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            $d = substr((string)($o['created_at'] ?? ''), 0, 10);
-            if ($d === $today && (string)($o['payment_status'] ?? '') === 'paid') {
-                $sum += (float)($o['total'] ?? 0);
+            if (!is_array($o)) {
+                continue;
+            }
+            $d = substr((string) ($o['created_at'] ?? ''), 0, 10);
+            if ($d === $today && (string) ($o['payment_status'] ?? '') === 'paid') {
+                $sum += (float) ($o['total'] ?? 0);
             }
         }
         return $sum;
@@ -116,8 +127,12 @@ class Order extends Model
     {
         $n = 0;
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            if ((string)($o['status'] ?? '') === 'pending') $n++;
+            if (!is_array($o)) {
+                continue;
+            }
+            if ((string) ($o['status'] ?? '') === 'pending') {
+                $n++;
+            }
         }
         return $n;
     }
@@ -127,8 +142,10 @@ class Order extends Model
     {
         $n = 0;
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            $st = (string)($o['status'] ?? '');
+            if (!is_array($o)) {
+                continue;
+            }
+            $st = (string) ($o['status'] ?? '');
             if (($o['payment_status'] ?? '') !== 'paid'
                 && $st !== 'cashier_cancelled' && $st !== 'cancelled') {
                 $n++;
@@ -149,12 +166,20 @@ class Order extends Model
     {
         $productSales = [];
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            if (in_array(($o['status'] ?? ''), ['cancelled', 'cashier_cancelled'], true)) continue;
+            if (!is_array($o)) {
+                continue;
+            }
+            if (in_array(($o['status'] ?? ''), ['cancelled', 'cashier_cancelled'], true)) {
+                continue;
+            }
             foreach (($o['items'] ?? []) as $pid => $info) {
-                if (!is_array($info)) continue;
-                $qty = (int)($info['qty'] ?? 0);
-                if ($qty <= 0) continue;
+                if (!is_array($info)) {
+                    continue;
+                }
+                $qty = (int) ($info['qty'] ?? 0);
+                if ($qty <= 0) {
+                    continue;
+                }
                 $productSales[$pid] = ($productSales[$pid] ?? 0) + $qty;
             }
         }
@@ -167,13 +192,21 @@ class Order extends Model
     {
         $catSales = [];
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            if (in_array(($o['status'] ?? ''), ['cancelled', 'cashier_cancelled'], true)) continue;
+            if (!is_array($o)) {
+                continue;
+            }
+            if (in_array(($o['status'] ?? ''), ['cancelled', 'cashier_cancelled'], true)) {
+                continue;
+            }
             foreach (($o['items'] ?? []) as $pid => $info) {
-                if (!is_array($info)) continue;
-                $qty = (int)($info['qty'] ?? 0);
-                if ($qty <= 0) continue;
-                $cat = (string)($products[$pid]['category'] ?? 'Uncategorized');
+                if (!is_array($info)) {
+                    continue;
+                }
+                $qty = (int) ($info['qty'] ?? 0);
+                if ($qty <= 0) {
+                    continue;
+                }
+                $cat = (string) ($products[$pid]['category'] ?? 'Uncategorized');
                 $catSales[$cat] = ($catSales[$cat] ?? 0) + $qty;
             }
         }
@@ -186,9 +219,13 @@ class Order extends Model
     {
         $methods = [];
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            if ((string)($o['payment_status'] ?? '') !== 'paid') continue;
-            $pm = (string)($o['payment_method'] ?? 'counter');
+            if (!is_array($o)) {
+                continue;
+            }
+            if ((string) ($o['payment_status'] ?? '') !== 'paid') {
+                continue;
+            }
+            $pm = (string) ($o['payment_method'] ?? 'counter');
             $label = $pm === 'gcash' ? 'GCash' : 'Counter';
             $methods[$label] = ($methods[$label] ?? 0) + 1;
         }
@@ -201,10 +238,12 @@ class Order extends Model
     {
         $hours = array_fill(0, 24, 0);
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            $created = (string)($o['created_at'] ?? '');
+            if (!is_array($o)) {
+                continue;
+            }
+            $created = (string) ($o['created_at'] ?? '');
             if ($created !== '') {
-                $hour = (int)date('G', strtotime($created));
+                $hour = (int) date('G', strtotime($created));
                 $hours[$hour]++;
             }
         }
@@ -220,11 +259,15 @@ class Order extends Model
             $days[$key] = 0.0;
         }
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            if ((string)($o['payment_status'] ?? '') !== 'paid') continue;
-            $day = substr((string)($o['created_at'] ?? ''), 0, 10);
+            if (!is_array($o)) {
+                continue;
+            }
+            if ((string) ($o['payment_status'] ?? '') !== 'paid') {
+                continue;
+            }
+            $day = substr((string) ($o['created_at'] ?? ''), 0, 10);
             if (isset($days[$day])) {
-                $days[$day] += (float)($o['total'] ?? 0);
+                $days[$day] += (float) ($o['total'] ?? 0);
             }
         }
         return $days;
@@ -235,8 +278,10 @@ class Order extends Model
     {
         $out = [];
         foreach (static::raw() as $k => $o) {
-            if (!is_array($o)) continue;
-            $d = substr((string)($o['created_at'] ?? ''), 0, 10);
+            if (!is_array($o)) {
+                continue;
+            }
+            $d = substr((string) ($o['created_at'] ?? ''), 0, 10);
             if ($d >= $startDate && $d <= $endDate) {
                 $out[$k] = $o;
             }
@@ -250,14 +295,16 @@ class Order extends Model
         $orders = static::byDateRange($startDate, $endDate);
         $stats = [];
         foreach ($orders as $o) {
-            if (!is_array($o)) continue;
-            $day = substr((string)($o['created_at'] ?? ''), 0, 10);
+            if (!is_array($o)) {
+                continue;
+            }
+            $day = substr((string) ($o['created_at'] ?? ''), 0, 10);
             if (!isset($stats[$day])) {
                 $stats[$day] = ['revenue' => 0.0, 'count' => 0];
             }
             $stats[$day]['count']++;
-            if ((string)($o['payment_status'] ?? '') === 'paid') {
-                $stats[$day]['revenue'] += (float)($o['total'] ?? 0);
+            if ((string) ($o['payment_status'] ?? '') === 'paid') {
+                $stats[$day]['revenue'] += (float) ($o['total'] ?? 0);
             }
         }
         return $stats;

@@ -24,11 +24,11 @@ if ($cancelId) {
         flash('Booking not found.', 'danger');
         redirect('/user/your_orders.php');
     }
-    if (strcasecmp((string)($booking->user_email ?? ''), user_email()) !== 0) {
+    if (strcasecmp((string) ($booking->user_email ?? ''), user_email()) !== 0) {
         flash('You can only cancel your own bookings.', 'danger');
         redirect('/user/your_orders.php');
     }
-    $status = (string)($booking->status ?? '');
+    $status = (string) ($booking->status ?? '');
     if ($status !== 'pending') {
         flash('That booking can no longer be cancelled.', 'warn');
         redirect('/user/your_orders.php');
@@ -37,8 +37,10 @@ if ($cancelId) {
     $items = $booking->get('items') ?? [];
     if (is_array($items)) {
         foreach ($items as $itemId => $row) {
-            if (!is_array($row)) continue;
-            RentItem::restoreStock((string)$itemId, (int)($row['qty'] ?? 0));
+            if (!is_array($row)) {
+                continue;
+            }
+            RentItem::restoreStock((string) $itemId, (int) ($row['qty'] ?? 0));
         }
     }
     try {
@@ -63,12 +65,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $return_time      = trim(post('return_time'));
     $notes            = trim(post('notes', ''));
     $method           = post('payment_method', 'counter');
-    if (!in_array($method, ['gcash', 'counter'], true)) $method = 'counter';
+    if (!in_array($method, ['gcash', 'counter'], true)) {
+        $method = 'counter';
+    }
 
     $errors = [];
-    if ($full_name === '')        $errors[] = 'Please enter your full name.';
-    if ($contact   === '')        $errors[] = 'Please enter a contact number.';
-    if ($address   === '')        $errors[] = 'Please enter a pickup or delivery address.';
+    if ($full_name === '') {
+        $errors[] = 'Please enter your full name.';
+    }
+    if ($contact   === '') {
+        $errors[] = 'Please enter a contact number.';
+    }
+    if ($address   === '') {
+        $errors[] = 'Please enter a pickup or delivery address.';
+    }
     if ($appointment_time === '' || $return_time === '') {
         $errors[] = 'Please choose both appointment and return times.';
     } elseif ($appointment_time >= $return_time) {
@@ -77,14 +87,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     /* Collect requested qtys and re-fetch rent_items for fresh stock. */
     $qtys = post('qtys', []);
-    if (!is_array($qtys)) $qtys = [];
+    if (!is_array($qtys)) {
+        $qtys = [];
+    }
     $rentItems = RentItem::raw();
 
     $items = [];
     $total = 0.0;
     foreach ($qtys as $itemId => $q) {
         $q = (int) $q;
-        if ($q <= 0) continue;
+        if ($q <= 0) {
+            continue;
+        }
         $itemId = (string) $itemId;
         if (!isset($rentItems[$itemId])) {
             $errors[] = 'One of the selected items is no longer available.';
@@ -142,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'items'           => $items,
             'total'           => $total,
             'notes'           => $notes,
-            'appointment_time'=> $appointment_time,
+            'appointment_time' => $appointment_time,
             'return_time'     => $return_time,
             'full_name'       => $full_name,
             'contact'         => $contact,
@@ -161,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             /* Decrement rent stock after a successful insert. */
             foreach ($items as $itemId => $row) {
-                RentItem::decrementStock((string)$itemId, (int)$row['qty']);
+                RentItem::decrementStock((string) $itemId, (int) $row['qty']);
             }
             flash('Booking request submitted! We will confirm shortly.', 'ok');
             redirect('/user/your_orders.php');
@@ -178,7 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 /* ---------- Render ---------- */
 $rentItems = RentItem::raw();
 uasort($rentItems, function ($a, $b) {
-    return strcasecmp((string)($a['name'] ?? ''), (string)($b['name'] ?? ''));
+    return strcasecmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
 });
 
 require_once __DIR__ . '/../includes/header.php';
@@ -234,11 +248,11 @@ require_once __DIR__ . '/../includes/header.php';
             </thead>
             <tbody>
               <?php foreach ($rentItems as $id => $r):
-                $avail = (int) ($r['quantity'] ?? 0);
-                $label = $r['display_name'] ?? $r['name'] ?? 'Item';
-                $desc  = trim($r['description'] ?? '');
-                $prev  = isset($_POST['qtys'][$id]) ? (int) $_POST['qtys'][$id] : 0;
-              ?>
+                  $avail = (int) ($r['quantity'] ?? 0);
+                  $label = $r['display_name'] ?? $r['name'] ?? 'Item';
+                  $desc  = trim($r['description'] ?? '');
+                  $prev  = isset($_POST['qtys'][$id]) ? (int) $_POST['qtys'][$id] : 0;
+                  ?>
                 <tr>
                   <td>
                     <?php $imgSrc = product_image_url($r['image'] ?? '', $id, 'rent_items'); ?>
@@ -306,7 +320,7 @@ require_once __DIR__ . '/../includes/header.php';
         <label>Payment method</label>
         <div class="row">
           <label class="checkbox-row"><input type="radio" name="payment_method" value="counter" <?= post('payment_method', 'counter') === 'counter' ? 'checked' : '' ?> data-pay="counter"> Pay at counter</label>
-          <label class="checkbox-row"><input type="radio" name="payment_method" value="gcash"   <?= post('payment_method')          === 'gcash'   ? 'checked' : '' ?> data-pay="gcash"> GCash</label>
+          <label class="checkbox-row"><input type="radio" name="payment_method" value="gcash"   <?= post('payment_method')          === 'gcash' ? 'checked' : '' ?> data-pay="gcash"> GCash</label>
         </div>
         <?= gcash_payment_info_html() ?>
       </div>

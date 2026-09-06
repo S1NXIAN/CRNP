@@ -15,20 +15,22 @@ $cashierName = $_SESSION['cashier_name'] ?? 'Cashier';
 $products    = Product::raw();
 $cats = [];
 foreach ($products as $p) {
-    if (!empty($p['category'])) $cats[$p['category']] = true;
+    if (!empty($p['category'])) {
+        $cats[$p['category']] = true;
+    }
 }
 ksort($cats);
-uasort($products, fn($a,$b) => strcasecmp($a['category']??'', $b['category']??''));
+uasort($products, fn ($a, $b) => strcasecmp($a['category'] ?? '', $b['category'] ?? ''));
 
 /* ---------- POST: create walk-in order ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
-    $fullName      = trim((string)post('full_name', ''));
-    $tableNumber   = trim((string)post('table_number', ''));
-    $numCustomers  = max(1, (int)post('num_customers', 1));
-    $cashTendered  = (float)post('cash_tendered', 0);
-    $notes         = trim((string)post('notes', ''));
-    $paymentMethod = (string)post('payment_method', 'counter');
+    $fullName      = trim((string) post('full_name', ''));
+    $tableNumber   = trim((string) post('table_number', ''));
+    $numCustomers  = max(1, (int) post('num_customers', 1));
+    $cashTendered  = (float) post('cash_tendered', 0);
+    $notes         = trim((string) post('notes', ''));
+    $paymentMethod = (string) post('payment_method', 'counter');
     if (!in_array($paymentMethod, ['gcash', 'counter'], true)) {
         $paymentMethod = 'counter';
     }
@@ -57,17 +59,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $total  = 0.0;
     $anyQty = false;
     foreach ($qtyMap as $productId => $qty) {
-        $productId = (string)$productId;
-        $qty       = (int)$qty;
+        $productId = (string) $productId;
+        $qty       = (int) $qty;
         if ($qty <= 0 || !isset($productsList[$productId]) || !is_array($productsList[$productId])) {
             continue;
         }
         $anyQty = true;
         $p      = $productsList[$productId];
-        $price    = (float)($p['price'] ?? 0);
+        $price    = (float) ($p['price'] ?? 0);
         $subtotal = $price * $qty;
         $items[$productId] = [
-            'name'     => (string)($p['name'] ?? 'Item'),
+            'name'     => (string) ($p['name'] ?? 'Item'),
             'qty'      => $qty,
             'price'    => $price,
             'subtotal' => $subtotal,
@@ -147,7 +149,7 @@ foreach ($products as $pid => $p) {
     $jsProducts[$pid] = [
         'id'    => $pid,
         'name'  => $p['name'] ?? 'Item',
-        'price' => (float)($p['price'] ?? 0),
+        'price' => (float) ($p['price'] ?? 0),
             'image' => product_image_url($p['image'] ?? '', $pid, 'products'),
         'cat'   => $p['category'] ?? '',
     ];
@@ -269,11 +271,11 @@ foreach ($products as $pid => $p) {
         <?php foreach ($products as $pid => $p):
             $isUnavailable = ($p['status'] ?? 'available') !== 'available';
             $img     = product_image_url($p['image'] ?? '', $pid, 'products');
-        ?>
+            ?>
           <div class="pos-item <?= $isUnavailable ? 'is-soldout' : '' ?>"
                data-pid="<?= e($pid) ?>"
                data-name="<?= e($p['name'] ?? 'Item') ?>"
-               data-price="<?= (float)($p['price'] ?? 0) ?>"
+               data-price="<?= (float) ($p['price'] ?? 0) ?>"
                data-img="<?= e($img) ?>"
                data-cat="<?= e($p['category'] ?? '') ?>"
                <?= $isUnavailable ? '' : 'tabindex="0" role="button" aria-label="Add ' . e($p['name'] ?? 'item') . ' to order"' ?>>
