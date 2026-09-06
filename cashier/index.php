@@ -200,17 +200,6 @@ $activeNav = 'orders';
 $layout    = 'wide';
 require_once __DIR__ . '/../includes/header.php';
 
-/** helper: total qty in an order's items map */
-$itemsCount = static function (array $order): int {
-    $n = 0;
-    foreach (($order['items'] ?? []) as $info) {
-        if (is_array($info)) {
-            $n += (int) ($info['qty'] ?? 0);
-        }
-    }
-    return $n;
-};
-
 // Shared back-URL helpers (filter-aware) — used by every action form.
 $backQuery  = $statusFilter !== '' ? 'status=' . rawurlencode($statusFilter) : '';
 $backAction = '/cashier/' . ($statusFilter !== '' ? '?status=' . rawurlencode($statusFilter) : '');
@@ -309,7 +298,7 @@ $backAction = '/cashier/' . ($statusFilter !== '' ? '?status=' . rawurlencode($s
               $rawPlaced = $o['created_at'] ?? $o['placed_at'] ?? '';
               $placed    = $rawPlaced ? date('M j, Y \a\t g:i A', strtotime($rawPlaced)) : '';
               $total    = (float) ($o['total'] ?? 0);
-              $count    = $itemsCount($o);
+              $count    = items_count($o);
               $receipt  = (string) ($o['receipt'] ?? $o['gcash_receipt'] ?? '');
               $isGcash  = $pm === 'gcash';
               $isPaid   = $ps === 'paid';

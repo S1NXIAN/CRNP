@@ -16,18 +16,6 @@ class RentItem extends Model
         'status', 'created_at', 'updated_at',
     ];
 
-    /** Count of items with quantity > 0. */
-    public static function activeCount(): int
-    {
-        $n = 0;
-        foreach (static::raw() as $r) {
-            if (is_array($r) && (int) ($r['quantity'] ?? 0) > 0) {
-                $n++;
-            }
-        }
-        return $n;
-    }
-
     /** Decrement stock for a rent item. */
     public static function decrementStock(string $itemId, int $qty, ?int $currentStock = null): void
     {

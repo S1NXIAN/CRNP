@@ -327,6 +327,30 @@ function items_html($items): string
     }
     return $parts ? implode(', ', $parts) : '<span class="muted">No items</span>';
 }
+
+/* ---------- shared display helpers ---------- */
+/** Total qty across an order/booking items map. */
+function items_count(array $row): int
+{
+    $n = 0;
+    foreach (($row['items'] ?? []) as $info) {
+        if (is_array($info)) {
+            $n += (int) ($info['qty'] ?? 0);
+        }
+    }
+    return $n;
+}
+/** Short display id (first 8 chars of a Firebase push key). */
+function short_id(string $id): string
+{
+    return substr($id, 0, 8);
+}
+/** Customer display name with Guest fallback. */
+function order_customer_name(array $order): string
+{
+    $n = $order['customer_name'] ?? $order['user_name'] ?? $order['name'] ?? '';
+    return trim((string) $n) !== '' ? (string) $n : 'Guest';
+}
 function get_cart(): array
 {
     return $_SESSION['cart'] ?? [];
@@ -350,30 +374,6 @@ function cart_total(): float
         $t += (float) ($item['price'] ?? 0) * (int) ($item['qty'] ?? 0);
     }
     return $t;
-}
-
-/* ---------- stock operations ---------- */
-function decrement_rent_stock(firebaseRDB $db, string $itemId, int $qty, ?int $currentStock = null): void
-{
-    if ($currentStock === null) {
-        $row = $db->retrieve('/rent_items/' . $itemId);
-        if (!is_array($row) || !isset($row['quantity'])) {
-            return;
-        }
-        $currentStock = (int) $row['quantity'];
-    }
-    $new = max(0, $currentStock - $qty);
-    $db->update('/rent_items', $itemId, ['quantity' => $new]);
-    cache_file_forget('model_raw_rent_items');
-}
-function restore_rent_stock(firebaseRDB $db, string $itemId, int $qty, ?int $currentStock = null): void
-{
-    if ($currentStock === null) {
-        $row = $db->retrieve('/rent_items/' . $itemId);
-        $currentStock = (is_array($row) && isset($row['quantity'])) ? (int) $row['quantity'] : 0;
-    }
-    $db->update('/rent_items', $itemId, ['quantity' => $currentStock + $qty]);
-    cache_file_forget('model_raw_rent_items');
 }
 
 /* ---------- status helpers ---------- */
@@ -432,26 +432,6 @@ function is_ajax_request(): bool
         && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 }
 
-/* ---------- local-memory cache (P1) ----------
- * Simple per-request cache to avoid re-fetching the same Firebase nodes on a
- * single page load (e.g. an admin dashboard that reads /orders, /bookings,
- * /products, /rent_items). Lives in a global for the duration of the request. */
-function cache_set(string $key, $data, int $ttl = 30): void
-{
-    global $__cache;
-    $__cache[$key] = ['data' => $data, 'expires' => time() + $ttl];
-}
-function cache_remember(string $key, int $ttl, callable $loader)
-{
-    global $__cache;
-    if (isset($__cache[$key]) && $__cache[$key]['expires'] > time()) {
-        return $__cache[$key]['data'];
-    }
-    $data = $loader();
-    cache_set($key, $data, $ttl);
-    return $data;
-}
-
 /* ---------- cross-request file cache (P0) ----------
  * Persists data across requests with a TTL. Useful for slow Firebase reads
  * that are acceptable to serve slightly stale (settings, dashboard charts).
@@ -479,16 +459,6 @@ function cache_file_forget(string $key): void
     $file = $dir . '/' . md5($key) . '.cache';
     if (is_file($file)) {
         @unlink($file);
-    }
-}
-function cache_file_clear_all(): void
-{
-    $dir = sys_get_temp_dir() . '/crnp_cache';
-    if (!is_dir($dir)) {
-        return;
-    }
-    foreach (glob($dir . '/*.cache') ?: [] as $f) {
-        @unlink($f);
     }
 }
 

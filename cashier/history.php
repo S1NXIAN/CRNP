@@ -41,16 +41,6 @@ uasort($bookingsHist, function ($a, $b) {
     return $tb <=> $ta;
 });
 
-$itemsCount = static function (array $row): int {
-    $n = 0;
-    foreach (($row['items'] ?? []) as $info) {
-        if (is_array($info)) {
-            $n += (int) ($info['qty'] ?? 0);
-        }
-    }
-    return $n;
-};
-
 $pageTitle = 'History';
 $activeNav = 'history';
 $layout    = 'wide';
@@ -101,7 +91,7 @@ require_once __DIR__ . '/../includes/header.php';
               $custName = (string) ($o['customer_name'] ?? $o['user_name'] ?? '');
               $rawTs    = $o['cancelled_at'] ?? $o['completed_at'] ?? $o['updated_at'] ?? $o['created_at'] ?? '';
               $ts       = $rawTs ? date('M j, Y \a\t g:i A', strtotime($rawTs)) : '';
-              $count    = $itemsCount($o);
+              $count    = items_count($o);
               ?>
             <tr>
               <td><strong>#<?= e(substr((string) $id, 0, 6)) ?></strong></td>
@@ -170,7 +160,7 @@ require_once __DIR__ . '/../includes/header.php';
               $custName = (string) ($b['user_name'] ?? $b['full_name'] ?? '');
               $rawTs    = $b['returned_at'] ?? $b['rejected_at'] ?? $b['cancelled_at'] ?? $b['created_at'] ?? '';
               $ts       = $rawTs ? date('M j, Y \a\t g:i A', strtotime($rawTs)) : '';
-              $count    = $itemsCount($b);
+              $count    = items_count($b);
               $by       = (string) ($b['returned_by'] ?? $b['rejected_by'] ?? $b['cancelled_by'] ?? '');
               ?>
             <tr>

@@ -21,29 +21,6 @@ class Booking extends Model
         'returned_at', 'returned_by',
     ];
 
-    /** Today's count. */
-    public static function todayCount(): int
-    {
-        $today = date('Y-m-d');
-        $n = 0;
-        foreach (static::raw() as $b) {
-            if (!is_array($b)) {
-                continue;
-            }
-            $d = substr((string) ($b['created_at'] ?? ''), 0, 10);
-            if ($d === $today) {
-                $n++;
-            }
-        }
-        return $n;
-    }
-
-    /** Total booking count. */
-    public static function totalCount(): int
-    {
-        return count(static::raw());
-    }
-
     /** Bookings by status: label => count. */
     public static function statusBreakdown(): array
     {
@@ -113,26 +90,5 @@ class Booking extends Model
             }
         }
         return $out;
-    }
-
-    /** Per-day revenue and count for a date range. */
-    public static function dailyStats(string $startDate, string $endDate): array
-    {
-        $bookings = static::byDateRange($startDate, $endDate);
-        $stats = [];
-        foreach ($bookings as $b) {
-            if (!is_array($b)) {
-                continue;
-            }
-            $day = substr((string) ($b['created_at'] ?? ''), 0, 10);
-            if (!isset($stats[$day])) {
-                $stats[$day] = ['revenue' => 0.0, 'count' => 0];
-            }
-            $stats[$day]['count']++;
-            if ((string) ($b['payment_status'] ?? '') === 'paid') {
-                $stats[$day]['revenue'] += (float) ($b['total'] ?? 0);
-            }
-        }
-        return $stats;
     }
 }

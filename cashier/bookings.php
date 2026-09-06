@@ -142,15 +142,6 @@ $activeNav = 'bookings';
 $layout    = 'wide';
 require_once __DIR__ . '/../includes/header.php';
 
-$itemsCount = static function (array $b): int {
-    $n = 0;
-    foreach (($b['items'] ?? []) as $info) {
-        if (is_array($info)) {
-            $n += (int) ($info['qty'] ?? 0);
-        }
-    }
-    return $n;
-};
 ?>
 <header class="page-head">
   <div class="page-head__row">

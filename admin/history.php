@@ -87,16 +87,6 @@ uasort($bookings, function ($a, $b) {
     return $tb <=> $ta;
 });
 
-$itemsCount = static function (array $row): int {
-    $n = 0;
-    foreach (($row['items'] ?? []) as $info) {
-        if (is_array($info)) {
-            $n += (int) ($info['qty'] ?? 0);
-        }
-    }
-    return $n;
-};
-
 $pageTitle = 'History';
 $activeNav = 'history';
 $layout    = 'wide';
@@ -170,7 +160,7 @@ require_once __DIR__ . '/../includes/header.php';
           $ps       = (string) ($o['payment_status'] ?? '');
           [$pLabel, $pCls] = payment_status_label($ps);
           $custName = (string) ($o['customer_name'] ?? $o['user_name'] ?? '');
-          $count    = $itemsCount($o);
+          $count    = items_count($o);
           ?>
         <tr>
           <td><strong>#<?= e(substr((string) $id, 0, 6)) ?></strong></td>
@@ -224,7 +214,7 @@ require_once __DIR__ . '/../includes/header.php';
           $ps       = (string) ($b['payment_status'] ?? '');
           [$pLabel, $pCls] = payment_status_label($ps);
           $custName = (string) ($b['user_name'] ?? $b['full_name'] ?? '');
-          $count    = $itemsCount($b);
+          $count    = items_count($b);
           $appt     = (string) ($b['appointment_time'] ?? '');
           ?>
         <tr>

@@ -28,81 +28,10 @@ class Order extends Model
 
     /* ---- Convenience statics ---- */
 
-    /** All orders sorted newest-first. Returns raw arrays. */
-    public static function allNewest(): array
-    {
-        $all = static::raw();
-        uasort($all, function ($a, $b) {
-            $ta = strtotime((string) ($a['created_at'] ?? $a['placed_at'] ?? 'now'));
-            $tb = strtotime((string) ($b['created_at'] ?? $b['placed_at'] ?? 'now'));
-            return $tb <=> $ta;
-        });
-        return $all;
-    }
-
-    /** Count orders by status. */
-    public static function countByStatus(): array
-    {
-        $counts = [];
-        foreach (static::raw() as $o) {
-            if (!is_array($o)) {
-                continue;
-            }
-            $st = (string) ($o['status'] ?? 'unknown');
-            $counts[$st] = ($counts[$st] ?? 0) + 1;
-        }
-        return $counts;
-    }
-
-    /** Sum totals of paid orders. */
-    public static function totalSales(): float
-    {
-        $sum = 0.0;
-        foreach (static::raw() as $o) {
-            if (!is_array($o)) {
-                continue;
-            }
-            if ((string) ($o['payment_status'] ?? '') === 'paid') {
-                $sum += (float) ($o['total'] ?? 0);
-            }
-        }
-        return $sum;
-    }
-
-    /** Total qty of items in an order (raw array or Model). */
-    public static function itemsCount(array|Model $order): int
-    {
-        $data = $order instanceof Model ? $order->toArray() : $order;
-        $n = 0;
-        foreach (($data['items'] ?? []) as $info) {
-            if (is_array($info)) {
-                $n += (int) ($info['qty'] ?? 0);
-            }
-        }
-        return $n;
-    }
-
     /** Today's date string. */
     private static function today(): string
     {
         return date('Y-m-d');
-    }
-
-    /** Count of today's orders. */
-    public static function todayCount(): int
-    {
-        $today = static::today();
-        $n = 0;
-        foreach (static::raw() as $o) {
-            if (!is_array($o)) {
-                continue;
-            }
-            $d = substr((string) ($o['created_at'] ?? ''), 0, 10);
-            if ($d === $today) {
-                $n++;
-            }
-        }
-        return $n;
     }
 
     /** Sum of today's paid order totals. */
@@ -157,7 +86,12 @@ class Order extends Model
     /** Last N orders sorted newest-first (raw arrays keyed by Firebase key). */
     public static function recent(int $limit = 8): array
     {
-        $all = static::allNewest();
+        $all = static::raw();
+        uasort($all, function ($a, $b) {
+            $ta = strtotime((string) ($a['created_at'] ?? $a['placed_at'] ?? 'now'));
+            $tb = strtotime((string) ($b['created_at'] ?? $b['placed_at'] ?? 'now'));
+            return $tb <=> $ta;
+        });
         return array_slice($all, 0, $limit, true);
     }
 
@@ -287,26 +221,5 @@ class Order extends Model
             }
         }
         return $out;
-    }
-
-    /** Per-day revenue and count for a date range. */
-    public static function dailyStats(string $startDate, string $endDate): array
-    {
-        $orders = static::byDateRange($startDate, $endDate);
-        $stats = [];
-        foreach ($orders as $o) {
-            if (!is_array($o)) {
-                continue;
-            }
-            $day = substr((string) ($o['created_at'] ?? ''), 0, 10);
-            if (!isset($stats[$day])) {
-                $stats[$day] = ['revenue' => 0.0, 'count' => 0];
-            }
-            $stats[$day]['count']++;
-            if ((string) ($o['payment_status'] ?? '') === 'paid') {
-                $stats[$day]['revenue'] += (float) ($o['total'] ?? 0);
-            }
-        }
-        return $stats;
     }
 }

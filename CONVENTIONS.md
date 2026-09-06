@@ -26,9 +26,9 @@ Flash messages: flash($msg,$type) with type in ok|warn|danger|info. Shown by hea
 
 Helpers available: e() redirect() now() money() gen_otp() rows()
   filter_by() filter_like() save_upload() upload_web()
+  upload_to_base64() image_display_src() product_image_url()
   get_cart() set_cart() cart_count() cart_total()
-  decrement_product_stock() restore_product_stock()
-  decrement_rent_stock() restore_rent_stock()
+  items_html() items_count() short_id() order_customer_name()
   order_status_label() booking_status_label() payment_status_label() -> [$label,$badgeClass]
   post($key,$default)
 

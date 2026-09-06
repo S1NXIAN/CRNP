@@ -8,9 +8,7 @@ namespace App\Core;
  * Each subclass sets $table (the Firebase path) and optionally $fillable.
  * Static helpers wrap getDB() so page files stay thin:
  *
- *   Order::all();
  *   Product::find($id);
- *   Booking::where('status', 'pending');
  *   $order = new Order($data); $order->save();
  */
 abstract class Model
@@ -52,12 +50,6 @@ abstract class Model
     /*  Finders                                                            */
     /* ------------------------------------------------------------------ */
 
-    /** Return every row under the table node, keyed by Firebase push key. */
-    public static function all(): array
-    {
-        return static::hydrateMany(static::raw());
-    }
-
     /** Find a single record by its Firebase key. Returns null when missing. */
     public static function find(string $key): ?static
     {
@@ -81,13 +73,6 @@ abstract class Model
             });
         }
         return self::$rawCache[$table];
-    }
-
-    /** PHP-side filter (avoids indexOn). Returns raw arrays keyed by key. */
-    public static function where(string $field, mixed $value): array
-    {
-        $all = static::raw();
-        return \filter_by($all, $field, $value);
     }
 
     /** Return the latest $limit rows by a date field, newest first (raw arrays). */
@@ -195,19 +180,9 @@ abstract class Model
     /*  Attribute access                                                   */
     /* ------------------------------------------------------------------ */
 
-    public function getKey(): ?string
-    {
-        return $this->key;
-    }
-
     public function get(string $key, mixed $default = null): mixed
     {
         return $this->attributes[$key] ?? $default;
-    }
-
-    public function set(string $key, mixed $value): void
-    {
-        $this->attributes[$key] = $value;
     }
 
     /** Allow $order->status syntax (read-only). */
@@ -229,11 +204,6 @@ abstract class Model
     public function toArray(): array
     {
         return $this->attributes;
-    }
-
-    public function toJson(): string
-    {
-        return json_encode($this->toArray(), JSON_UNESCAPED_UNICODE);
     }
 
     /* ------------------------------------------------------------------ */
@@ -258,25 +228,5 @@ abstract class Model
             return $this->attributes;
         }
         return array_intersect_key($this->attributes, array_flip($fillable));
-    }
-
-    /** Hydrate a single raw array into a Model instance with key set. */
-    protected static function hydrateOne(string $key, array $row): static
-    {
-        $model = new static($row);
-        $model->key = $key;
-        return $model;
-    }
-
-    /** Hydrate many raw rows into Model instances keyed by Firebase key. */
-    protected static function hydrateMany(array $rows): array
-    {
-        $out = [];
-        foreach ($rows as $k => $v) {
-            if (is_array($v)) {
-                $out[$k] = static::hydrateOne($k, $v);
-            }
-        }
-        return $out;
     }
 }
