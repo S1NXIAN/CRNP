@@ -57,6 +57,26 @@ class Order extends Model
         return count(static::where('status', 'pending'));
     }
 
+    /**
+     * Pending rows the POS has not rendered yet, newest first, capped.
+     * Pure (no DB): feeds the ?check poll so new rows inject without reload.
+     */
+    public static function selectNew(array $pending, array $knownIds, int $cap = 20): array
+    {
+        $known = array_fill_keys(array_map('strval', $knownIds), true);
+        $fresh = [];
+        foreach ($pending as $oid => $row) {
+            if (isset($known[(string) $oid]) || !is_array($row)) {
+                continue;
+            }
+            $fresh[(string) $oid] = $row;
+        }
+        uasort($fresh, function ($a, $b) {
+            return strcmp((string) ($b['created_at'] ?? $b['placed_at'] ?? ''), (string) ($a['created_at'] ?? $a['placed_at'] ?? ''));
+        });
+        return array_slice($fresh, 0, max(1, $cap), true);
+    }
+
     /** Unpaid count (excludes cancelled). */
     public static function unpaidCount(): int
     {

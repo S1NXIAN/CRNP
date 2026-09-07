@@ -5,8 +5,9 @@
  * action buttons: Accept, Cancel (cashier), Restore, Mark paid/unpaid (GCash only).
  *
  * P0/P1 improvements (Task A):
- *  1. Real-time polling — ?check=1 JSON endpoint + 20s JS poll + non-intrusive
- *     toast (no auto-reload) + green "Live" pulsing indicator in the header.
+ *  1. Live rows — ?check=1 JSON endpoint returns rendered <tr> HTML for
+ *     unseen pending orders; 20s JS poll prepends them (no reload) + green
+ *     "Live" pulsing indicator in the header.
  *  2. Cancel undo / Restore — cashier_cancelled -> pending.
  *  3. Receipt lightbox — inline modal replaces the new-tab <a> link.
  *  4. Bulk "Accept all pending" — one POST accepts every pending order.
@@ -18,6 +19,112 @@ require_cashier();
 
 $db          = getDB();
 $cashierName = $_SESSION['cashier_name'] ?? 'Cashier';
+/* Render one active-order <tr>. Shared by the initial table and the ?check
+  poll so injected rows match server markup (including valid CSRF tokens). */
+function cashier_order_row(string $id, array $o, string $backAction, string $backQuery): string
+{
+    $st       = (string) ($o['status'] ?? '');
+    [$sLabel, $sCls] = order_status_label($st);
+    $pm       = (string) ($o['payment_method'] ?? '');
+    $ps       = (string) ($o['payment_status'] ?? '');
+    [$pLabel, $pCls] = payment_status_label($ps);
+    $custName = (string) ($o['customer_name'] ?? $o['user_name'] ?? '');
+    $contact  = (string) ($o['contact'] ?? $o['phone'] ?? $o['customer_contact'] ?? '');
+    $rawPlaced = $o['created_at'] ?? $o['placed_at'] ?? '';
+    $placed    = $rawPlaced ? date('M j, Y \a\t g:i A', strtotime($rawPlaced)) : '';
+    $total    = (float) ($o['total'] ?? 0);
+    $receipt  = (string) ($o['receipt'] ?? $o['gcash_receipt'] ?? '');
+    $isGcash  = $pm === 'gcash';
+    $isPaid   = $ps === 'paid';
+    ob_start();
+    ?>
+            <tr data-order-id="<?= e($id) ?>">
+              <td><strong>#<?= e(substr($id, 0, 6)) ?></strong></td>
+              <td>
+                <?= e($custName ?: '—') ?>
+                <?php if ($contact !== ''): ?>
+                  <br><small class="muted"><?= e($contact) ?></small>
+                <?php endif; ?>
+              </td>
+              <td>
+                <?= items_html($o['items'] ?? []) ?>
+                <?php if (!empty($o['notes'])): ?>
+                  <br><small class="note-badge"><?= e($o['notes']) ?></small>
+                <?php endif; ?>
+              </td>
+              <td class="num"><strong><?= e(money($total)) ?></strong></td>
+              <td>
+                <span class="badge <?= e($pCls) ?>"><?= e($pLabel) ?></span>
+                <?php if ($isGcash): ?>
+                  <div class="mt-2">
+                    <?php if ($receipt !== ''): ?>
+                      <button class="btn btn--ghost btn--sm" type="button" data-receipt="<?= e(image_display_src($receipt, 'user/bookings')) ?>">View receipt</button>
+                    <?php else: ?>
+                      <span class="muted" style="font-size:12px">No receipt uploaded</span>
+                    <?php endif; ?>
+                  </div>
+                <?php endif; ?>
+              </td>
+              <td><span class="badge <?= e($sCls) ?>"><?= e($sLabel) ?></span></td>
+              <td><small class="muted"><?= e($placed ?: '—') ?></small></td>
+              <td class="t-right">
+                <div class="row" style="justify-content:flex-end;gap:6px">
+                  <?php if ($st !== 'pending' && $st !== 'cashier_cancelled' && $st !== 'cancelled'): ?>
+                    <a class="btn btn--ghost btn--sm" href="/cashier/receipt.php?id=<?= e($id) ?>" title="Print receipt">Print</a>
+                  <?php endif; ?>
+                  <?php if ($st === 'pending'): ?>
+                    <form method="post" action="<?= e($backAction) ?>">
+                      <?= csrf_field() ?>
+                      <input type="hidden" name="action" value="accept">
+                      <input type="hidden" name="order_id" value="<?= e($id) ?>">
+                      <input type="hidden" name="back_query" value="<?= e($backQuery) ?>">
+                      <button class="btn btn--ok btn--sm" type="submit">Accept</button>
+                    </form>
+                  <?php endif; ?>
+                  <?php if ($st !== 'cashier_cancelled' && $st !== 'cancelled' && $st !== 'done'): ?>
+                    <form method="post" action="<?= e($backAction) ?>" data-confirm="Cancel order #<?= e(substr($id, 0, 6)) ?>? The kitchen will be notified.">
+                      <?= csrf_field() ?>
+                      <input type="hidden" name="action" value="cancel">
+                      <input type="hidden" name="order_id" value="<?= e($id) ?>">
+                      <input type="hidden" name="back_query" value="<?= e($backQuery) ?>">
+                      <input type="hidden" name="cancel_note" id="cancelNote" value="">
+                      <button class="btn btn--danger btn--sm" type="submit">Cancel</button>
+                    </form>
+                  <?php endif; ?>
+                  <?php if ($st === 'cashier_cancelled'): ?>
+                    <form method="post" action="<?= e($backAction) ?>" data-confirm="Restore order #<?= e(substr($id, 0, 6)) ?> back to pending?">
+                      <?= csrf_field() ?>
+                      <input type="hidden" name="action" value="restore">
+                      <input type="hidden" name="order_id" value="<?= e($id) ?>">
+                      <input type="hidden" name="back_query" value="<?= e($backQuery) ?>">
+                      <button class="btn btn--ghost btn--sm" type="submit">Restore</button>
+                    </form>
+                  <?php endif; ?>
+                  <?php if ($st !== 'cashier_cancelled' && $st !== 'cancelled' && $st !== 'done'): ?>
+                    <?php if (!$isPaid): ?>
+                      <form method="post" action="<?= e($backAction) ?>">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="mark_paid">
+                        <input type="hidden" name="order_id" value="<?= e($id) ?>">
+                        <input type="hidden" name="back_query" value="<?= e($backQuery) ?>">
+                        <button class="btn btn--gold btn--sm" type="submit">Mark paid</button>
+                      </form>
+                    <?php else: ?>
+                      <form method="post" action="<?= e($backAction) ?>" data-confirm="Revert this payment to unpaid?">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="mark_unpaid">
+                        <input type="hidden" name="order_id" value="<?= e($id) ?>">
+                        <input type="hidden" name="back_query" value="<?= e($backQuery) ?>">
+                        <button class="btn btn--outline btn--sm" type="submit">Mark unpaid</button>
+                      </form>
+                    <?php endif; ?>
+                  <?php endif; ?>
+                </div>
+              </td>
+            </tr>
+    <?php
+    return (string) ob_get_clean();
+}
 
 /* ---------- POST: per-row + bulk actions ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -135,15 +242,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 /* ---------- GET: list + stats ---------- */
 $statusFilter = trim((string) ($_GET['status'] ?? ''));
 
+// Shared back-URL helpers (filter-aware) — used by every action form and the ?check poll.
+$backQuery  = $statusFilter !== '' ? 'status=' . rawurlencode($statusFilter) : '';
+$backAction = '/cashier/' . ($statusFilter !== '' ? '?' . $backQuery : '');
+
 // Indexed count first: the ?check poll below must not touch the full table.
 $pendingCount = Order::pendingCount();
 
-/* Lightweight polling endpoint consumed by the inline JS below.
-   Returns just the current pending count as JSON so the page can poll
-   cheaply every 20s without re-fetching the whole table. */
 if (isset($_GET['check'])) {
     header('Content-Type: application/json');
-    echo json_encode(['pending' => (int) $pendingCount]);
+    $pending = Order::where('status', 'pending');
+    $rows = [];
+    if ($statusFilter === '' || $statusFilter === 'pending') {
+        $knownIds = array_filter(array_map('strval', explode(',', (string) ($_GET['known'] ?? ''))));
+        foreach (Order::selectNew($pending, $knownIds, 20) as $oid => $o) {
+            $rows[] = ['id' => (string) $oid,
+                'html' => cashier_order_row((string) $oid, $o, $backAction, $backQuery)];
+        }
+    }
+    echo json_encode(['pending' => count($pending), 'rows' => $rows]);
     exit;
 }
 
@@ -197,9 +314,6 @@ $activeNav = 'orders';
 $layout    = 'wide';
 require_once __DIR__ . '/../includes/header.php';
 
-// Shared back-URL helpers (filter-aware) — used by every action form.
-$backQuery  = $statusFilter !== '' ? 'status=' . rawurlencode($statusFilter) : '';
-$backAction = '/cashier/' . ($statusFilter !== '' ? '?status=' . rawurlencode($statusFilter) : '');
 ?>
 <header class="page-head">
   <div class="page-head__row">
@@ -230,7 +344,7 @@ $backAction = '/cashier/' . ($statusFilter !== '' ? '?status=' . rawurlencode($s
 <section class="grid grid--stat mb-4" aria-label="Order summary" style="margin-top:40px;">
   <div class="stat">
     <div class="stat__label">Pending orders</div>
-    <div class="stat__value"><?= (int) $pendingCount ?></div>
+    <div class="stat__value" id="statPending"><?= (int) $pendingCount ?></div>
     <div class="stat__delta">Awaiting acceptance</div>
   </div>
   <div class="stat">
@@ -283,111 +397,10 @@ $backAction = '/cashier/' . ($statusFilter !== '' ? '?status=' . rawurlencode($s
               <th class="t-right">Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="activeOrdersBody">
           <?php foreach ($orders as $id => $o):
-              $st       = (string) ($o['status'] ?? '');
-              [$sLabel,$sCls] = order_status_label($st);
-              $pm       = (string) ($o['payment_method'] ?? '');
-              $ps       = (string) ($o['payment_status'] ?? '');
-              [$pLabel,$pCls] = payment_status_label($ps);
-              $custName = (string) ($o['customer_name'] ?? $o['user_name'] ?? '');
-              $contact  = (string) ($o['contact'] ?? $o['phone'] ?? $o['customer_contact'] ?? '');
-              $rawPlaced = $o['created_at'] ?? $o['placed_at'] ?? '';
-              $placed    = $rawPlaced ? date('M j, Y \a\t g:i A', strtotime($rawPlaced)) : '';
-              $total    = (float) ($o['total'] ?? 0);
-              $count    = items_count($o);
-              $receipt  = (string) ($o['receipt'] ?? $o['gcash_receipt'] ?? '');
-              $isGcash  = $pm === 'gcash';
-              $isPaid   = $ps === 'paid';
-              ?>
-            <tr>
-              <td><strong>#<?= e(substr((string) $id, 0, 6)) ?></strong></td>
-              <td>
-                <?= e($custName ?: '—') ?>
-                <?php if ($contact !== ''): ?>
-                  <br><small class="muted"><?= e($contact) ?></small>
-                <?php endif; ?>
-              </td>
-              <td>
-                <?= items_html($o['items'] ?? []) ?>
-                <?php if (!empty($o['notes'])): ?>
-                  <br><small class="note-badge"><?= e($o['notes']) ?></small>
-                <?php endif; ?>
-              </td>
-              <td class="num"><strong><?= e(money($total)) ?></strong></td>
-              <td>
-                <span class="badge <?= e($pCls) ?>"><?= e($pLabel) ?></span>
-                <?php if ($isGcash): ?>
-                  <div class="mt-2">
-                    <?php if ($receipt !== ''): ?>
-                      <button class="btn btn--ghost btn--sm" type="button" data-receipt="<?= e(image_display_src($receipt, 'user/bookings')) ?>">View receipt</button>
-                    <?php else: ?>
-                      <span class="muted" style="font-size:12px">No receipt uploaded</span>
-                    <?php endif; ?>
-                  </div>
-                <?php endif; ?>
-              </td>
-              <td><span class="badge <?= e($sCls) ?>"><?= e($sLabel) ?></span></td>
-              <td><small class="muted"><?= e($placed ?: '—') ?></small></td>
-              <td class="t-right">
-                <div class="row" style="justify-content:flex-end;gap:6px">
-                  <?php if ($st !== 'pending' && $st !== 'cashier_cancelled' && $st !== 'cancelled'): ?>
-                    <a class="btn btn--ghost btn--sm" href="/cashier/receipt.php?id=<?= e($id) ?>" title="Print receipt">Print</a>
-                  <?php endif; ?>
-                  <?php if ($st === 'pending'): ?>
-                    <form method="post" action="<?= e($backAction) ?>">
-                      <?= csrf_field() ?>
-                      <input type="hidden" name="action" value="accept">
-                      <input type="hidden" name="order_id" value="<?= e($id) ?>">
-                      <input type="hidden" name="back_query" value="<?= e($backQuery) ?>">
-                      <button class="btn btn--ok btn--sm" type="submit">Accept</button>
-                    </form>
-                  <?php endif; ?>
-
-                  <?php if ($st !== 'cashier_cancelled' && $st !== 'cancelled' && $st !== 'done'): ?>
-                    <form method="post" action="<?= e($backAction) ?>" data-confirm="Cancel order #<?= e(substr((string) $id, 0, 6)) ?>? The kitchen will be notified.">
-                      <?= csrf_field() ?>
-                      <input type="hidden" name="action" value="cancel">
-                      <input type="hidden" name="order_id" value="<?= e($id) ?>">
-                      <input type="hidden" name="back_query" value="<?= e($backQuery) ?>">
-                      <input type="hidden" name="cancel_note" id="cancelNote" value="">
-                      <button class="btn btn--danger btn--sm" type="submit">Cancel</button>
-                    </form>
-                  <?php endif; ?>
-
-                  <?php if ($st === 'cashier_cancelled'): ?>
-                    <form method="post" action="<?= e($backAction) ?>" data-confirm="Restore order #<?= e(substr((string) $id, 0, 6)) ?> back to pending?">
-                      <?= csrf_field() ?>
-                      <input type="hidden" name="action" value="restore">
-                      <input type="hidden" name="order_id" value="<?= e($id) ?>">
-                      <input type="hidden" name="back_query" value="<?= e($backQuery) ?>">
-                      <button class="btn btn--ghost btn--sm" type="submit">Restore</button>
-                    </form>
-                  <?php endif; ?>
-
-                  <?php if ($st !== 'cashier_cancelled' && $st !== 'cancelled' && $st !== 'done'): ?>
-                    <?php if (!$isPaid): ?>
-                      <form method="post" action="<?= e($backAction) ?>">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="action" value="mark_paid">
-                        <input type="hidden" name="order_id" value="<?= e($id) ?>">
-                        <input type="hidden" name="back_query" value="<?= e($backQuery) ?>">
-                        <button class="btn btn--gold btn--sm" type="submit">Mark paid</button>
-                      </form>
-                    <?php else: ?>
-                      <form method="post" action="<?= e($backAction) ?>" data-confirm="Revert this payment to unpaid?">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="action" value="mark_unpaid">
-                        <input type="hidden" name="order_id" value="<?= e($id) ?>">
-                        <input type="hidden" name="back_query" value="<?= e($backQuery) ?>">
-                        <button class="btn btn--outline btn--sm" type="submit">Mark unpaid</button>
-                      </form>
-                    <?php endif; ?>
-                  <?php endif; ?>
-                </div>
-              </td>
-            </tr>
-          <?php endforeach; ?>
+              echo cashier_order_row((string) $id, is_array($o) ? $o : [], $backAction, $backQuery);
+          endforeach; ?>
           </tbody>
         </table>
       </div>
@@ -572,18 +585,27 @@ $backAction = '/cashier/' . ($statusFilter !== '' ? '?status=' . rawurlencode($s
   }
 </style>
 
-<script>
   /* ============================================================
-     1) Real-time polling — fetch /cashier/?check=1 every 20s.
-        If the pending count rose, show a non-intrusive toast with
-        a Refresh button. The page is NEVER auto-reloaded (that
-        would interrupt the cashier mid-action).
+     1) Live rows — fetch /cashier/?check=1 every 20s. The endpoint
+        returns rendered <tr> HTML for unseen pending orders, prepended
+        to the table: no reload, mid-action work untouched. Falls back
+        to the Refresh toast when rows cannot inject (filtered view).
      ============================================================ */
   (function () {
     var lastPending = <?= (int) $pendingCount ?>;
-    var pollUrl     = window.location.pathname + '?check=1';
+    var tbody = document.getElementById('activeOrdersBody');
+    var statPending = document.getElementById('statPending');
+    var filter = new URLSearchParams(window.location.search).get('status') || '';
 
-    function showToast(message) {
+    function knownIds() {
+      var ids = [];
+      document.querySelectorAll('#activeOrdersBody tr[data-order-id]').forEach(function (tr) {
+        ids.push(tr.getAttribute('data-order-id'));
+      });
+      return ids.slice(-100).join(',');
+    }
+
+    function showToast(message, withRefresh) {
       var old = document.getElementById('pollToast');
       if (old) { old.remove(); }
 
@@ -594,12 +616,16 @@ $backAction = '/cashier/' . ($statusFilter !== '' ? '?status=' . rawurlencode($s
       var msg = document.createElement('span');
       msg.className = 'poll-toast__msg';
       msg.textContent = message;
+      t.appendChild(msg);
 
-      var refresh = document.createElement('button');
-      refresh.className = 'btn btn--gold btn--sm';
-      refresh.type = 'button';
-      refresh.textContent = 'Refresh';
-      refresh.addEventListener('click', function () { window.location.reload(); });
+      if (withRefresh) {
+        var refresh = document.createElement('button');
+        refresh.className = 'btn btn--gold btn--sm';
+        refresh.type = 'button';
+        refresh.textContent = 'Refresh';
+        refresh.addEventListener('click', function () { window.location.reload(); });
+        t.appendChild(refresh);
+      }
 
       var dismiss = document.createElement('button');
       dismiss.className = 'btn btn--ghost btn--sm';
@@ -607,20 +633,30 @@ $backAction = '/cashier/' . ($statusFilter !== '' ? '?status=' . rawurlencode($s
       dismiss.setAttribute('aria-label', 'Dismiss notification');
       dismiss.textContent = '\u00D7';
       dismiss.addEventListener('click', function () { t.remove(); });
-
-      t.appendChild(msg);
-      t.appendChild(refresh);
       t.appendChild(dismiss);
       document.body.appendChild(t);
+
+      if (!withRefresh) {
+        setTimeout(function () { if (t.parentNode) { t.remove(); } }, 8000);
+      }
     }
 
     setInterval(function () {
-      fetch(pollUrl, { cache: 'no-store', headers: { 'Accept': 'application/json' } })
+      var url = window.location.pathname + '?check=1&status=' + encodeURIComponent(filter)
+        + '&known=' + encodeURIComponent(knownIds());
+      fetch(url, { cache: 'no-store', headers: { 'Accept': 'application/json' } })
         .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
         .then(function (d) {
           var n = parseInt(d.pending, 10) || 0;
-          if (n > lastPending) {
-            showToast('New orders received \u2014 refresh to view.');
+          if (statPending) { statPending.textContent = n; }
+          var rows = d.rows || [];
+          if (rows.length && tbody) {
+            for (var i = rows.length - 1; i >= 0; i--) {
+              tbody.insertAdjacentHTML('afterbegin', rows[i].html);
+            }
+            showToast(rows.length + ' new order' + (rows.length === 1 ? '' : 's') + ' added.', false);
+          } else if (n > lastPending) {
+            showToast('New orders received — refresh to view.', true);
           }
           lastPending = n;
         })
@@ -649,11 +685,12 @@ $backAction = '/cashier/' . ($statusFilter !== '' ? '?status=' . rawurlencode($s
       document.body.style.overflow = '';
     }
 
-    document.querySelectorAll('[data-receipt]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var src = btn.getAttribute('data-receipt');
-        if (src) { open(src); }
-      });
+    // Delegated so poll-injected rows open receipts without rebinding.
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-receipt]');
+      if (!btn) { return; }
+      var src = btn.getAttribute('data-receipt');
+      if (src) { open(src); }
     });
 
     if (closeBtn) { closeBtn.addEventListener('click', close); }
