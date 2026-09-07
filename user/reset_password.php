@@ -41,7 +41,7 @@ if ($isResend) {
         redirect('/user/reset_password.php?email=' . urlencode($email));
     }
 
-    $sent = sendOTP($email, $otp);
+    $sent = sendOTP($email, $otp, 'reset');
     if (!$sent) {
         if (defined('DEV_SHOW_OTP') && DEV_SHOW_OTP) {
             flash('SMTP not configured — OTP is ' . $otp . ' (dev only).', 'warn');

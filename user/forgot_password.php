@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('/user/forgot_password.php');
     }
 
-    $sent = sendOTP($email, $otp);
+    $sent = sendOTP($email, $otp, 'reset');
     if (!$sent) {
         if (defined('DEV_SHOW_OTP') && DEV_SHOW_OTP) {
             flash('SMTP not configured — OTP is ' . $otp . ' (dev only).', 'warn');

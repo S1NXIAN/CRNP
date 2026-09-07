@@ -2,7 +2,7 @@
 
 /**
  * mailer.php — PHPMailer configured for Gmail SMTP (STARTTLS, port 587).
- * Exposes sendOTP($email, $otp).
+ * Exposes sendOTP($email, $otp, $purpose).
  */
 require_once __DIR__ . '/PHPMailer/PHPMailer.php';
 require_once __DIR__ . '/PHPMailer/SMTP.php';
@@ -12,10 +12,14 @@ use PHPMailer\PHPMailer\Exception;
 use PHPMailer\PHPMailer\PHPMailer;
 
 /**
- * Send a 6-digit OTP verification email. Returns true on success.
+ * Send a 6-digit OTP email. $purpose is 'signup' (verify a new account) or
+ * 'reset' (approve a password reset) — subject, heading, and copy differ so
+ * the recipient knows which flow the code belongs to. Returns true on success.
  */
-function sendOTP(string $email, string $otp): bool
+function sendOTP(string $email, string $otp, string $purpose = 'signup'): bool
 {
+    $isReset = $purpose === 'reset';
+    $subject = $isReset ? 'Reset your ' . BRAND_NAME . ' password' : 'Confirm your ' . BRAND_NAME . ' account';
     $mail = new PHPMailer(true);
     try {
         // Server settings
@@ -35,9 +39,9 @@ function sendOTP(string $email, string $otp): bool
 
         // Content
         $mail->isHTML(true);
-        $mail->Subject = 'Your ' . BRAND_NAME . ' verification code';
-        $mail->Body    = otp_email_html($otp);
-        $mail->AltBody = 'Your ' . BRAND_NAME . ' verification code is: ' . $otp . "\nThis code expires in 10 minutes.";
+        $mail->Subject = $subject;
+        $mail->Body    = otp_email_html($otp, $purpose);
+        $mail->AltBody = $subject . ': ' . $otp . "\nThis code expires in 10 minutes.";
 
         $mail->send();
         return true;
@@ -76,23 +80,31 @@ function sendMail(string $to, string $subject, string $htmlBody, string $altBody
     }
 }
 
-function otp_email_html(string $otp): string
+function otp_email_html(string $otp, string $purpose = 'signup'): string
 {
     $brand   = BRAND_NAME;
     $tagline = BRAND_TAGLINE;
+    $isReset = $purpose === 'reset';
+    $heading = $isReset ? 'Reset your password' : 'Confirm your account';
+    $intro   = $isReset
+        ? 'You asked to reset your password. Enter the code below to continue. It expires in 10 minutes.'
+        : 'Thanks for signing up. Enter the code below to confirm your email address. It expires in 10 minutes.';
+    $footer  = $isReset
+        ? 'If you did not ask to reset your password, you can safely ignore this email.'
+        : 'If you did not create an account, you can safely ignore this email.';
     return <<<HTML
 <!doctype html><html><body style="margin:0;background:#f6f2ea;font-family:Georgia,'Times New Roman',serif;">
   <div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e6dfd1;border-radius:14px;overflow:hidden;">
     <div style="background:#211b14;color:#f6f2ea;padding:28px 32px;">
       <div style="font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:#c8a45c;">{$brand}</div>
-      <div style="font-size:22px;margin-top:6px;">Email verification</div>
+      <div style="font-size:22px;margin-top:6px;">{$heading}</div>
     </div>
     <div style="padding:32px;color:#211b14;">
-      <p style="margin:0 0 14px;">Please use the code below to verify your email address. It expires in 10 minutes.</p>
+      <p style="margin:0 0 14px;">{$intro}</p>
       <div style="text-align:center;margin:26px 0;">
         <span style="display:inline-block;font-family:'Courier New',monospace;font-size:34px;letter-spacing:.5em;color:#211b14;background:#f6f2ea;border:1px dashed #c8a45c;border-radius:12px;padding:16px 22px 16px 28px;">{$otp}</span>
       </div>
-      <p style="margin:0;color:#8a7f70;font-size:13px;">If you did not create an account, you can safely ignore this email.</p>
+      <p style="margin:0;color:#8a7f70;font-size:13px;">{$footer}</p>
     </div>
     <div style="background:#fbf8f2;color:#8a7f70;font-size:12px;padding:16px 32px;text-align:center;">&copy; {$brand} &middot; {$tagline}</div>
   </div>
