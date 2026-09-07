@@ -91,7 +91,7 @@ Access is enforced per page by role guards (`includes/auth.php`). Each role uses
 | Backend | PHP 8.2 (procedural pages + lightweight OOP models) |
 | Database | Firebase Realtime Database via its REST API (`firebaseRDB.php`) |
 | Auth | Email + password with OTP verification, bcrypt hashing |
-| Email | PHPMailer over Gmail SMTP (STARTTLS, port 587) |
+| Email | Gmail API over HTTPS |
 | Hosting | Render (Docker runtime, `php:8.2-apache`) |
 
 No build step, no separate API server: PHP serves both the UI and the data layer, which talks to Firebase over REST. A file-based cache keeps dashboard reads fast.
@@ -103,7 +103,7 @@ The repository ships with two files that make deployment nearly automatic:
 - **`render.yaml`** — Render Blueprint describing the web service (free plan, health checks, environment variables)
 - **`Dockerfile`** — packages the PHP app with Apache
 
-> **Note (free plan).** The free instance sleeps after ~15 minutes idle; the first visitor after a lull waits about a minute. Uploaded images (avatars, GCash proofs) are stored on the instance's ephemeral disk and are lost on every redeploy/restart. Upgrade the service plan and attach a disk mounted at `/var/www/html/uploads` when the restaurant goes live for real.
+> **Note (free plan).** The free instance sleeps after ~15 minutes idle; a cron keepalive inside the container pings `/health.php` every 14 minutes to hold it warm, costing ~730 of the 750 monthly free hours. Uploaded images (avatars, GCash proofs) are stored on the instance's ephemeral disk and are lost on every redeploy/restart. Upgrade the service plan and attach a disk mounted at `/var/www/html/uploads` when the restaurant goes live for real.
 
 ### Step-by-step
 
@@ -113,7 +113,8 @@ The repository ships with two files that make deployment nearly automatic:
 
 3. **Fill in the environment variables** when prompted (see table below):
    - `FIREBASE_DATABASE_URL` — copy **verbatim** from Firebase Console → Realtime Database (regional `*.firebasedatabase.app` URL)
-   - `GMAIL_ADDRESS` / `GMAIL_APP_PASSWORD` — Gmail address + 16-char App Password ([create one here](https://myaccount.google.com/apppasswords); needs 2-Step Verification)
+   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GMAIL_REFRESH_TOKEN` — Gmail API mail over HTTPS (section below; required on free plan, where outbound SMTP is blocked)
+   - `GMAIL_ADDRESS` — Gmail account sending the mail
    - `MAIL_FROM` — optional; defaults to `GMAIL_ADDRESS`
    - `FIREBASE_SERVICE_ACCOUNT_JSON` — full service-account key (step 4)
 
@@ -127,6 +128,20 @@ The repository ships with two files that make deployment nearly automatic:
    Publish **after** step 4 is complete, otherwise the server loses database access. Keep the file and the Console copy in sync — adding a new `Model::where()` field means adding its `.indexOn` here too.
 
 > **Regional URL warning.** Databases created outside US-central live on a `*.firebasedatabase.app` domain. Always copy the URL shown above your data tree in Firebase Console — pointing at a `.firebaseio.com` address makes every request fail with *"Database lives in a different region."*
+
+### Gmail API mail (required on Render free)
+Outbound SMTP (ports 25/465/587) is blocked on the free plan, so mail goes through the Gmail API over HTTPS. One-time setup:
+
+1. **Enable the API.** Google Cloud Console → new or existing project → **APIs & Services → Library** → enable **Gmail API**.
+2. **OAuth consent screen.** **APIs & Services → OAuth consent screen** → **External** → app name + your Gmail as support/developer contact → add your Gmail as a **test user**. Keep the `gmail.send` scope (narrowest that sends).
+3. **OAuth client.** **Credentials → Create Credentials → OAuth client ID** → **Desktop app** → note the client ID and secret → set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in Render env.
+4. **Consent once.** Open (replace `CLIENT_ID`), approve as your Gmail, copy the `code=` from the redirect URL:
+   `https://accounts.google.com/o/oauth2/v2/auth?client_id=CLIENT_ID&redirect_uri=http://localhost&response_type=code&scope=https://www.googleapis.com/auth/gmail.send&access_type=offline&prompt=consent`
+5. **Exchange the code** for a refresh token (run locally, replace the three placeholders):
+   `curl -s -X POST https://oauth2.googleapis.com/token -d code=CODE -d client_id=CLIENT_ID -d client_secret=SECRET -d redirect_uri=http://localhost -d grant_type=authorization_code`
+   → set `GMAIL_REFRESH_TOKEN` from the response. The app mints access tokens itself from here on.
+
+> Test-mode refresh tokens expire after 7 days; publish the consent screen to **Production** (unverified-app warning on first consent is normal for personal use) or re-consent weekly.
 
 ## First-Run Setup
 
@@ -147,7 +162,6 @@ All configuration is environment-based — nothing sensitive is stored in code.
 |---|:---:|---|
 | `FIREBASE_DATABASE_URL` | yes | RTDB URL, verbatim from Firebase Console |
 | `GMAIL_ADDRESS` | yes | Gmail account sending OTP/receipt mail |
-| `GMAIL_APP_PASSWORD` | local | 16-char Gmail App Password; SMTP fallback when the API creds below are unset |
 | `GOOGLE_CLIENT_ID` | prod | OAuth client ID; enables Gmail API mail over HTTPS (SMTP is blocked on Render free) |
 | `GOOGLE_CLIENT_SECRET` | prod | OAuth client secret |
 | `GMAIL_REFRESH_TOKEN` | prod | `gmail.send` consent exchanged once; mints access tokens automatically |
@@ -159,14 +173,13 @@ On Render these live in the service's **Environment** tab; locally in `.env` (gi
 
 ## Local Development
 
-Requirements: PHP 8.0+ with `curl` and `fileinfo` extensions, Apache (e.g. XAMPP), a Firebase project, a Gmail account.
+Requirements: PHP 8.2 with `curl` and `fileinfo` extensions, Apache (e.g. XAMPP), a Firebase project, a Gmail account.
 
 1. Point Apache's DocumentRoot **at this folder** — internal links assume the app is served from `/`.
 2. Create `.env` from the template (`cp .env.example .env`) and fill in real values:
    ```ini
    FIREBASE_DATABASE_URL="https://your-db-default-rtdb.asia-southeast1.firebasedatabase.app"
    GMAIL_ADDRESS="your@gmail.com"
-   GMAIL_APP_PASSWORD="16-char-app-password"
    MAIL_FROM="your@gmail.com"
    DEV_SHOW_OTP="0"
    ```
@@ -176,8 +189,7 @@ Requirements: PHP 8.0+ with `curl` and `fileinfo` extensions, Apache (e.g. XAMPP
 
 | Cadence | Task | How |
 |---|---|---|
-| Immediately if leaked | Rotate any exposed credential | Gmail App Passwords page or Firebase Console → Service accounts → Keys → delete old, create new, update Render env var |
-| Quarterly | Rotate Gmail App Password | Same procedure; update `GMAIL_APP_PASSWORD` on Render |
+| Immediately if leaked | Rotate any exposed credential | Google Account → Security → Third-party access → revoke, re-consent (§ Gmail API mail), update `GMAIL_REFRESH_TOKEN`; or Firebase Console → Service accounts → Keys → delete old, create new, update Render env var |
 | Quarterly | Rotate service-account key | Delete old key in Firebase Console → generate new → update `FIREBASE_SERVICE_ACCOUNT_JSON` on Render |
 | Weekly | Back up data | Firebase Console → Realtime Database → ⋮ → **Export JSON**; store off-site |
 | After each deploy | Refresh any open tabs | Deployments reset sessions; stale pages show *"Security token expired"* until reloaded |
@@ -192,8 +204,8 @@ Known limitation of the free plan: uploaded files are ephemeral (see note under 
 |---|---|---|
 | *"Database lives in a different region"* in logs; logins fail | `FIREBASE_DATABASE_URL` uses `.firebaseio.com` but DB is regional | Copy exact URL from Firebase Console → Realtime Database |
 | *"Security token expired"* after submitting a form | Page was open across a redeploy; session reset | Reload the page and retry |
-| Site slow on first visit after a quiet period | Free instance woke from spin-down | Expected on free plan; upgrade plan to remove |
-| OTP email not arriving | Wrong/rotated App Password | Verify `GMAIL_APP_PASSWORD`; check spam folder |
+| Site slow on first visit after a quiet period | Keepalive pinger failing, or free hours exhausted | Hit `/health.php` to warm it; check deploy logs for cron errors; upgrade plan to remove spin-down entirely |
+| OTP email not arriving | SMTP blocked on Render free, or missing/invalid Gmail API creds | Set the `GOOGLE_*` trio (§ Gmail API mail); confirm via `[mailer]` lines in Render logs; check spam folder |
 
 For anything else, check **Render → Logs** first: database errors are logged with a `[firebaseRDB]` prefix describing the exact cause.
 
@@ -216,7 +228,6 @@ CRNP/
 │   ├── functions.php       #   e/redirect/money/csrf/rate_limit/upload/cache
 │   └── header.php          #   role-aware nav + theme toggle
 ├── assets/                 # CSS (light/dark themes), JS, images, logo
-├── PHPMailer/              # Vendored PHPMailer (Gmail SMTP)
 ├── uploads/                # User uploads (avatars, GCash proofs)
 ├── firebaseRDB.php         # Authenticated cURL wrapper over Firebase REST
 ├── database.rules.json     # RTDB rules + .indexOn for every orderBy field
@@ -224,8 +235,8 @@ CRNP/
 ├── init.php                # Bootstrap + PSR-4 autoloader
 ├── mailer.php              # OTP, order & booking receipt emails
 ├── render.yaml             # Render Blueprint (service definition)
-├── Dockerfile              # php:8.2-apache container image
-└── tests/                  # Offline checks (smoke_token, indexed_rules)
+├── Dockerfile              # php:8.2-apache + cron keepalive, entrypoint, pinger
+└── tests/                  # Offline checks (smoke_token, indexed_rules, cashier_poll, otp_resend, mailer_api)
 ```
 
 ---

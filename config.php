@@ -7,9 +7,9 @@
  *
  * Env vars (see .env.example — one line each):
  *   FIREBASE_DATABASE_URL, FIREBASE_SERVICE_ACCOUNT_JSON,
- *   GMAIL_ADDRESS, GMAIL_APP_PASSWORD, MAIL_FROM (optional), DEV_SHOW_OTP
+ *   GMAIL_ADDRESS, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+ *   GMAIL_REFRESH_TOKEN, MAIL_FROM (optional), DEV_SHOW_OTP
  */
-
 // ---------- .env loader (written by setup.sh) ----------
 $envFile = __DIR__ . '/.env';
 if (is_readable($envFile)) {
@@ -69,11 +69,8 @@ date_default_timezone_set('Asia/Manila');
 // ---------- Firebase Realtime Database ----------
 $databaseURL = getenv('FIREBASE_DATABASE_URL') ?: 'https://YOUR-PROJECT-default-rtdb.firebaseio.com';
 
-// ---------- Gmail SMTP (PHPMailer) ----------
-define('SMTP_HOST', 'smtp.gmail.com');
-define('SMTP_PORT', 587);
+// ---------- Gmail identity (Gmail API sends as the consented account) ----------
 define('GMAIL_ADDRESS', getenv('GMAIL_ADDRESS') ?: 'your.app@gmail.com');
-define('GMAIL_APP_PASSWORD', getenv('GMAIL_APP_PASSWORD') ?: 'your-16-char-app-password');
 define('MAIL_FROM', getenv('MAIL_FROM') ?: GMAIL_ADDRESS);
 define('MAIL_FROM_NAME', 'CRATES N\' PLATES');
 

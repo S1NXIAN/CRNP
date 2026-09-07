@@ -1,22 +1,17 @@
 <?php
 
 /**
- * mailer.php — PHPMailer configured for Gmail SMTP (STARTTLS, port 587).
+ * mailer.php — outbound mail over the Gmail API (HTTPS).
  * Exposes sendOTP($email, $otp, $purpose).
  */
-require_once __DIR__ . '/PHPMailer/PHPMailer.php';
-require_once __DIR__ . '/PHPMailer/SMTP.php';
-require_once __DIR__ . '/PHPMailer/Exception.php';
-
-use PHPMailer\PHPMailer\Exception;
-use PHPMailer\PHPMailer\PHPMailer;
 
 /**
  * True when $email's domain can plausibly receive mail (has MX or A
- * records). Skips the SMTP attempt otherwise so typo and test domains
- * never burn a worker or bounce into the sender inbox. Fails open when
- * local DNS itself is down, so a resolver hiccup never blocks real mail.
+ * records). Undeliverable domains are skipped before any send attempt
+ * so typo and test domains never burn a worker or bounce into the
+ * sender inbox. Strict: no MX/A means no send, always.
  */
+
 function is_deliverable(string $email): bool
 {
     $domain = (string) substr((string) strrchr($email, '@'), 1);
@@ -30,27 +25,18 @@ function is_deliverable(string $email): bool
     if (checkdnsrr($domain, 'MX') || checkdnsrr($domain, 'A')) {
         return true;
     }
-    static $dnsUp = null;
-    if ($dnsUp === null) {
-        $dnsUp = checkdnsrr('gmail.com', 'MX');
-    }
-    if (!$dnsUp) {
-        return true;
-    }
     error_log('[mailer] skip undeliverable domain: ' . $domain);
     return false;
 }
 
 /* ---------- Gmail API transport (HTTPS; works where SMTP is blocked) ----------
- * Render free drops outbound SMTP, so when OAuth creds are configured the
- * mail goes through gmail.users.messages.send over port 443 instead.
- * Without creds the SMTP path stays, so local dev needs zero setup.
- * New env: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_REFRESH_TOKEN. */
+ * Render free drops outbound SMTP, so all mail goes through
+ * gmail.users.messages.send over port 443. No SMTP path remains.
+ * Required env: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_REFRESH_TOKEN. */
 function gmail_api_ready(): bool
 {
     foreach (['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN'] as $key) {
-        $val = getenv($key);
-        if ($val === false || $val === '') {
+        if (empty(getenv($key))) {
             return false;
         }
     }
@@ -59,7 +45,7 @@ function gmail_api_ready(): bool
 /**
  * OAuth2 access token from the stored refresh token, memoized per request
  * and cached on disk until a minute before expiry. Null when the exchange
- * fails (logged), letting callers fall back to SMTP.
+ * fails (logged), and the send is skipped.
  */
 function gmail_api_token(): ?string
 {
@@ -140,6 +126,10 @@ function gmail_mime(string $to, string $subject, string $html, string $plain): s
 /** Send one message through the Gmail API. False on any failure (logged). */
 function gmail_api_send(string $to, string $subject, string $htmlBody, string $altBody): bool
 {
+    if (!gmail_api_ready()) {
+        error_log('[mailer] Gmail API creds missing, mail not sent.');
+        return false;
+    }
     $token = gmail_api_token();
     if ($token === null) {
         return false;
@@ -183,38 +173,7 @@ function sendOTP(string $email, string $otp, string $purpose = 'signup'): bool
     $subject = $isReset ? 'Reset your ' . BRAND_NAME . ' password' : 'Confirm your ' . BRAND_NAME . ' account';
     $html  = otp_email_html($otp, $purpose);
     $plain = $subject . ': ' . $otp . "\nThis code expires in 10 minutes.";
-    if (gmail_api_ready() && gmail_api_send($email, $subject, $html, $plain)) {
-        return true;
-    }
-    $mail = new PHPMailer(true);
-    try {
-        // Server settings
-        $mail->isSMTP();
-        $mail->Host       = SMTP_HOST;
-        $mail->SMTPAuth   = true;
-        $mail->Username   = GMAIL_ADDRESS;
-        $mail->Password   = GMAIL_APP_PASSWORD;
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        // Fail fast: OTP callers redirect first and send in the background.
-        // Never hold a worker longer than this waiting on SMTP.
-        $mail->Timeout = 10;
-        $mail->CharSet    = 'UTF-8';
-        $mail->setFrom(MAIL_FROM, MAIL_FROM_NAME);
-        $mail->addAddress($email);
-        $mail->addReplyTo(MAIL_FROM, MAIL_FROM_NAME);
-
-        // Content
-        $mail->isHTML(true);
-        $mail->Subject = $subject;
-        $mail->Body    = $html;
-        $mail->AltBody = $plain;
-
-        $mail->send();
-        return true;
-    } catch (Exception $e) {
-        error_log('[mailer] OTP send failed to ' . $email . ': ' . $mail->ErrorInfo);
-        return false;
-    }
+    return gmail_api_send($email, $subject, $html, $plain);
 }
 
 /**
@@ -226,31 +185,7 @@ function sendMail(string $to, string $subject, string $htmlBody, string $altBody
         return false;
     }
     $plain = $altBody !== '' ? $altBody : strip_tags($htmlBody);
-    if (gmail_api_ready() && gmail_api_send($to, $subject, $htmlBody, $plain)) {
-        return true;
-    }
-    $mail = new PHPMailer(true);
-    try {
-        $mail->isSMTP();
-        $mail->Host       = SMTP_HOST;
-        $mail->SMTPAuth   = true;
-        $mail->Username   = GMAIL_ADDRESS;
-        $mail->Password   = GMAIL_APP_PASSWORD;
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        // Bounded for the same reason as sendOTP(): receipts send off the
-        // critical path and must fail fast, never hang the response.
-        $mail->Timeout = 10;
-        $mail->CharSet    = 'UTF-8';
-        $mail->isHTML(true);
-        $mail->Subject = $subject;
-        $mail->Body    = $htmlBody;
-        $mail->AltBody = $plain;
-        $mail->send();
-        return true;
-    } catch (Exception $e) {
-        error_log('[mailer] sendMail failed to ' . $to . ': ' . $mail->ErrorInfo);
-        return false;
-    }
+    return gmail_api_send($to, $subject, $htmlBody, $plain);
 }
 
 function otp_email_html(string $otp, string $purpose = 'signup'): string

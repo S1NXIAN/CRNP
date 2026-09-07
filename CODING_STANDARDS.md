@@ -9,7 +9,7 @@ Tooling enforces what it can (`make lint`, `make analyse`); the rest is on the a
 - PSR-12 with K&R braces (opening brace same line everywhere, incl. functions).
   Config: `.php-cs-fixer.dist.php`. Never hand-format; run `make format`.
 - 4 spaces, single quotes unless interpolating, short arrays `[]`, LF, newline at EOF.
-- `make lint` must pass before commit. It covers all PHP except vendored `PHPMailer`.
+- `make lint` must pass before commit. It covers all PHP (no vendored code remains).
 
 ## 2. Types (enforced by phpstan level 4)
 

@@ -13,8 +13,6 @@ services:
         sync: false
       - key: GMAIL_ADDRESS
         sync: false
-      - key: GMAIL_APP_PASSWORD
-        sync: false
       - key: MAIL_FROM # optional; defaults to GMAIL_ADDRESS
         sync: false
       - key: GOOGLE_CLIENT_ID # Gmail API OAuth client (HTTPS mail; SMTP blocked on free)

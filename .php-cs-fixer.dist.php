@@ -8,7 +8,6 @@
  *  - Short array syntax `[]`.
  *  - K&R-style braces (opening brace on same line).
  *  - Trailing newline at EOF.
- *  - Skip vendored PHPMailer (legacy code, not ours to reformat).
  *
  * Rule names + option keys verified against
  * https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/blob/master/UPGRADE-v3.md
@@ -19,7 +18,6 @@ declare(strict_types=1);
 
 $finder = (new PhpCsFixer\Finder())
     ->in(__DIR__)
-    ->exclude('PHPMailer')
     ->exclude('uploads')
     ->exclude('vendor')
     ->notName('*.min.js')
