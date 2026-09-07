@@ -31,6 +31,13 @@ if ($isResend) {
     }
 
     $id      = (string) array_key_first($existing);
+    $row     = reset($existing);
+    // Cooldown: a live code blocks resend until it dies — one valid code max.
+    $wait = otp_resend_wait(is_array($row) ? $row : null, 'reset_otp_expires');
+    if ($wait > 0) {
+        flash('A code is already on its way — resend opens in ' . gmdate('i:s', $wait) . '.', 'warn');
+        redirect('/user/reset_password.php?email=' . urlencode($email));
+    }
     $otp     = gen_otp();
     $expires = date('Y-m-d H:i:s', strtotime('+10 minutes'));
 
@@ -116,6 +123,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$resendWait = 0;
+if ($email !== '') {
+    $found = db_find_by_email('/user', $email);
+    if (!empty($found)) {
+        $row = reset($found);
+        $resendWait = otp_resend_wait(is_array($row) ? $row : null, 'reset_otp_expires');
+    }
+}
 $flashes = get_flashes();
 ?>
 <!doctype html>
@@ -201,7 +216,7 @@ $flashes = get_flashes();
 
       <div class="row row--between mt-4" style="font-size:14px;">
         <a class="muted" href="/user/forgot_password.php">Use a different email</a>
-        <a href="/user/reset_password.php?resend=1&email=<?= e(urlencode($email)) ?>">Resend code</a>
+        <a data-resend-in="<?= (int) $resendWait ?>" href="/user/reset_password.php?resend=1&email=<?= e(urlencode($email)) ?>">Resend code</a>
       </div>
 
       <p class="auth__switch">

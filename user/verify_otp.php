@@ -30,6 +30,13 @@ if ($isResend) {
         redirect('/user/login.php');
     }
 
+    // Cooldown: a live code blocks resend until it dies — one valid code max.
+    $wait = otp_resend_wait(is_array($user) ? $user : null, 'otp_expires');
+    if ($wait > 0) {
+        flash('A code is already on its way — resend opens in ' . gmdate('i:s', $wait) . '.', 'warn');
+        redirect('/user/verify_otp.php?email=' . urlencode($email));
+    }
+
     // Rate limit: 3 OTP sends per 15 minutes per email.
     if (!rate_limit('signup_otp_' . $email, 3, 900)) {
         flash('Too many code requests for that email. Please try again in 15 minutes.', 'danger');
@@ -116,6 +123,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$resendWait = 0;
+if ($email !== '') {
+    $found = db_find_by_email('/user', $email);
+    if (!empty($found)) {
+        $row = reset($found);
+        $resendWait = otp_resend_wait(is_array($row) ? $row : null, 'otp_expires');
+    }
+}
 $flashes = get_flashes();
 ?>
 <!doctype html>
@@ -193,7 +208,7 @@ $flashes = get_flashes();
 
       <div class="row row--between mt-4" style="font-size:14px;">
         <a class="muted" href="/user/signup.php">Use a different email</a>
-        <a href="/user/verify_otp.php?resend=1&email=<?= e(urlencode($email)) ?>">Resend code</a>
+        <a data-resend-in="<?= (int) $resendWait ?>" href="/user/verify_otp.php?resend=1&email=<?= e(urlencode($email)) ?>">Resend code</a>
       </div>
 
       <p class="auth__switch">

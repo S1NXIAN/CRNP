@@ -102,6 +102,21 @@ function gen_otp(): string
         return str_pad((string) mt_rand(0, 999999), 6, '0', STR_PAD_LEFT);
     }
 }
+
+/**
+ * Seconds until a new OTP may issue for this record; 0 when no live code.
+ * Same clock as expiry: resend opens exactly when the code dies, so two
+ * codes never overlap. $expField is 'otp_expires' (signup) or
+ * 'reset_otp_expires' (password reset).
+ */
+function otp_resend_wait(?array $user, string $expField): int
+{
+    if (!is_array($user) || empty($user[$expField])) {
+        return 0;
+    }
+    $exp = strtotime((string) $user[$expField]);
+    return $exp === false ? 0 : max(0, $exp - time());
+}
 function rows($data): array
 {
     return is_array($data) ? $data : [];
