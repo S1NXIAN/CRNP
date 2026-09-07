@@ -82,12 +82,12 @@ function cashier_order_row(string $id, array $o, string $backAction, string $bac
                     </form>
                   <?php endif; ?>
                   <?php if ($st !== 'cashier_cancelled' && $st !== 'cancelled' && $st !== 'done'): ?>
-                    <form method="post" action="<?= e($backAction) ?>" data-confirm="Cancel order #<?= e(substr($id, 0, 6)) ?>? The kitchen will be notified.">
+                    <form method="post" action="<?= e($backAction) ?>">
                       <?= csrf_field() ?>
                       <input type="hidden" name="action" value="cancel">
                       <input type="hidden" name="order_id" value="<?= e($id) ?>">
                       <input type="hidden" name="back_query" value="<?= e($backQuery) ?>">
-                      <input type="hidden" name="cancel_note" id="cancelNote" value="">
+                      <input type="hidden" name="cancel_note" value="">
                       <button class="btn btn--danger btn--sm" type="submit">Cancel</button>
                     </form>
                   <?php endif; ?>
@@ -583,6 +583,7 @@ require_once __DIR__ . '/../includes/header.php';
     .receipt-modal__close { top: 6px; right: 6px; }
   }
 </style>
+<script>
 
   /* ============================================================
      1) Live rows — fetch /cashier/?check=1 every 10s. The endpoint
@@ -700,17 +701,17 @@ require_once __DIR__ . '/../includes/header.php';
       if (e.key === 'Escape' && !modal.hasAttribute('hidden')) { close(); }
     });
   })();
-  /* Cancel reason prompt — hides inline input, shows prompt() on submit */
-  document.querySelectorAll('form input#cancelNote').forEach(function(inp) {
-    var form = inp.closest('form');
-    if (!form) return;
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
-      var reason = prompt('Reason for cancellation (optional):');
-      if (reason === null) return;
-      inp.value = reason || '';
-      HTMLFormElement.prototype.submit.call(form);
-    });
+  /* Cancel reason prompt — delegated so poll-injected rows work */
+  document.addEventListener('submit', function (e) {
+    var form = e.target.closest('form');
+    if (!form) { return; }
+    var inp = form.querySelector('input[name="cancel_note"]');
+    if (!inp) { return; }
+    e.preventDefault();
+    var reason = prompt('Reason for cancellation (optional):');
+    if (reason === null) { return; }
+    inp.value = reason || '';
+    HTMLFormElement.prototype.submit.call(form);
   });
 </script>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
