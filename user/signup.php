@@ -87,8 +87,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sent = sendOTP($email, $otp);
         if (!$sent) {
             // P0: never leak the OTP in production. Only surface the dev
-            // fallback when the host has explicitly opted into DEV_MODE.
-            if (defined('DEV_MODE') && DEV_MODE) {
+            // fallback when the host has explicitly opted into DEV_SHOW_OTP.
+            if (defined('DEV_SHOW_OTP') && DEV_SHOW_OTP) {
                 flash('SMTP not configured — OTP is ' . $otp . ' (dev only).', 'warn');
             } else {
                 flash('Could not send verification email. Please try again or contact support.', 'danger');

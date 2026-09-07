@@ -57,7 +57,7 @@ foreach (INDEX_COVERAGE as $node => $fields) {
 }
 
 /* ---------- 2. query URL builder ---------- */
-putenv('FIREBASE_CREDENTIALS'); // force unauthenticated: no access_token in URLs.
+putenv('FIREBASE_SERVICE_ACCOUNT_JSON'); // force unauthenticated: no access_token in URLs.
 $db = new firebaseRDB('https://example-default-rtdb.firebaseio.com');
 
 check(

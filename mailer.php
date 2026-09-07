@@ -22,8 +22,8 @@ function sendOTP(string $email, string $otp): bool
         $mail->isSMTP();
         $mail->Host       = SMTP_HOST;
         $mail->SMTPAuth   = true;
-        $mail->Username   = SMTP_USER;
-        $mail->Password   = SMTP_PASS;
+        $mail->Username   = GMAIL_ADDRESS;
+        $mail->Password   = GMAIL_APP_PASSWORD;
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = SMTP_PORT;
         $mail->CharSet    = 'UTF-8';
@@ -57,8 +57,8 @@ function sendMail(string $to, string $subject, string $htmlBody, string $altBody
         $mail->isSMTP();
         $mail->Host       = SMTP_HOST;
         $mail->SMTPAuth   = true;
-        $mail->Username   = SMTP_USER;
-        $mail->Password   = SMTP_PASS;
+        $mail->Username   = GMAIL_ADDRESS;
+        $mail->Password   = GMAIL_APP_PASSWORD;
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = SMTP_PORT;
         $mail->CharSet    = 'UTF-8';

@@ -11,9 +11,9 @@
  * insert/update/delete throw on {"error": ...} responses.
  * On cURL failure the error is logged and retrieve() returns [].
  *
- * Auth: when FIREBASE_CREDENTIALS holds a service-account JSON, every request
- * is signed with a cached OAuth2 access token (see accessToken()). Without it,
- * requests go out unauthenticated — pair with locked-down RTDB rules in prod.
+ * Auth: when FIREBASE_SERVICE_ACCOUNT_JSON holds a service-account JSON,
+ * every request is signed with a cached OAuth2 access token (see accessToken()).
+ * Without it, requests go out unauthenticated — pair with locked-down RTDB rules in prod.
  */
 class firebaseRDB
 {
@@ -158,9 +158,9 @@ class firebaseRDB
     }
 
     /**
-     * Short-lived Google OAuth2 access token minted from the FIREBASE_CREDENTIALS
-     * service-account JSON via an RS256 JWT bearer grant. Returns null when the
-     * variable is unset/invalid so callers fall back to unauthenticated REST
+     * Short-lived Google OAuth2 access token minted from the
+     * FIREBASE_SERVICE_ACCOUNT_JSON service-account JSON via an RS256 JWT bearer
+     * grant. Returns null when the variable is unset/invalid so callers fall back
      * (local dev against open rules). Valid tokens are memoized per-request and
      * cached on disk until a minute before expiry.
      */
@@ -172,17 +172,17 @@ class firebaseRDB
         }
 
         static $warnedUnset = false;
-        $raw = getenv('FIREBASE_CREDENTIALS');
+        $raw = getenv('FIREBASE_SERVICE_ACCOUNT_JSON');
         if ($raw === false || trim($raw) === '') {
             if (!$warnedUnset) {
                 $warnedUnset = true;
-                error_log('[firebaseRDB] FIREBASE_CREDENTIALS is not set; RTDB requests go out unsigned.');
+                error_log('[firebaseRDB] FIREBASE_SERVICE_ACCOUNT_JSON is not set; RTDB requests go out unsigned.');
             }
             return null;
         }
         $sa = json_decode($raw, true);
         if (!is_array($sa) || empty($sa['client_email']) || empty($sa['private_key'])) {
-            error_log('[firebaseRDB] FIREBASE_CREDENTIALS is set but is not a valid service-account JSON.');
+            error_log('[firebaseRDB] FIREBASE_SERVICE_ACCOUNT_JSON is set but is not a valid service-account JSON.');
             return null;
         }
 

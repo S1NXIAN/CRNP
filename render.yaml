@@ -9,15 +9,15 @@ services:
     healthCheckPath: /health.php
     autoDeploy: true         # redeploy on every push to the tracked branch
     envVars:
-      - key: FIREBASE_URL    # https://<project>-default-rtdb.firebaseio.com
+      - key: FIREBASE_DATABASE_URL
         sync: false
-      - key: SMTP_USER
+      - key: GMAIL_ADDRESS
         sync: false
-      - key: SMTP_PASS       # Gmail App Password — entered as a secret
+      - key: GMAIL_APP_PASSWORD
         sync: false
-      - key: MAIL_FROM       # optional; defaults to SMTP_USER if left blank
+      - key: MAIL_FROM # optional; defaults to GMAIL_ADDRESS
         sync: false
-      - key: FIREBASE_CREDENTIALS   # full service-account JSON — secret; signs all RTDB requests
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON # full service-account JSON key
         sync: false
-      - key: DEV_MODE
-        value: "0"           # never leak OTPs in production
+      - key: DEV_SHOW_OTP # "1" prints OTPs on screen; keep "0" in production
+        value: "0"

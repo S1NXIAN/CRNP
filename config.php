@@ -5,12 +5,9 @@
  * Starts the session (with hardened cookie settings), sets timezone,
  * and defines credentials.
  *
- * DEPLOYMENT: set the following as environment variables on your PHP host
- *   FIREBASE_URL  = https://<your-project>-default-rtdb.firebaseio.com
- *   SMTP_USER     = your.gmail.account@gmail.com
- *   SMTP_PASS     = your 16-character Gmail App Password
- *   MAIL_FROM     = (optional) from address, defaults to SMTP_USER
- * (You may also hardcode the fallback strings below for local testing.)
+ * Env vars (see .env.example — one line each):
+ *   FIREBASE_DATABASE_URL, FIREBASE_SERVICE_ACCOUNT_JSON,
+ *   GMAIL_ADDRESS, GMAIL_APP_PASSWORD, MAIL_FROM (optional), DEV_SHOW_OTP
  */
 
 // ---------- .env loader (written by setup.sh) ----------
@@ -70,25 +67,23 @@ $_SESSION['_last_activity'] = time();
 date_default_timezone_set('Asia/Manila');
 
 // ---------- Firebase Realtime Database ----------
-$databaseURL = getenv('FIREBASE_URL') ?: 'https://YOUR-PROJECT-default-rtdb.firebaseio.com';
+$databaseURL = getenv('FIREBASE_DATABASE_URL') ?: 'https://YOUR-PROJECT-default-rtdb.firebaseio.com';
 
 // ---------- Gmail SMTP (PHPMailer) ----------
 define('SMTP_HOST', 'smtp.gmail.com');
 define('SMTP_PORT', 587);
-define('SMTP_USER', getenv('SMTP_USER') ?: 'your.app@gmail.com');
-define('SMTP_PASS', getenv('SMTP_PASS') ?: 'your-16-char-app-password');
-define('MAIL_FROM', getenv('MAIL_FROM') ?: SMTP_USER);
+define('GMAIL_ADDRESS', getenv('GMAIL_ADDRESS') ?: 'your.app@gmail.com');
+define('GMAIL_APP_PASSWORD', getenv('GMAIL_APP_PASSWORD') ?: 'your-16-char-app-password');
+define('MAIL_FROM', getenv('MAIL_FROM') ?: GMAIL_ADDRESS);
 define('MAIL_FROM_NAME', 'CRATES N\' PLATES');
 
 // ---------- Brand ----------
 define('BRAND_NAME', 'CRATES N\' PLATES');
 define('BRAND_TAGLINE', 'Diner');
 
-// ---------- Dev mode ----------
-// When true, the app may surface dev-only conveniences (e.g. leaking the OTP
-// on screen when SMTP is not configured). Set the DEV_MODE env var to "1" or
-// "true" to opt in. NEVER enable this on production.
-define('DEV_MODE', getenv('DEV_MODE') === '1' || getenv('DEV_MODE') === 'true');
+// ---------- Dev OTP fallback ----------
+// DEV_SHOW_OTP=1 prints the OTP on screen when mail fails. Local dev only.
+define('DEV_SHOW_OTP', getenv('DEV_SHOW_OTP') === '1' || getenv('DEV_SHOW_OTP') === 'true');
 
 // ---------- Uploads ----------
 // Uploads live under php-app/uploads/ and are served from /uploads/...

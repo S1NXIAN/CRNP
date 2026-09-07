@@ -43,7 +43,7 @@ if ($isResend) {
 
     $sent = sendOTP($email, $otp);
     if (!$sent) {
-        if (defined('DEV_MODE') && DEV_MODE) {
+        if (defined('DEV_SHOW_OTP') && DEV_SHOW_OTP) {
             flash('SMTP not configured — OTP is ' . $otp . ' (dev only).', 'warn');
         } else {
             flash('Could not send email. Please try again.', 'danger');
