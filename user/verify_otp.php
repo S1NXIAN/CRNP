@@ -30,12 +30,7 @@ if ($isResend) {
         redirect('/user/login.php');
     }
 
-    // Cooldown: a live code blocks resend until it dies — one valid code max.
-    $wait = otp_resend_wait(is_array($user) ? $user : null, 'otp_expires');
-    if ($wait > 0) {
-        flash('A code is already on its way — resend opens in ' . gmdate('i:s', $wait) . '.', 'warn');
-        redirect('/user/verify_otp.php?email=' . urlencode($email));
-    }
+    otp_resend_gate($user, 'otp_expires', '/user/verify_otp.php?email=' . urlencode($email));
 
     // Rate limit: 3 OTP sends per 15 minutes per email.
     if (!rate_limit('signup_otp_' . $email, 3, 900)) {

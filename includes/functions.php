@@ -117,6 +117,19 @@ function otp_resend_wait(?array $user, string $expField): int
     $exp = strtotime((string) $user[$expField]);
     return $exp === false ? 0 : max(0, $exp - time());
 }
+
+/**
+ * Enforce the resend cooldown: while a live code exists, flash the wait and
+ * redirect back. Falls through silently once resend is open.
+ */
+function otp_resend_gate(mixed $user, string $expField, string $back): void
+{
+    $wait = otp_resend_wait(is_array($user) ? $user : null, $expField);
+    if ($wait > 0) {
+        flash('A code is already on its way — resend opens in ' . gmdate('i:s', $wait) . '.', 'warn');
+        redirect($back);
+    }
+}
 function rows($data): array
 {
     return is_array($data) ? $data : [];

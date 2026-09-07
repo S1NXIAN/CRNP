@@ -32,12 +32,7 @@ if ($isResend) {
 
     $id      = (string) array_key_first($existing);
     $row     = reset($existing);
-    // Cooldown: a live code blocks resend until it dies — one valid code max.
-    $wait = otp_resend_wait(is_array($row) ? $row : null, 'reset_otp_expires');
-    if ($wait > 0) {
-        flash('A code is already on its way — resend opens in ' . gmdate('i:s', $wait) . '.', 'warn');
-        redirect('/user/reset_password.php?email=' . urlencode($email));
-    }
+    otp_resend_gate($row, 'reset_otp_expires', '/user/reset_password.php?email=' . urlencode($email));
     $otp     = gen_otp();
     $expires = date('Y-m-d H:i:s', strtotime('+10 minutes'));
 
