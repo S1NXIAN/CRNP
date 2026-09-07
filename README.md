@@ -135,10 +135,10 @@ Outbound SMTP (ports 25/465/587) is blocked on the free plan, so mail goes throu
 1. **Enable the API.** Google Cloud Console → new or existing project → **APIs & Services → Library** → enable **Gmail API**.
 2. **OAuth consent screen.** **APIs & Services → OAuth consent screen** → **External** → app name + your Gmail as support/developer contact → add your Gmail as a **test user**. Keep the `gmail.send` scope (narrowest that sends).
 3. **OAuth client.** **Credentials → Create Credentials → OAuth client ID** → **Desktop app** → note the client ID and secret → set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in Render env.
-4. **Consent once.** Open (replace `CLIENT_ID`), approve as your Gmail, copy the `code=` from the redirect URL:
-   `https://accounts.google.com/o/oauth2/v2/auth?client_id=CLIENT_ID&redirect_uri=http://localhost&response_type=code&scope=https://www.googleapis.com/auth/gmail.send&access_type=offline&prompt=consent`
-5. **Exchange the code** for a refresh token (run locally, replace the three placeholders):
-   `curl -s -X POST https://oauth2.googleapis.com/token -d code=CODE -d client_id=CLIENT_ID -d client_secret=SECRET -d redirect_uri=http://localhost -d grant_type=authorization_code`
+4. **Consent once.** Open (replace `<CLIENT_ID>`), approve as your Gmail, copy the `code=` from the redirect URL:
+   `https://accounts.google.com/o/oauth2/v2/auth?client_id=<CLIENT_ID>&redirect_uri=http://localhost&response_type=code&scope=https://www.googleapis.com/auth/gmail.send&access_type=offline&prompt=consent`
+5. **Exchange the code** for a refresh token (run locally, replace the three placeholders `<CODE>`, `<CLIENT_ID>`, `<SECRET>`):
+   `curl -s -X POST https://oauth2.googleapis.com/token -d code=<CODE> -d client_id=<CLIENT_ID> -d client_secret=<SECRET> -d redirect_uri=http://localhost -d grant_type=authorization_code`
    → set `GMAIL_REFRESH_TOKEN` from the response. The app mints access tokens itself from here on.
 
 > Test-mode refresh tokens expire after 7 days; publish the consent screen to **Production** (unverified-app warning on first consent is normal for personal use) or re-consent weekly.
