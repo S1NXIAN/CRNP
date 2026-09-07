@@ -6,7 +6,7 @@
  *
  * P0/P1 improvements (Task A):
  *  1. Live rows — ?check=1 JSON endpoint returns rendered <tr> HTML for
- *     unseen pending orders; 20s JS poll prepends them (no reload) + green
+ *     unseen pending orders; 10s JS poll prepends them (no reload) + green
  *     "Live" pulsing indicator in the header.
  *  2. Cancel undo / Restore — cashier_cancelled -> pending.
  *  3. Receipt lightbox — inline modal replaces the new-tab <a> link.
@@ -320,7 +320,7 @@ require_once __DIR__ . '/../includes/header.php';
       <span class="eyebrow">Cashier Console</span>
       <h1 style="display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap">
         Orders
-        <span class="live-indicator" id="liveIndicator" title="Live polling active — checks for new orders every 20 seconds">
+        <span class="live-indicator" id="liveIndicator" title="Live polling active — checks for new orders every 10 seconds">
           <span class="live-dot" aria-hidden="true"></span>
           <span class="live-text">Live</span>
         </span>
@@ -585,7 +585,7 @@ require_once __DIR__ . '/../includes/header.php';
 </style>
 
   /* ============================================================
-     1) Live rows — fetch /cashier/?check=1 every 20s. The endpoint
+     1) Live rows — fetch /cashier/?check=1 every 10s. The endpoint
         returns rendered <tr> HTML for unseen pending orders, prepended
         to the table: no reload, mid-action work untouched. Falls back
         to the Refresh toast when rows cannot inject (filtered view).
@@ -660,7 +660,7 @@ require_once __DIR__ . '/../includes/header.php';
           lastPending = n;
         })
         .catch(function () { /* network hiccup — stay silent */ });
-    }, 20000);
+    }, 10000);
   })();
 
   /* ============================================================
