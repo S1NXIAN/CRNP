@@ -123,10 +123,10 @@ The repository ships with two files that make deployment nearly automatic:
    - **Generate new private key** → a JSON file downloads
    - Open it, copy *everything* (including the outer `{ }`), paste into Render's `FIREBASE_SERVICE_ACCOUNT_JSON`
 
-5. **Lock down the database.** Firebase Console → **Realtime Database → Rules** → replace with the contents of `database.rules.json` (auth-locked rules plus the `.indexOn` entries every list page queries with `orderBy`).
+5. **Lock down the database.** Firebase Console → **Realtime Database → Rules** → merge the `.indexOn` entries from `database.rules.json` into the Console rules (auth-locked rules plus the indexes every list page queries with `orderBy`).
 
    Publish **after** step 4 is complete, otherwise the server loses database access. Keep the file and the Console copy in sync — adding a new `Model::where()` field means adding its `.indexOn` here too.
-   If the Console rules still use time-boxed open access (`now < ...`) because step 4 is not done, do **not** paste the file wholesale: keep the existing `.read` / `.write` lines and append only the per-node `.indexOn` blocks. Replacing open rules with `auth != null` before the server authenticates cuts off all database access, and every indexed query (`Model::where`) silently returns empty — list pages render as if there were no rows. Time-boxed rules also stop the app dead on expiry; extend or lock down before the date.
+   Never paste the file wholesale: always keep the existing `.read` / `.write` lines and append only the per-node `.indexOn` blocks, changing access lines only as a deliberate separate step. Replacing open rules with `auth != null` before the server authenticates cuts off all database access, and every indexed query (`Model::where`) silently returns empty — list pages render as if there were no rows. Time-boxed rules also stop the app dead on expiry; extend or lock down before the date.
    Pre-lockdown copy-paste (open access plus indexes — keep your own `.read` / `.write` lines if they differ):
    ```json
    {
