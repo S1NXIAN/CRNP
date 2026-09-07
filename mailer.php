@@ -12,12 +12,41 @@ use PHPMailer\PHPMailer\Exception;
 use PHPMailer\PHPMailer\PHPMailer;
 
 /**
+ * True when $email's domain can plausibly receive mail (has MX or A
+ * records). Skips the SMTP attempt otherwise so typo and test domains
+ * never burn a worker or bounce into the sender inbox. Fails open when
+ * local DNS itself is down, so a resolver hiccup never blocks real mail.
+ */
+function is_deliverable(string $email): bool
+{
+    $domain = (string) substr((string) strrchr($email, '@'), 1);
+    if ($domain === '' || preg_match('/\s/', $domain) === 1) {
+        return false;
+    }
+    if (checkdnsrr($domain, 'MX') || checkdnsrr($domain, 'A')) {
+        return true;
+    }
+    static $dnsUp = null;
+    if ($dnsUp === null) {
+        $dnsUp = checkdnsrr('gmail.com', 'MX');
+    }
+    if (!$dnsUp) {
+        return true;
+    }
+    error_log('[mailer] skip undeliverable domain: ' . $domain);
+    return false;
+}
+
+/**
  * Send a 6-digit OTP email. $purpose is 'signup' (verify a new account) or
  * 'reset' (approve a password reset) — subject, heading, and copy differ so
  * the recipient knows which flow the code belongs to. Returns true on success.
  */
 function sendOTP(string $email, string $otp, string $purpose = 'signup'): bool
 {
+    if (!is_deliverable($email)) {
+        return false;
+    }
     $isReset = $purpose === 'reset';
     $subject = $isReset ? 'Reset your ' . BRAND_NAME . ' password' : 'Confirm your ' . BRAND_NAME . ' account';
     $mail = new PHPMailer(true);
@@ -56,6 +85,9 @@ function sendOTP(string $email, string $otp, string $purpose = 'signup'): bool
  */
 function sendMail(string $to, string $subject, string $htmlBody, string $altBody = ''): bool
 {
+    if (!is_deliverable($to)) {
+        return false;
+    }
     $mail = new PHPMailer(true);
     try {
         $mail->isSMTP();
