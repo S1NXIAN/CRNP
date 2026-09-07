@@ -147,7 +147,10 @@ All configuration is environment-based — nothing sensitive is stored in code.
 |---|:---:|---|
 | `FIREBASE_DATABASE_URL` | yes | RTDB URL, verbatim from Firebase Console |
 | `GMAIL_ADDRESS` | yes | Gmail account sending OTP/receipt mail |
-| `GMAIL_APP_PASSWORD` | yes | 16-char Gmail App Password (never the login password) |
+| `GMAIL_APP_PASSWORD` | local | 16-char Gmail App Password; SMTP fallback when the API creds below are unset |
+| `GOOGLE_CLIENT_ID` | prod | OAuth client ID; enables Gmail API mail over HTTPS (SMTP is blocked on Render free) |
+| `GOOGLE_CLIENT_SECRET` | prod | OAuth client secret |
+| `GMAIL_REFRESH_TOKEN` | prod | `gmail.send` consent exchanged once; mints access tokens automatically |
 | `MAIL_FROM` | no | From: override; defaults to `GMAIL_ADDRESS` |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | prod | Full service-account JSON; required once rules need `auth != null` |
 | `DEV_SHOW_OTP` | no | `1` prints OTPs on screen when mail fails; dev only |

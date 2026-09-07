@@ -22,7 +22,7 @@ analyse:
 	vendor/bin/phpstan analyse --no-progress
 
 smoke:
-	php tests/smoke_token.php && php tests/indexed_rules.php && php tests/cashier_poll.php && php tests/otp_resend.php
+	php tests/smoke_token.php && php tests/indexed_rules.php && php tests/cashier_poll.php && php tests/otp_resend.php && php tests/mailer_api.php
 
 clean:
 	rm -rf vendor .php-cs-fixer.cache

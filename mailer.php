@@ -20,6 +20,10 @@ use PHPMailer\PHPMailer\PHPMailer;
 function is_deliverable(string $email): bool
 {
     $domain = (string) substr((string) strrchr($email, '@'), 1);
+    // Reject control chars anywhere (header injection into API MIME).
+    if (preg_match('/[\r\n]/', $email) === 1) {
+        return false;
+    }
     if ($domain === '' || preg_match('/\s/', $domain) === 1) {
         return false;
     }
@@ -37,6 +41,134 @@ function is_deliverable(string $email): bool
     return false;
 }
 
+/* ---------- Gmail API transport (HTTPS; works where SMTP is blocked) ----------
+ * Render free drops outbound SMTP, so when OAuth creds are configured the
+ * mail goes through gmail.users.messages.send over port 443 instead.
+ * Without creds the SMTP path stays, so local dev needs zero setup.
+ * New env: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_REFRESH_TOKEN. */
+function gmail_api_ready(): bool
+{
+    foreach (['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN'] as $key) {
+        $val = getenv($key);
+        if ($val === false || $val === '') {
+            return false;
+        }
+    }
+    return true;
+}
+/**
+ * OAuth2 access token from the stored refresh token, memoized per request
+ * and cached on disk until a minute before expiry. Null when the exchange
+ * fails (logged), letting callers fall back to SMTP.
+ */
+function gmail_api_token(): ?string
+{
+    static $memo = null;
+    if (is_array($memo) && ($memo['exp'] ?? 0) > time() + 60) {
+        return $memo['token'];
+    }
+    $cacheFile = sys_get_temp_dir() . '/crnp_gmail_token.json';
+    if (is_readable($cacheFile)) {
+        $cached = json_decode((string) file_get_contents($cacheFile), true);
+        if (is_array($cached) && ($cached['exp'] ?? 0) > time() + 60) {
+            $memo = $cached;
+            return $cached['token'];
+        }
+    }
+    $ch = curl_init('https://oauth2.googleapis.com/token');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => http_build_query([
+            'client_id'     => getenv('GOOGLE_CLIENT_ID'),
+            'client_secret' => getenv('GOOGLE_CLIENT_SECRET'),
+            'refresh_token' => getenv('GMAIL_REFRESH_TOKEN'),
+            'grant_type'    => 'refresh_token',
+        ]),
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_CONNECTTIMEOUT => 5,
+    ]);
+    $resp = curl_exec($ch);
+    if (curl_errno($ch)) {
+        error_log('[mailer] Gmail token cURL error: ' . curl_error($ch));
+        curl_close($ch);
+        return null;
+    }
+    curl_close($ch);
+    $tok = json_decode((string) $resp, true);
+    if (!is_array($tok) || empty($tok['access_token'])) {
+        error_log('[mailer] Gmail token exchange failed: ' . substr((string) $resp, 0, 200));
+        return null;
+    }
+    $entry = ['token' => $tok['access_token'], 'exp' => time() + (int) ($tok['expires_in'] ?? 3600)];
+    file_put_contents($cacheFile, json_encode($entry), LOCK_EX);
+    chmod($cacheFile, 0600);
+    $memo = $entry;
+    return $entry['token'];
+}
+/** URL-safe base64 without padding, as the Gmail API expects. */
+function gmail_b64url(string $bytes): string
+{
+    return rtrim(strtr(base64_encode($bytes), '+/', '-_'), '=');
+}
+/** Minimal multipart/alternative MIME for one recipient. */
+function gmail_mime(string $to, string $subject, string $html, string $plain): string
+{
+    $boundary = 'crnp_' . bin2hex(random_bytes(8));
+    return implode("\r\n", [
+        'From: ' . MAIL_FROM_NAME . ' <' . MAIL_FROM . '>',
+        'To: <' . $to . '>',
+        'Subject: =?UTF-8?B?' . base64_encode($subject) . '?=',
+        'MIME-Version: 1.0',
+        'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
+        '',
+        '--' . $boundary,
+        'Content-Type: text/plain; charset=UTF-8',
+        'Content-Transfer-Encoding: 8bit',
+        '',
+        $plain,
+        '',
+        '--' . $boundary,
+        'Content-Type: text/html; charset=UTF-8',
+        'Content-Transfer-Encoding: 8bit',
+        '',
+        $html,
+        '',
+        '--' . $boundary . '--',
+    ]);
+}
+/** Send one message through the Gmail API. False on any failure (logged). */
+function gmail_api_send(string $to, string $subject, string $htmlBody, string $altBody): bool
+{
+    $token = gmail_api_token();
+    if ($token === null) {
+        return false;
+    }
+    $raw = gmail_b64url(gmail_mime($to, $subject, $htmlBody, $altBody));
+    $ch = curl_init('https://gmail.googleapis.com/gmail/v1/users/me/messages/send');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => json_encode(['raw' => $raw]),
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'Authorization: Bearer ' . $token],
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_CONNECTTIMEOUT => 5,
+    ]);
+    $resp = curl_exec($ch);
+    if (curl_errno($ch)) {
+        error_log('[mailer] Gmail API cURL error: ' . curl_error($ch));
+        curl_close($ch);
+        return false;
+    }
+    curl_close($ch);
+    $data = json_decode((string) $resp, true);
+    if (!is_array($data) || empty($data['id'])) {
+        error_log('[mailer] Gmail API send failed: ' . substr((string) $resp, 0, 200));
+        return false;
+    }
+    return true;
+}
+
 /**
  * Send a 6-digit OTP email. $purpose is 'signup' (verify a new account) or
  * 'reset' (approve a password reset) — subject, heading, and copy differ so
@@ -49,6 +181,11 @@ function sendOTP(string $email, string $otp, string $purpose = 'signup'): bool
     }
     $isReset = $purpose === 'reset';
     $subject = $isReset ? 'Reset your ' . BRAND_NAME . ' password' : 'Confirm your ' . BRAND_NAME . ' account';
+    $html  = otp_email_html($otp, $purpose);
+    $plain = $subject . ': ' . $otp . "\nThis code expires in 10 minutes.";
+    if (gmail_api_ready() && gmail_api_send($email, $subject, $html, $plain)) {
+        return true;
+    }
     $mail = new PHPMailer(true);
     try {
         // Server settings
@@ -69,8 +206,8 @@ function sendOTP(string $email, string $otp, string $purpose = 'signup'): bool
         // Content
         $mail->isHTML(true);
         $mail->Subject = $subject;
-        $mail->Body    = otp_email_html($otp, $purpose);
-        $mail->AltBody = $subject . ': ' . $otp . "\nThis code expires in 10 minutes.";
+        $mail->Body    = $html;
+        $mail->AltBody = $plain;
 
         $mail->send();
         return true;
@@ -88,6 +225,10 @@ function sendMail(string $to, string $subject, string $htmlBody, string $altBody
     if (!is_deliverable($to)) {
         return false;
     }
+    $plain = $altBody !== '' ? $altBody : strip_tags($htmlBody);
+    if (gmail_api_ready() && gmail_api_send($to, $subject, $htmlBody, $plain)) {
+        return true;
+    }
     $mail = new PHPMailer(true);
     try {
         $mail->isSMTP();
@@ -103,7 +244,7 @@ function sendMail(string $to, string $subject, string $htmlBody, string $altBody
         $mail->isHTML(true);
         $mail->Subject = $subject;
         $mail->Body    = $htmlBody;
-        $mail->AltBody = $altBody ?: strip_tags($htmlBody);
+        $mail->AltBody = $plain;
         $mail->send();
         return true;
     } catch (Exception $e) {

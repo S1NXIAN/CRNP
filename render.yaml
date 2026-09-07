@@ -17,6 +17,12 @@ services:
         sync: false
       - key: MAIL_FROM # optional; defaults to GMAIL_ADDRESS
         sync: false
+      - key: GOOGLE_CLIENT_ID # Gmail API OAuth client (HTTPS mail; SMTP blocked on free)
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_REFRESH_TOKEN # gmail.send consent, exchanged once
+        sync: false
       - key: FIREBASE_SERVICE_ACCOUNT_JSON # full service-account JSON key
         sync: false
       - key: DEV_SHOW_OTP # "1" prints OTPs on screen; keep "0" in production
