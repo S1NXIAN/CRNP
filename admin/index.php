@@ -115,10 +115,10 @@ foreach ($productSalesRaw as $pid => $qty) {
     $name = (string) ($products[$pid]['name'] ?? 'Item');
     $productSales[$name] = $qty;
 }
-$maxProdQty  = max($productSales) ?: 1;
+$maxProdQty  = $productSales ? max($productSales) : 1;
 
-$maxBookingStatus = max($bookingStatuses) ?: 1;
-$maxRentQty = max($rentItemSales) ?: 1;
+$maxBookingStatus = $bookingStatuses ? max($bookingStatuses) : 1;
+$maxRentQty = $rentItemSales ? max($rentItemSales) : 1;
 
 /* ---------- Recent activity ---------- */
 $recentOrders    = Order::recentLimited('created_at', 8);
@@ -216,7 +216,7 @@ foreach ($productSalesRaw as $pid => $qty) {
     $name = (string) ($products[$pid]['name'] ?? 'Item');
     $productSales[$name] = $qty;
 }
-$maxProdQty  = max($productSales) ?: 1;
+$maxProdQty  = $productSales ? max($productSales) : 1;
 
 /* ---------- Recent orders (last 8 by created_at desc) ---------- */
 $recentOrders = Order::recent(8);
