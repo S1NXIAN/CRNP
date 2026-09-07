@@ -126,6 +126,7 @@ The repository ships with two files that make deployment nearly automatic:
 5. **Lock down the database.** Firebase Console → **Realtime Database → Rules** → replace with the contents of `database.rules.json` (auth-locked rules plus the `.indexOn` entries every list page queries with `orderBy`).
 
    Publish **after** step 4 is complete, otherwise the server loses database access. Keep the file and the Console copy in sync — adding a new `Model::where()` field means adding its `.indexOn` here too.
+   If the Console rules still use time-boxed open access (`now < ...`) because step 4 is not done, do **not** paste the file wholesale: keep the existing `.read` / `.write` lines and append only the per-node `.indexOn` blocks. Replacing open rules with `auth != null` before the server authenticates cuts off all database access, and every indexed query (`Model::where`) silently returns empty — list pages render as if there were no rows. Time-boxed rules also stop the app dead on expiry; extend or lock down before the date.
 
 > **Regional URL warning.** Databases created outside US-central live on a `*.firebasedatabase.app` domain. Always copy the URL shown above your data tree in Firebase Console — pointing at a `.firebaseio.com` address makes every request fail with *"Database lives in a different region."*
 
