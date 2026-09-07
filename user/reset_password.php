@@ -43,17 +43,15 @@ if ($isResend) {
         redirect('/user/reset_password.php?email=' . urlencode($email));
     }
 
-    $sent = sendOTP($email, $otp, 'reset');
-    if (!$sent) {
-        if (defined('DEV_SHOW_OTP') && DEV_SHOW_OTP) {
-            flash('SMTP not configured — OTP is ' . $otp . ' (dev only).', 'warn');
-        } else {
-            flash('Could not send email. Please try again.', 'danger');
-        }
-    } else {
-        flash('A new code was sent to ' . $email . '.', 'info');
-    }
-    redirect('/user/reset_password.php?email=' . urlencode($email));
+    // The fresh reset OTP row is already stored above; send it after the redirect.
+    flash('A new code is on its way to ' . $email . '. It may take a minute to arrive.', 'info');
+    otp_background(
+        '/user/reset_password.php?email=' . urlencode($email),
+        $email,
+        $otp,
+        'reset',
+        'Could not send email. Please try resending again.'
+    );
 }
 
 // ---------- Reset branch ----------

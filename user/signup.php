@@ -84,19 +84,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$errors) {
-        $sent = sendOTP($email, $otp);
-        if (!$sent) {
-            // P0: never leak the OTP in production. Only surface the dev
-            // fallback when the host has explicitly opted into DEV_SHOW_OTP.
-            if (defined('DEV_SHOW_OTP') && DEV_SHOW_OTP) {
-                flash('SMTP not configured — OTP is ' . $otp . ' (dev only).', 'warn');
-            } else {
-                flash('Could not send verification email. Please try again or contact support.', 'danger');
-            }
-        } else {
-            flash('We sent a 6-digit verification code to ' . $email . '.', 'info');
-        }
-        redirect('/user/verify_otp.php?email=' . urlencode($email));
+        // The OTP row is already stored above; send it after the redirect so
+        // a slow SMTP server never holds the browser connection.
+        flash('We sent a 6-digit verification code to ' . $email . '. It may take a minute to arrive.', 'info');
+        otp_background(
+            '/user/verify_otp.php?email=' . urlencode($email),
+            $email,
+            $otp,
+            'signup',
+            'Could not send verification email. Use Resend code or contact support.'
+        );
     }
 
     foreach ($errors as $err) {

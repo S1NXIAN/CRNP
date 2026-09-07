@@ -49,19 +49,15 @@ if ($isResend) {
         redirect('/user/verify_otp.php?email=' . urlencode($email));
     }
 
-    $sent = sendOTP($email, $otp);
-    if (!$sent) {
-        // P0: never leak the OTP in production. Only surface the dev
-        // fallback when the host has explicitly opted into DEV_SHOW_OTP.
-        if (defined('DEV_SHOW_OTP') && DEV_SHOW_OTP) {
-            flash('SMTP not configured — new OTP is ' . $otp . ' (dev only).', 'warn');
-        } else {
-            flash('Could not send verification email. Please try again or contact support.', 'danger');
-        }
-    } else {
-        flash('A new code was sent to ' . $email . '.', 'info');
-    }
-    redirect('/user/verify_otp.php?email=' . urlencode($email));
+    // The fresh OTP row is already stored above; send it after the redirect.
+    flash('A new code is on its way to ' . $email . '. It may take a minute to arrive.', 'info');
+    otp_background(
+        '/user/verify_otp.php?email=' . urlencode($email),
+        $email,
+        $otp,
+        'signup',
+        'Could not send verification email. Please try resending again.'
+    );
 }
 
 // ---------- Verify branch ----------

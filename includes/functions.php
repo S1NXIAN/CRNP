@@ -86,6 +86,51 @@ function redirect(string $url): void
     header('Location: ' . $url);
     exit;
 }
+function redirect_background(string $url, callable $job): void
+{
+    ignore_user_abort(true);
+    session_write_close();
+    header('Location: ' . $url);
+    header('Connection: close');
+    header('Content-Length: 0');
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    flush();
+    $job();
+    exit;
+}
+function flash_after_redirect(string $message, string $type = 'info'): void
+{
+    $sid = $_COOKIE[session_name()] ?? '';
+    if (!is_string($sid) || $sid === '') {
+        return;
+    }
+    ini_set('session.cache_limiter', '');
+    ini_set('session.use_cookies', '0');
+    session_id($sid);
+    session_start();
+    flash($message, $type);
+    session_write_close();
+}
+/**
+ * Send an OTP after the redirect, surfacing the result on the destination
+ * page. Centralises the DEV_SHOW_OTP gate so the call sites stay one line
+ * and the policy lives in one place.
+ */
+function otp_background(string $url, string $email, string $otp, string $purpose, string $failureFlash): void
+{
+    redirect_background($url, function () use ($email, $otp, $purpose, $failureFlash) {
+        if (sendOTP($email, $otp, $purpose)) {
+            return;
+        }
+        $dev = defined('DEV_SHOW_OTP') && DEV_SHOW_OTP;
+        flash_after_redirect(
+            $dev ? 'SMTP not configured — OTP is ' . $otp . ' (dev only).' : $failureFlash,
+            $dev ? 'warn' : 'danger'
+        );
+    });
+}
 function now(): string
 {
     return date('Y-m-d H:i:s');

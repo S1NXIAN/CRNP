@@ -29,10 +29,10 @@ function sendOTP(string $email, string $otp, string $purpose = 'signup'): bool
         $mail->Username   = GMAIL_ADDRESS;
         $mail->Password   = GMAIL_APP_PASSWORD;
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port       = SMTP_PORT;
+        // Fail fast: OTP callers redirect first and send in the background.
+        // Never hold a worker longer than this waiting on SMTP.
+        $mail->Timeout = 10;
         $mail->CharSet    = 'UTF-8';
-
-        // Recipients
         $mail->setFrom(MAIL_FROM, MAIL_FROM_NAME);
         $mail->addAddress($email);
         $mail->addReplyTo(MAIL_FROM, MAIL_FROM_NAME);
@@ -64,10 +64,10 @@ function sendMail(string $to, string $subject, string $htmlBody, string $altBody
         $mail->Username   = GMAIL_ADDRESS;
         $mail->Password   = GMAIL_APP_PASSWORD;
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port       = SMTP_PORT;
+        // Bounded for the same reason as sendOTP(): receipts send off the
+        // critical path and must fail fast, never hang the response.
+        $mail->Timeout = 10;
         $mail->CharSet    = 'UTF-8';
-        $mail->setFrom(MAIL_FROM, MAIL_FROM_NAME);
-        $mail->addAddress($to);
         $mail->isHTML(true);
         $mail->Subject = $subject;
         $mail->Body    = $htmlBody;
