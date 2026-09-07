@@ -51,8 +51,10 @@ function fmt_time(?string $t): string
     return $ts ? date('M j, Y \a\t g:i A', $ts) : $t;
 }
 
-$orders   = filter_by(Order::where('user_email', user_email()), 'user_email', user_email());
-$bookings = filter_by(Booking::where('user_email', user_email()), 'user_email', user_email());
+// ponytail: full scan while live rules lack user_email .indexOn (indexed
+// where() returns [] and hides rows); restore where() past diner scale.
+$orders   = filter_by(Order::raw(), 'user_email', user_email());
+$bookings = filter_by(Booking::raw(), 'user_email', user_email());
 
 usort($orders, function ($a, $b) {
     return strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? ''));
