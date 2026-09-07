@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use App\Core\Model;
@@ -27,73 +28,10 @@ class Order extends Model
 
     /* ---- Convenience statics ---- */
 
-    /** All orders sorted newest-first. Returns raw arrays. */
-    public static function allNewest(): array
-    {
-        $all = static::raw();
-        uasort($all, function ($a, $b) {
-            $ta = strtotime((string)($a['created_at'] ?? $a['placed_at'] ?? 'now'));
-            $tb = strtotime((string)($b['created_at'] ?? $b['placed_at'] ?? 'now'));
-            return $tb <=> $ta;
-        });
-        return $all;
-    }
-
-    /** Count orders by status. */
-    public static function countByStatus(): array
-    {
-        $counts = [];
-        foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            $st = (string)($o['status'] ?? 'unknown');
-            $counts[$st] = ($counts[$st] ?? 0) + 1;
-        }
-        return $counts;
-    }
-
-    /** Sum totals of paid orders. */
-    public static function totalSales(): float
-    {
-        $sum = 0.0;
-        foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            if ((string)($o['payment_status'] ?? '') === 'paid') {
-                $sum += (float)($o['total'] ?? 0);
-            }
-        }
-        return $sum;
-    }
-
-    /** Total qty of items in an order (raw array or Model). */
-    public static function itemsCount(array|Model $order): int
-    {
-        $data = $order instanceof Model ? $order->toArray() : $order;
-        $n = 0;
-        foreach (($data['items'] ?? []) as $info) {
-            if (is_array($info)) {
-                $n += (int)($info['qty'] ?? 0);
-            }
-        }
-        return $n;
-    }
-
     /** Today's date string. */
     private static function today(): string
     {
         return date('Y-m-d');
-    }
-
-    /** Count of today's orders. */
-    public static function todayCount(): int
-    {
-        $today = static::today();
-        $n = 0;
-        foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            $d = substr((string)($o['created_at'] ?? ''), 0, 10);
-            if ($d === $today) $n++;
-        }
-        return $n;
     }
 
     /** Sum of today's paid order totals. */
@@ -102,24 +40,41 @@ class Order extends Model
         $today = static::today();
         $sum = 0.0;
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            $d = substr((string)($o['created_at'] ?? ''), 0, 10);
-            if ($d === $today && (string)($o['payment_status'] ?? '') === 'paid') {
-                $sum += (float)($o['total'] ?? 0);
+            if (!is_array($o)) {
+                continue;
+            }
+            $d = substr((string) ($o['created_at'] ?? ''), 0, 10);
+            if ($d === $today && (string) ($o['payment_status'] ?? '') === 'paid') {
+                $sum += (float) ($o['total'] ?? 0);
             }
         }
         return $sum;
     }
 
-    /** Pending count. */
+    /** Pending count (indexed). */
     public static function pendingCount(): int
     {
-        $n = 0;
-        foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            if ((string)($o['status'] ?? '') === 'pending') $n++;
+        return count(static::where('status', 'pending'));
+    }
+
+    /**
+     * Pending rows the POS has not rendered yet, newest first, capped.
+     * Pure (no DB): feeds the ?check poll so new rows inject without reload.
+     */
+    public static function selectNew(array $pending, array $knownIds, int $cap = 20): array
+    {
+        $known = array_fill_keys(array_map('strval', $knownIds), true);
+        $fresh = [];
+        foreach ($pending as $oid => $row) {
+            if (isset($known[(string) $oid]) || !is_array($row)) {
+                continue;
+            }
+            $fresh[(string) $oid] = $row;
         }
-        return $n;
+        uasort($fresh, function ($a, $b) {
+            return strcmp((string) ($b['created_at'] ?? $b['placed_at'] ?? ''), (string) ($a['created_at'] ?? $a['placed_at'] ?? ''));
+        });
+        return array_slice($fresh, 0, $cap, true);
     }
 
     /** Unpaid count (excludes cancelled). */
@@ -127,8 +82,10 @@ class Order extends Model
     {
         $n = 0;
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            $st = (string)($o['status'] ?? '');
+            if (!is_array($o)) {
+                continue;
+            }
+            $st = (string) ($o['status'] ?? '');
             if (($o['payment_status'] ?? '') !== 'paid'
                 && $st !== 'cashier_cancelled' && $st !== 'cancelled') {
                 $n++;
@@ -140,8 +97,7 @@ class Order extends Model
     /** Last N orders sorted newest-first (raw arrays keyed by Firebase key). */
     public static function recent(int $limit = 8): array
     {
-        $all = static::allNewest();
-        return array_slice($all, 0, $limit, true);
+        return static::recentBy('created_at', $limit);
     }
 
     /** Best-selling products: name => qty (top N, raw). */
@@ -149,12 +105,20 @@ class Order extends Model
     {
         $productSales = [];
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            if (in_array(($o['status'] ?? ''), ['cancelled', 'cashier_cancelled'], true)) continue;
+            if (!is_array($o)) {
+                continue;
+            }
+            if (in_array(($o['status'] ?? ''), ['cancelled', 'cashier_cancelled'], true)) {
+                continue;
+            }
             foreach (($o['items'] ?? []) as $pid => $info) {
-                if (!is_array($info)) continue;
-                $qty = (int)($info['qty'] ?? 0);
-                if ($qty <= 0) continue;
+                if (!is_array($info)) {
+                    continue;
+                }
+                $qty = (int) ($info['qty'] ?? 0);
+                if ($qty <= 0) {
+                    continue;
+                }
                 $productSales[$pid] = ($productSales[$pid] ?? 0) + $qty;
             }
         }
@@ -167,13 +131,21 @@ class Order extends Model
     {
         $catSales = [];
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            if (in_array(($o['status'] ?? ''), ['cancelled', 'cashier_cancelled'], true)) continue;
+            if (!is_array($o)) {
+                continue;
+            }
+            if (in_array(($o['status'] ?? ''), ['cancelled', 'cashier_cancelled'], true)) {
+                continue;
+            }
             foreach (($o['items'] ?? []) as $pid => $info) {
-                if (!is_array($info)) continue;
-                $qty = (int)($info['qty'] ?? 0);
-                if ($qty <= 0) continue;
-                $cat = (string)($products[$pid]['category'] ?? 'Uncategorized');
+                if (!is_array($info)) {
+                    continue;
+                }
+                $qty = (int) ($info['qty'] ?? 0);
+                if ($qty <= 0) {
+                    continue;
+                }
+                $cat = (string) ($products[$pid]['category'] ?? 'Uncategorized');
                 $catSales[$cat] = ($catSales[$cat] ?? 0) + $qty;
             }
         }
@@ -186,9 +158,13 @@ class Order extends Model
     {
         $methods = [];
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            if ((string)($o['payment_status'] ?? '') !== 'paid') continue;
-            $pm = (string)($o['payment_method'] ?? 'counter');
+            if (!is_array($o)) {
+                continue;
+            }
+            if ((string) ($o['payment_status'] ?? '') !== 'paid') {
+                continue;
+            }
+            $pm = (string) ($o['payment_method'] ?? 'counter');
             $label = $pm === 'gcash' ? 'GCash' : 'Counter';
             $methods[$label] = ($methods[$label] ?? 0) + 1;
         }
@@ -201,10 +177,12 @@ class Order extends Model
     {
         $hours = array_fill(0, 24, 0);
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            $created = (string)($o['created_at'] ?? '');
+            if (!is_array($o)) {
+                continue;
+            }
+            $created = (string) ($o['created_at'] ?? '');
             if ($created !== '') {
-                $hour = (int)date('G', strtotime($created));
+                $hour = (int) date('G', strtotime($created));
                 $hours[$hour]++;
             }
         }
@@ -220,46 +198,33 @@ class Order extends Model
             $days[$key] = 0.0;
         }
         foreach (static::raw() as $o) {
-            if (!is_array($o)) continue;
-            if ((string)($o['payment_status'] ?? '') !== 'paid') continue;
-            $day = substr((string)($o['created_at'] ?? ''), 0, 10);
+            if (!is_array($o)) {
+                continue;
+            }
+            if ((string) ($o['payment_status'] ?? '') !== 'paid') {
+                continue;
+            }
+            $day = substr((string) ($o['created_at'] ?? ''), 0, 10);
             if (isset($days[$day])) {
-                $days[$day] += (float)($o['total'] ?? 0);
+                $days[$day] += (float) ($o['total'] ?? 0);
             }
         }
         return $days;
     }
 
-    /** Filter orders by date range [startDate, endDate]. Returns raw arrays. */
+    /** Orders with created_at in [startDate, endDate] (indexed range + PHP refine). */
     public static function byDateRange(string $startDate, string $endDate): array
     {
         $out = [];
-        foreach (static::raw() as $k => $o) {
-            if (!is_array($o)) continue;
-            $d = substr((string)($o['created_at'] ?? ''), 0, 10);
+        foreach (static::whereRange('created_at', $startDate, $endDate . '\uf8ff') as $k => $o) {
+            if (!is_array($o)) {
+                continue;
+            }
+            $d = substr((string) ($o['created_at'] ?? ''), 0, 10);
             if ($d >= $startDate && $d <= $endDate) {
                 $out[$k] = $o;
             }
         }
         return $out;
-    }
-
-    /** Per-day revenue and count for a date range. */
-    public static function dailyStats(string $startDate, string $endDate): array
-    {
-        $orders = static::byDateRange($startDate, $endDate);
-        $stats = [];
-        foreach ($orders as $o) {
-            if (!is_array($o)) continue;
-            $day = substr((string)($o['created_at'] ?? ''), 0, 10);
-            if (!isset($stats[$day])) {
-                $stats[$day] = ['revenue' => 0.0, 'count' => 0];
-            }
-            $stats[$day]['count']++;
-            if ((string)($o['payment_status'] ?? '') === 'paid') {
-                $stats[$day]['revenue'] += (float)($o['total'] ?? 0);
-            }
-        }
-        return $stats;
     }
 }

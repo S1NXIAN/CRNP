@@ -7,7 +7,7 @@ use App\Models\Order;
 require_once __DIR__ . '/../init.php';
 require_cashier();
 
-$orderId = trim((string)($_GET['id'] ?? ''));
+$orderId = trim((string) ($_GET['id'] ?? ''));
 if ($orderId === '') {
     flash('No order specified.', 'danger');
     redirect('/cashier/');
@@ -21,13 +21,13 @@ if (!$orderModel) {
 $order = $orderModel->toArray();
 
 $items         = $order['items'] ?? [];
-$total         = (float)($order['total'] ?? 0);
-$cashTendered  = (float)($order['cash_tendered'] ?? 0);
-$change        = (float)($order['change'] ?? 0);
-$paymentMethod = (string)($order['payment_method'] ?? 'counter');
+$total         = (float) ($order['total'] ?? 0);
+$cashTendered  = (float) ($order['cash_tendered'] ?? 0);
+$change        = (float) ($order['change'] ?? 0);
+$paymentMethod = (string) ($order['payment_method'] ?? 'counter');
 $customerName  = e($order['customer_name'] ?? $order['full_name'] ?? $order['user_name'] ?? '—');
 $tableNumber   = e($order['table_number'] ?? '—');
-$numCustomers  = isset($order['num_customers']) ? (int)$order['num_customers'] : null;
+$numCustomers  = isset($order['num_customers']) ? (int) $order['num_customers'] : null;
 $cashierName   = e($order['accepted_by'] ?? $order['created_by'] ?? '—');
 $createdAt     = $order['created_at'] ?? $order['placed_at'] ?? '';
 $createdAt     = $createdAt ? e(date('M j, Y \a\t g:i A', strtotime($createdAt))) : '—';
@@ -101,7 +101,7 @@ $pageTitle = 'Receipt #' . $shortId;
     <dt>Table</dt><dd><?= e($tableNumber) ?></dd>
     <?php endif; ?>
     <?php if ($numCustomers !== null): ?>
-    <dt>Pax</dt><dd><?= e((string)$numCustomers) ?></dd>
+    <dt>Pax</dt><dd><?= e((string) $numCustomers) ?></dd>
     <?php endif; ?>
   </dl>
 
@@ -115,12 +115,13 @@ $pageTitle = 'Receipt #' . $shortId;
       </tr>
     </thead>
     <tbody>
-      <?php $i = 0; foreach ($items as $it): $i++; ?>
+      <?php $i = 0;
+foreach ($items as $it): $i++; ?>
         <tr>
           <td class="name"><?= e($it['name'] ?? 'Item ' . $i) ?></td>
-          <td class="num"><?= (int)($it['qty'] ?? 0) ?></td>
-          <td class="num"><?= e(money((float)($it['price'] ?? 0))) ?></td>
-          <td class="num"><?= e(money((float)($it['subtotal'] ?? 0))) ?></td>
+          <td class="num"><?= (int) ($it['qty'] ?? 0) ?></td>
+          <td class="num"><?= e(money((float) ($it['price'] ?? 0))) ?></td>
+          <td class="num"><?= e(money((float) ($it['subtotal'] ?? 0))) ?></td>
         </tr>
       <?php endforeach; ?>
     </tbody>

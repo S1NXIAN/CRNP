@@ -5,9 +5,9 @@
  * Performance: raw data is cached per-request and chart stats are cached
  * for 120s to keep the dashboard fast even as storage grows.
  */
+use App\Models\Booking;
 use App\Models\Order;
 use App\Models\Product;
-use App\Models\Booking;
 use App\Models\RentItem;
 
 require_once __DIR__ . '/../init.php';
@@ -23,9 +23,13 @@ $totalOrders   = count($orders);
 $pendingOrders = 0;
 $totalSales    = 0.0;
 foreach ($orders as $o) {
-    if (!is_array($o)) continue;
+    if (!is_array($o)) {
+        continue;
+    }
     $st = (string) ($o['status'] ?? '');
-    if ($st === 'pending') $pendingOrders++;
+    if ($st === 'pending') {
+        $pendingOrders++;
+    }
     if ((string) ($o['payment_status'] ?? '') === 'paid') {
         $totalSales += (float) ($o['total'] ?? 0);
     }
@@ -33,7 +37,9 @@ foreach ($orders as $o) {
 $totalBookings     = count($bookings);
 $activeRent        = 0;
 foreach ($rentItems as $r) {
-    if (is_array($r) && (int) ($r['quantity'] ?? 0) > 0) $activeRent++;
+    if (is_array($r) && (int) ($r['quantity'] ?? 0) > 0) {
+        $activeRent++;
+    }
 }
 
 /* ---------- Today's stats ---------- */
@@ -42,7 +48,9 @@ $todayOrders    = 0;
 $todaySales     = 0.0;
 $todayBookings  = 0;
 foreach ($orders as $o) {
-    if (!is_array($o)) continue;
+    if (!is_array($o)) {
+        continue;
+    }
     $d = substr((string) ($o['created_at'] ?? ''), 0, 10);
     if ($d === $today) {
         $todayOrders++;
@@ -53,7 +61,9 @@ foreach ($orders as $o) {
 }
 $todayBookingSales = 0.0;
 foreach ($bookings as $b) {
-    if (!is_array($b)) continue;
+    if (!is_array($b)) {
+        continue;
+    }
     $d = substr((string) ($b['created_at'] ?? ''), 0, 10);
     if ($d === $today) {
         $todayBookings++;
@@ -65,8 +75,12 @@ foreach ($bookings as $b) {
 $thisMonth = date('Y-m');
 $monthBookingSales = 0.0;
 foreach ($bookings as $b) {
-    if (!is_array($b)) continue;
-    if ((string) ($b['payment_status'] ?? '') !== 'paid') continue;
+    if (!is_array($b)) {
+        continue;
+    }
+    if ((string) ($b['payment_status'] ?? '') !== 'paid') {
+        continue;
+    }
     $vd = substr((string) ($b['verified_at'] ?? $b['created_at'] ?? ''), 0, 7);
     if ($vd === $thisMonth) {
         $monthBookingSales += (float) ($b['total'] ?? 0);
@@ -74,14 +88,16 @@ foreach ($bookings as $b) {
 }
 
 /* ---------- Heavy chart data: file-cached for 120s to keep dashboard fast ----- */
-$categorySales     = cache_file_get('dash_category_sales',     120, fn() => Order::topCategories(8, $products));
-$bookingStatuses   = cache_file_get('dash_booking_statuses',   120, fn() => Booking::statusBreakdown());
-$rentItemSales     = cache_file_get('dash_rent_item_sales',    120, fn() => Booking::topRentItems(10, $rentItems));
-$paymentMethods    = cache_file_get('dash_payment_methods',    120, fn() => Order::paymentMethodBreakdown());
-$orderStatuses     = cache_file_get('dash_order_statuses',     120, function () use ($orders) {
+$categorySales     = cache_file_get('dash_category_sales', 120, fn () => Order::topCategories(8, $products));
+$bookingStatuses   = cache_file_get('dash_booking_statuses', 120, fn () => Booking::statusBreakdown());
+$rentItemSales     = cache_file_get('dash_rent_item_sales', 120, fn () => Booking::topRentItems(10, $rentItems));
+$paymentMethods    = cache_file_get('dash_payment_methods', 120, fn () => Order::paymentMethodBreakdown());
+$orderStatuses     = cache_file_get('dash_order_statuses', 120, function () use ($orders) {
     $statuses = [];
     foreach ($orders as $o) {
-        if (!is_array($o)) continue;
+        if (!is_array($o)) {
+            continue;
+        }
         $st = (string) ($o['status'] ?? 'unknown');
         [$label] = order_status_label($st);
         $statuses[$label] = ($statuses[$label] ?? 0) + 1;
@@ -89,10 +105,10 @@ $orderStatuses     = cache_file_get('dash_order_statuses',     120, function () 
     arsort($statuses);
     return $statuses;
 });
-$peakHours         = cache_file_get('dash_peak_hours',         120, fn() => Order::peakHours());
-$maxPeak           = max(0, ...(array)$peakHours);
-$productSalesRaw   = cache_file_get('dash_top_products',      120, fn() => Order::topProducts(10));
-$dayTotals         = cache_file_get('dash_last7_sales',        120, fn() => Order::last7DaysSales());
+$peakHours         = cache_file_get('dash_peak_hours', 120, fn () => Order::peakHours());
+$maxPeak           = max(0, ...(array) $peakHours);
+$productSalesRaw   = cache_file_get('dash_top_products', 120, fn () => Order::topProducts(10));
+$dayTotals         = cache_file_get('dash_last7_sales', 120, fn () => Order::last7DaysSales());
 
 $productSales      = [];
 foreach ($productSalesRaw as $pid => $qty) {
@@ -110,23 +126,34 @@ $recentBookings  = Booking::recentLimited('created_at', 5);
 
 /* ---------- SVG pie chart helper ---------- */
 $pieColors = ['#D4A937','#2E8B57','#8B2E2E','#D97706','#6B7280','#B8934A','#3AAF6F','#A83535'];
-function svgPie(array $data, int $size = 180, array $customColors = []): string {
+function svgPie(array $data, int $size = 180, array $customColors = []): string
+{
     global $pieColors;
     $total = array_sum($data);
-    if ($total <= 0) return '';
-    $cx = $size / 2; $cy = $size / 2; $r = $size / 2 - 4;
+    if ($total <= 0) {
+        return '';
+    }
+    $cx = $size / 2;
+    $cy = $size / 2;
+    $r = $size / 2 - 4;
     $svg = '<svg viewBox="0 0 ' . $size . ' ' . $size . '" width="' . $size . '" height="' . $size . '" role="img" aria-label="Pie chart">';
     $start = -90;
     $i = 0;
     foreach ($data as $label => $val) {
-        if ($val <= 0) { $i++; continue; }
+        if ($val <= 0) {
+            $i++;
+            continue;
+        }
         $pct = $val / $total;
         $angle = $pct * 360;
         $end = $start + $angle;
         $large = $angle > 180 ? 1 : 0;
-        $sr = deg2rad($start); $er = deg2rad($end);
-        $x1 = $cx + $r * cos($sr); $y1 = $cy + $r * sin($sr);
-        $x2 = $cx + $r * cos($er); $y2 = $cy + $r * sin($er);
+        $sr = deg2rad($start);
+        $er = deg2rad($end);
+        $x1 = $cx + $r * cos($sr);
+        $y1 = $cy + $r * sin($sr);
+        $x2 = $cx + $r * cos($er);
+        $y2 = $cy + $r * sin($er);
         $color = $customColors[$label] ?? $pieColors[$i % count($pieColors)];
         $svg .= '<path d="M' . $cx . ',' . $cy . ' L' . $x1 . ',' . $y1 . ' A' . $r . ',' . $r . ' 0 ' . $large . ',1 ' . $x2 . ',' . $y2 . ' Z" fill="' . $color . '">';
         $svg .= '<title>' . htmlspecialchars($label) . ': ' . $val . ' (' . round($pct * 100) . '%)</title>';
@@ -169,7 +196,9 @@ $orderStatusColors = [
     'Completed'  => '#2E8B57',
 ];
 foreach (Order::raw() as $o) {
-    if (!is_array($o)) continue;
+    if (!is_array($o)) {
+        continue;
+    }
     $st = (string) ($o['status'] ?? 'unknown');
     [$label] = order_status_label($st);
     $orderStatuses[$label] = ($orderStatuses[$label] ?? 0) + 1;
@@ -337,7 +366,8 @@ require_once __DIR__ . '/../includes/header.php';
           <div class="pie-wrap">
             <?= svgPie($categorySales) ?>
             <ul class="pie-legend">
-              <?php $ci = 0; foreach ($categorySales as $cat => $qty): ?>
+              <?php $ci = 0;
+            foreach ($categorySales as $cat => $qty): ?>
                 <li>
                   <span class="pie-legend__dot" style="background:<?= $pieColors[$ci % count($pieColors)] ?>"></span>
                   <span><?= e($cat) ?>: <strong><?= $qty ?></strong> sold</span>
@@ -362,10 +392,10 @@ require_once __DIR__ . '/../includes/header.php';
         <?php else: ?>
           <div class="pie-wrap">
             <?php
-              $pmColors = [];
-              foreach (array_keys($paymentMethods) as $pmLabel) {
-                  $pmColors[$pmLabel] = (strtolower($pmLabel) === 'gcash') ? '#2563eb' : $pieColors[count($pmColors) % count($pieColors)];
-              }
+            $pmColors = [];
+            foreach (array_keys($paymentMethods) as $pmLabel) {
+                $pmColors[$pmLabel] = (strtolower($pmLabel) === 'gcash') ? '#2563eb' : $pieColors[count($pmColors) % count($pieColors)];
+            }
             ?>
             <?= svgPie($paymentMethods, 180, $pmColors) ?>
             <ul class="pie-legend">
@@ -400,7 +430,8 @@ require_once __DIR__ . '/../includes/header.php';
           <div class="pie-wrap">
             <?= svgPie($orderStatuses, 180, $orderStatusColors) ?>
             <ul class="pie-legend">
-              <?php $sti = 0; foreach ($orderStatuses as $label => $count): ?>
+              <?php $sti = 0;
+            foreach ($orderStatuses as $label => $count): ?>
                 <li>
                   <span class="pie-legend__dot" style="background:<?= $orderStatusColors[$label] ?? $pieColors[$sti % count($pieColors)] ?>"></span>
                   <span><?= e($label) ?>: <strong><?= $count ?></strong></span>
@@ -421,17 +452,21 @@ require_once __DIR__ . '/../includes/header.php';
       </div>
       <div class="card__body">
         <?php
-          $phW = 480; $phH = 160; $phPadL = 32; $phPadB = 24;
-          $phPlotW = $phW - $phPadL - 8; $phPlotH = $phH - $phPadB - 4;
-          $phBarW = max(4, floor($phPlotW / 24) - 2);
-        ?>
+          $phW = 480;
+$phH = 160;
+$phPadL = 32;
+$phPadB = 24;
+$phPlotW = $phW - $phPadL - 8;
+$phPlotH = $phH - $phPadB - 4;
+$phBarW = max(4, floor($phPlotW / 24) - 2);
+?>
         <div class="scroll-x">
           <svg class="chart-svg" viewBox="0 0 <?= $phW ?> <?= $phH + $phPadB ?>"
                role="img" aria-label="Bar chart of order volume by hour">
             <?php for ($gi = 0; $gi <= 3; $gi++):
                 $gy = 4 + $phPlotH - ($gi / 3) * $phPlotH;
                 $gv = intval(($maxPeak / 3) * $gi);
-            ?>
+                ?>
               <line x1="<?= $phPadL ?>" y1="<?= $gy ?>" x2="<?= $phW - 8 ?>" y2="<?= $gy ?>"
                     stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="<?= $gi === 0 ? '0' : '3,3' ?>"/>
               <text x="<?= $phPadL - 4 ?>" y="<?= $gy + 3 ?>" text-anchor="end"
@@ -443,7 +478,7 @@ require_once __DIR__ . '/../includes/header.php';
                 $bh = $maxPeak > 0 ? ($val / $maxPeak) * $phPlotH : 0;
                 $ratio = $maxPeak > 0 ? $val / $maxPeak : 0;
                 $phColor = $ratio > 0.66 ? '#E6B84A' : ($ratio > 0.33 ? '#C9962B' : '#8A6B2F');
-            ?>
+                ?>
               <rect x="<?= $x ?>" y="<?= 4 + $phPlotH - max(1, $bh) ?>" width="<?= $phBarW ?>" height="<?= max(1, $bh) ?>"
                     fill="<?= $phColor ?>" rx="2" opacity=".9">
                 <title><?= $h === 0 ? '12 AM' : ($h < 12 ? $h . ' AM' : ($h === 12 ? '12 PM' : ($h - 12) . ' PM')) ?>: <?= $val ?> order<?= $val === 1 ? '' : 's' ?></title>
@@ -477,18 +512,21 @@ require_once __DIR__ . '/../includes/header.php';
       <?php else: ?>
         <?php
           $tpH = max(180, count($productSales) * 28 + 20);
-          $tpPadL = 120; $tpPadR = 50;
-          $tpBarH = 18; $tpGap = 8;
+          $tpPadL = 120;
+          $tpPadR = 50;
+          $tpBarH = 18;
+          $tpGap = 8;
           $tpPlotW = 300;
-        ?>
+          ?>
         <div class="scroll-x">
           <svg class="chart-svg" viewBox="0 0 <?= $tpPadL + $tpPlotW + $tpPadR ?> <?= $tpH ?>"
                role="img" aria-label="Top 10 best-selling products">
-            <?php $ti = 0; foreach ($productSales as $name => $qty):
-                $y = 10 + $ti * ($tpBarH + $tpGap);
-                $bw = $maxProdQty > 0 ? ($qty / $maxProdQty) * $tpPlotW : 0;
-                $displayName = mb_strlen($name) > 16 ? mb_substr($name, 0, 14) . '…' : $name;
-            ?>
+            <?php $ti = 0;
+          foreach ($productSales as $name => $qty):
+              $y = 10 + $ti * ($tpBarH + $tpGap);
+              $bw = $maxProdQty > 0 ? ($qty / $maxProdQty) * $tpPlotW : 0;
+              $displayName = mb_strlen($name) > 16 ? mb_substr($name, 0, 14) . '…' : $name;
+              ?>
               <text x="<?= $tpPadL - 6 ?>" y="<?= $y + $tpBarH / 2 + 4 ?>" text-anchor="end"
                     font-family="Inter,sans-serif" font-size="11" fill="#F5F1E8"><?= e($displayName) ?></text>
               <rect x="<?= $tpPadL ?>" y="<?= $y ?>" width="<?= max(2, $bw) ?>" height="<?= $tpBarH ?>"
@@ -528,7 +566,7 @@ require_once __DIR__ . '/../includes/header.php';
             <stop offset="100%" stop-color="#342C21"/>
           </linearGradient>
         </defs>
-        <line x1="<?= $gap/2 ?>" y1="<?= $chartH ?>" x2="<?= $chartW - $gap/2 ?>" y2="<?= $chartH ?>"
+        <line x1="<?= $gap / 2 ?>" y1="<?= $chartH ?>" x2="<?= $chartW - $gap / 2 ?>" y2="<?= $chartH ?>"
               stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
         <?php foreach ($days as $i => $day):
             $val   = $dayTotals[$day];
@@ -537,7 +575,7 @@ require_once __DIR__ . '/../includes/header.php';
             $y     = $chartH - $h;
             $label = $dayLabels[$day];
             $short = date('M j', strtotime($day));
-        ?>
+            ?>
           <rect x="<?= $x ?>" y="0" width="<?= $barW ?>" height="<?= $chartH ?>"
                 fill="url(#trackGrad)" rx="6" opacity=".45"/>
           <rect class="bar" x="<?= $x ?>" y="<?= $y ?>" width="<?= $barW ?>" height="<?= $h ?>"
@@ -545,12 +583,12 @@ require_once __DIR__ . '/../includes/header.php';
             <title><?= e($label . ', ' . $short . ' — ' . money($val)) ?></title>
           </rect>
           <?php if ($val > 0): ?>
-            <text x="<?= $x + $barW/2 ?>" y="<?= max(14, $y - 6) ?>" text-anchor="middle"
+            <text x="<?= $x + $barW / 2 ?>" y="<?= max(14, $y - 6) ?>" text-anchor="middle"
                   font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#F5F1E8">
               <?= e('₱' . number_format($val, 0)) ?>
             </text>
           <?php endif; ?>
-          <text x="<?= $x + $barW/2 ?>" y="<?= $chartH + 18 ?>" text-anchor="middle"
+          <text x="<?= $x + $barW / 2 ?>" y="<?= $chartH + 18 ?>" text-anchor="middle"
                 font-family="Inter, sans-serif" font-size="11" fill="#A8A29E">
             <?= e($label) ?>
           </text>
@@ -584,29 +622,31 @@ require_once __DIR__ . '/../includes/header.php';
           <div class="muted" style="padding:20px 0">No bookings yet.</div>
         <?php else: ?>
           <?php
-            $bsCount = count($bookingStatuses);
+                $bsCount = count($bookingStatuses);
             $bsBarW = max(28, min(56, intval(400 / max(1, $bsCount))));
             $bsGap = max(12, intval($bsBarW * 0.4));
             $bsChartW = max(300, $bsCount * ($bsBarW + $bsGap) + $bsGap);
-            $bsChartH = 160; $bsPadB = 28;
-          ?>
+            $bsChartH = 160;
+            $bsPadB = 28;
+            ?>
           <div class="scroll-x">
             <svg class="chart-svg" viewBox="0 0 <?= $bsChartW ?> <?= $bsChartH + $bsPadB ?>"
                  role="img" aria-label="Column chart of bookings by status">
               <?php for ($gi = 0; $gi <= 3; $gi++):
                   $gy = 8 + ($bsChartH - 8) - ($gi / 3) * ($bsChartH - 8);
                   $gv = intval(($maxBookingStatus / 3) * $gi);
-              ?>
+                  ?>
                 <line x1="<?= $bsGap / 2 ?>" y1="<?= $gy ?>" x2="<?= $bsChartW - $bsGap / 2 ?>" y2="<?= $gy ?>"
                       stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="<?= $gi === 0 ? '0' : '3,3' ?>"/>
                 <text x="<?= $bsGap / 2 - 4 ?>" y="<?= $gy + 3 ?>" text-anchor="end"
                       font-family="Inter,sans-serif" font-size="9" fill="#A8A29E"><?= $gv ?></text>
               <?php endfor; ?>
-              <?php $bsi = 0; foreach ($bookingStatuses as $label => $count):
-                  $x = $bsGap + $bsi * ($bsBarW + $bsGap);
-                  $bh = $maxBookingStatus > 0 ? ($count / $maxBookingStatus) * ($bsChartH - 8) : 0;
-                  $color = $pieColors[$bsi % count($pieColors)];
-              ?>
+              <?php $bsi = 0;
+            foreach ($bookingStatuses as $label => $count):
+                $x = $bsGap + $bsi * ($bsBarW + $bsGap);
+                $bh = $maxBookingStatus > 0 ? ($count / $maxBookingStatus) * ($bsChartH - 8) : 0;
+                $color = $pieColors[$bsi % count($pieColors)];
+                ?>
                 <rect x="<?= $x ?>" y="<?= 8 + ($bsChartH - 8) - max(2, $bh) ?>" width="<?= $bsBarW ?>" height="<?= max(2, $bh) ?>"
                       fill="<?= $color ?>" rx="4" opacity=".9">
                   <title><?= e($label) ?>: <?= $count ?></title>
@@ -636,18 +676,21 @@ require_once __DIR__ . '/../includes/header.php';
         <?php else: ?>
           <?php
             $riH = max(180, count($rentItemSales) * 28 + 20);
-            $riPadL = 120; $riPadR = 50;
-            $riBarH = 18; $riGap = 8;
+            $riPadL = 120;
+            $riPadR = 50;
+            $riBarH = 18;
+            $riGap = 8;
             $riPlotW = 260;
-          ?>
+            ?>
           <div class="scroll-x">
             <svg class="chart-svg" viewBox="0 0 <?= $riPadL + $riPlotW + $riPadR ?> <?= $riH ?>"
                  role="img" aria-label="Top best-selling rent items">
-              <?php $rpi = 0; foreach ($rentItemSales as $name => $qty):
-                  $y = 10 + $rpi * ($riBarH + $riGap);
-                  $bw = $maxRentQty > 0 ? ($qty / $maxRentQty) * $riPlotW : 0;
-                  $displayName = mb_strlen($name) > 16 ? mb_substr($name, 0, 14) . '…' : $name;
-              ?>
+              <?php $rpi = 0;
+            foreach ($rentItemSales as $name => $qty):
+                $y = 10 + $rpi * ($riBarH + $riGap);
+                $bw = $maxRentQty > 0 ? ($qty / $maxRentQty) * $riPlotW : 0;
+                $displayName = mb_strlen($name) > 16 ? mb_substr($name, 0, 14) . '…' : $name;
+                ?>
                 <text x="<?= $riPadL - 6 ?>" y="<?= $y + $riBarH / 2 + 4 ?>" text-anchor="end"
                       font-family="Inter,sans-serif" font-size="11" fill="#F5F1E8"><?= e($displayName) ?></text>
                 <rect x="<?= $riPadL ?>" y="<?= $y ?>" width="<?= max(2, $bw) ?>" height="<?= $riBarH ?>"
@@ -681,9 +724,9 @@ require_once __DIR__ . '/../includes/header.php';
         <?php if (!$recentBookings): ?>
           <tr><td colspan="3" class="muted t-center">No bookings yet.</td></tr>
         <?php else: foreach ($recentBookings as $id => $b):
-              [$bl, $bc] = booking_status_label((string) ($b['status'] ?? ''));
-              $appt = (string) ($b['appointment_time'] ?? '');
-        ?>
+            [$bl, $bc] = booking_status_label((string) ($b['status'] ?? ''));
+            $appt = (string) ($b['appointment_time'] ?? '');
+            ?>
           <tr>
             <td>
               <strong><?= e($b['user_name'] ?? 'Guest') ?></strong><br>
@@ -715,9 +758,9 @@ require_once __DIR__ . '/../includes/header.php';
         <?php if (!$recentOrders): ?>
           <tr><td colspan="5" class="muted t-center">No orders yet.</td></tr>
         <?php else: foreach ($recentOrders as $id => $o):
-              [$pl, $pc] = payment_status_label((string) ($o['payment_status'] ?? ''));
-              [$ol, $oc] = order_status_label((string) ($o['status'] ?? ''));
-        ?>
+            [$pl, $pc] = payment_status_label((string) ($o['payment_status'] ?? ''));
+            [$ol, $oc] = order_status_label((string) ($o['status'] ?? ''));
+            ?>
           <tr>
             <td>
               <strong><?= e($o['user_name'] ?? 'Guest') ?></strong><br>

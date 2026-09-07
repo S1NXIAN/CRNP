@@ -8,10 +8,7 @@
 require_once __DIR__ . '/../init.php';
 security_headers();
 
-if (!defined('GOOGLE_CLIENT_ID')) {
-    define('GOOGLE_CLIENT_ID', 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com');
-}
-$googleConfigured = (GOOGLE_CLIENT_ID !== 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com');
+// Sign-in is email + password only (OTP verified). No third-party providers.
 
 $name  = '';
 $email = '';
@@ -37,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $existing  = [];
     $existingId = null;
     if (!$errors) {
-        $existing = filter_by(rows($db->retrieve('/user')), 'email', $email);
+        $existing = db_find_by_email('/user', $email);
         if ($existing) {
             $existingId = (string) array_key_first($existing);
             $first = reset($existing);
@@ -90,8 +87,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sent = sendOTP($email, $otp);
         if (!$sent) {
             // P0: never leak the OTP in production. Only surface the dev
-            // fallback when the host has explicitly opted into DEV_MODE.
-            if (defined('DEV_MODE') && DEV_MODE) {
+            // fallback when the host has explicitly opted into DEV_SHOW_OTP.
+            if (defined('DEV_SHOW_OTP') && DEV_SHOW_OTP) {
                 flash('SMTP not configured — OTP is ' . $otp . ' (dev only).', 'warn');
             } else {
                 flash('Could not send verification email. Please try again or contact support.', 'danger');
@@ -186,7 +183,6 @@ $flashes = get_flashes();
     .auth__card .form-actions { margin-top: 2px; }
     .auth__card .divider { margin: 6px 0; }
     .auth__card .t-center.muted { margin-bottom: 4px; font-size: 12px; }
-    .auth__card .g_id_signin { margin-bottom: 0; }
 
     .auth__switch {
       margin-top: 4px;
@@ -201,9 +197,6 @@ $flashes = get_flashes();
     }
   </style>
   <link rel="icon" href="/assets/img/logo.png">
-  <?php if ($googleConfigured): ?>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <?php endif; ?>
 </head>
 <body>
 <button class="theme-toggle theme-toggle--floating" type="button" aria-label="Toggle dark mode" aria-pressed="false" data-theme-toggle title="Toggle theme">
@@ -272,28 +265,6 @@ $flashes = get_flashes();
           </div>
         </div>
       </form>
-
-      <?php if ($googleConfigured): ?>
-        <div class="divider"></div>
-        <div class="t-center muted">or continue with</div>
-        <div id="g_id_onload"
-             data-client_id="<?= e(GOOGLE_CLIENT_ID) ?>"
-             data-callback="handleGoogle"
-             data-auto_prompt="false"></div>
-        <div class="t-center">
-          <div class="g_id_signin" data-type="standard" data-shape="pill" data-size="large" data-theme="outline" data-text="continue_with" data-locale="en"></div>
-        </div>
-        <form id="googleForm" method="post" action="/user/google_auth.php" style="display:none;">
-          <?= csrf_field() ?>
-          <input type="hidden" name="credential" id="googleCredential">
-        </form>
-        <script>
-          function handleGoogle(response) {
-            document.getElementById('googleCredential').value = response.credential;
-            document.getElementById('googleForm').submit();
-          }
-        </script>
-      <?php endif; ?>
 
       <p class="auth__switch">
         Already have an account? <a href="/user/login.php">Sign in</a>

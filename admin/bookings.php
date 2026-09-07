@@ -7,7 +7,7 @@ require_admin();
 use App\Models\Booking;
 
 /* ---------- List ---------- */
-$page  = max(1, (int)($_GET['page'] ?? 1));
+$page  = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 50;
 $bookingPage = Booking::paginate($page, $perPage);
 $bookings  = $bookingPage['data'];
@@ -20,20 +20,29 @@ uasort($bookings, function ($a, $b) {
     return $tb <=> $ta;
 });
 
-function items_summary($items): string {
-    if (!is_array($items) || !$items) return '—';
+function items_summary($items): string
+{
+    if (!is_array($items) || !$items) {
+        return '—';
+    }
     $parts = [];
     foreach ($items as $entry) {
-        if (!is_array($entry)) continue;
+        if (!is_array($entry)) {
+            continue;
+        }
         $q   = (int) ($entry['qty'] ?? 0);
         $nm  = (string) ($entry['name'] ?? 'Item');
         $parts[] = $q . '× ' . $nm;
-        if (count($parts) >= 2) break;
+        if (count($parts) >= 2) {
+            break;
+        }
     }
     $total = is_array($items) ? count($items) : 0;
     $more  = $total - count($parts);
     $s = implode(', ', $parts);
-    if ($more > 0) $s .= ' +' . $more . ' more';
+    if ($more > 0) {
+        $s .= ' +' . $more . ' more';
+    }
     return $s;
 }
 
@@ -100,7 +109,7 @@ require_once __DIR__ . '/../includes/header.php';
             [$pl, $pc] = payment_status_label((string) ($b['payment_status'] ?? ''));
             $appt = (string) ($b['appointment_time'] ?? '');
             $ret  = (string) ($b['return_time'] ?? '');
-        ?>
+            ?>
           <tr>
             <td>
               <strong><?= e($b['user_name'] ?? 'Guest') ?></strong><br>
@@ -123,7 +132,8 @@ require_once __DIR__ . '/../includes/header.php';
                       <dt>Notes</dt><dd style="background:#fff7e0;border:1px dashed #f0b429;border-radius:6px;padding:6px 10px;color:#8a5a00;"><?= e($b['notes']) ?></dd>
                     <?php endif; ?>
                     <dt>Payment</dt><dd><span class="badge <?= e($pc) ?>"><?= e($pl) ?></span> · <?php [$pmLabel, $pmCls] = payment_method_label((string) ($b['payment_method'] ?? 'counter')); ?><span class="badge <?= e($pmCls) ?>"><?= e($pmLabel) ?></span>
-                      <?php $receipt = (string) ($b['receipt'] ?? ''); if (($b['payment_method'] ?? '') === 'gcash' && $receipt !== ''): ?>
+                      <?php $receipt = (string) ($b['receipt'] ?? '');
+            if (($b['payment_method'] ?? '') === 'gcash' && $receipt !== ''): ?>
                         <br><span class="badge badge--gold" style="cursor:pointer;margin-top:4px;display:inline-block" data-receipt="<?= e(image_display_src($receipt, 'user/bookings')) ?>">View receipt</span>
                       <?php endif; ?>
                     </dd>

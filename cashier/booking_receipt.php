@@ -7,7 +7,7 @@ use App\Models\Booking;
 require_once __DIR__ . '/../init.php';
 require_cashier();
 
-$bookingId = trim((string)($_GET['id'] ?? ''));
+$bookingId = trim((string) ($_GET['id'] ?? ''));
 if ($bookingId === '') {
     flash('No booking specified.', 'danger');
     redirect('/cashier/bookings.php');
@@ -21,14 +21,14 @@ if (!$bookingModel) {
 $b = $bookingModel->toArray();
 
 $items         = $b['items'] ?? [];
-$total         = (float)($b['total'] ?? 0);
-$paymentMethod = (string)($b['payment_method'] ?? 'counter');
+$total         = (float) ($b['total'] ?? 0);
+$paymentMethod = (string) ($b['payment_method'] ?? 'counter');
 $customerName  = e($b['customer_name'] ?? $b['full_name'] ?? $b['user_name'] ?? '—');
 $contact       = e($b['contact'] ?? '—');
 $address       = e($b['address'] ?? '—');
 $createdAt     = $b['created_at'] ? e(date('M j, Y \a\t g:i A', strtotime($b['created_at']))) : '—';
 $apptTime      = $b['appointment_time'] ? e(date('M j, Y \a\t g:i A', strtotime($b['appointment_time']))) : '—';
-$retTime       = $b['return_time']      ? e(date('M j, Y \a\t g:i A', strtotime($b['return_time'])))      : '—';
+$retTime       = $b['return_time'] ? e(date('M j, Y \a\t g:i A', strtotime($b['return_time']))) : '—';
 $createdBy     = e($b['created_by'] ?? ($b['user_name'] ?? '—'));
 $shortId       = strtoupper(substr($bookingId, 0, 6));
 
@@ -112,12 +112,13 @@ $pageTitle = 'Booking Receipt #' . $shortId;
       </tr>
     </thead>
     <tbody>
-      <?php $i = 0; foreach ($items as $it): $i++; ?>
+      <?php $i = 0;
+foreach ($items as $it): $i++; ?>
         <tr>
           <td class="name"><?= e($it['name'] ?? 'Item ' . $i) ?></td>
-          <td class="num"><?= (int)($it['qty'] ?? 0) ?></td>
-          <td class="num"><?= e(money((float)($it['price'] ?? 0))) ?></td>
-          <td class="num"><?= e(money((float)($it['subtotal'] ?? 0))) ?></td>
+          <td class="num"><?= (int) ($it['qty'] ?? 0) ?></td>
+          <td class="num"><?= e(money((float) ($it['price'] ?? 0))) ?></td>
+          <td class="num"><?= e(money((float) ($it['subtotal'] ?? 0))) ?></td>
         </tr>
       <?php endforeach; ?>
     </tbody>

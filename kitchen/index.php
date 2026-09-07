@@ -11,51 +11,36 @@ require_kitchen();
 
 use App\Models\Order;
 
-/* ---------- small display helpers (kept local to kitchen pages) ---------- */
-if (!function_exists('k_short_id')) {
-    function k_short_id(string $id): string {
-        return substr($id, 0, 8);
-    }
-}
-if (!function_exists('k_customer_name')) {
-    function k_customer_name(array $order): string {
-        $n = $order['customer_name'] ?? $order['user_name'] ?? $order['name'] ?? '';
-        return trim((string)$n) !== '' ? (string)$n : 'Guest';
-    }
-}
-if (!function_exists('k_items_html')) {
-    function k_items_html($items): string {
-        if (!is_array($items) || empty($items)) {
-            return '<span class="muted">No items</span>';
-        }
-        $parts = [];
-        foreach ($items as $it) {
-            if (!is_array($it)) continue;
-            $name = (string)($it['name'] ?? 'Item');
-            $qty  = (int)($it['qty'] ?? $it['quantity'] ?? 1);
-            $parts[] = e($name) . ' <span class="muted">&times;' . $qty . '</span>';
-        }
-        return $parts ? implode(', ', $parts) : '<span class="muted">No items</span>';
-    }
-}
+/* ---------- display helpers (shared bits live in functions.php) ---------- */
 if (!function_exists('k_elapsed')) {
-    function k_elapsed(?string $ts): string {
-        if ($ts === null || $ts === '') return '—';
+    function k_elapsed(?string $ts): string
+    {
+        if ($ts === null || $ts === '') {
+            return '—';
+        }
         $t = strtotime($ts);
-        if ($t === false) return '—';
+        if ($t === false) {
+            return '—';
+        }
         $diff = max(0, time() - $t);
-        if ($diff < 60)   return 'just now';
-        if ($diff < 3600) return (int)floor($diff / 60) . 'm ago';
-        if ($diff < 86400) return (int)floor($diff / 3600) . 'h ago';
-        return (int)floor($diff / 86400) . 'd ago';
+        if ($diff < 60) {
+            return 'just now';
+        }
+        if ($diff < 3600) {
+            return (int) floor($diff / 60) . 'm ago';
+        }
+        if ($diff < 86400) {
+            return (int) floor($diff / 3600) . 'h ago';
+        }
+        return (int) floor($diff / 86400) . 'd ago';
     }
 }
 
 /* ---------- POST: status transition (skip the full list fetch) ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
-    $action  = (string)post('action', '');
-    $orderId = (string)post('order_id', '');
+    $action  = (string) post('action', '');
+    $orderId = (string) post('order_id', '');
 
     // action => [ currentStatus => newStatus ]
     $transitions = [
@@ -76,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('/kitchen/');
     }
 
-    $current = (string)$order->status;
+    $current = (string) $order->status;
     $map     = $transitions[$action];
     if (!isset($map[$current])) {
         flash('Invalid status transition.', 'danger');
@@ -85,9 +70,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $newStatus = $map[$current];
     $patch = ['status' => $newStatus, 'updated_at' => now()];
-    if ($newStatus === 'accepted')  $patch['accepted_at']  = now();
-    if ($newStatus === 'preparing') $patch['preparing_at'] = now();
-    if ($newStatus === 'ready')     $patch['ready_at']     = now();
+    if ($newStatus === 'accepted') {
+        $patch['accepted_at']  = now();
+    }
+    if ($newStatus === 'preparing') {
+        $patch['preparing_at'] = now();
+    }
+    if ($newStatus === 'ready') {
+        $patch['ready_at']     = now();
+    }
     if ($newStatus === 'done') {
         $patch['done_at'] = now();
         $patch['done_by'] = $_SESSION['kitchen_name'] ?? '';
@@ -95,54 +86,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         $order->update($patch);
-        flash('Order #' . k_short_id($orderId) . ' moved to ' . ucfirst($newStatus) . '.', 'ok');
+        flash('Order #' . short_id($orderId) . ' moved to ' . ucfirst($newStatus) . '.', 'ok');
     } catch (Throwable $ex) {
         flash('Could not update the order. Please try again.', 'danger');
     }
     redirect('/kitchen/');
 }
 
-/* ---------- GET: list + filter ---------- */
-$allOrders = Order::raw();
-$statusFilter = isset($_GET['status']) ? (string)$_GET['status'] : 'active';
+/* ---------- GET: list + filter (indexed; unfiltered 'all' keeps raw) ---------- */
+$statusFilter = isset($_GET['status']) ? (string) $_GET['status'] : 'active';
 $validFilters = ['all', 'active', 'accepted', 'preparing', 'ready', 'done'];
 if (!in_array($statusFilter, $validFilters, true)) {
     $statusFilter = 'active';
 }
 $activeStatuses = ['accepted', 'preparing', 'ready'];
 
+if ($statusFilter === 'all') {
+    $fetched = Order::raw();
+} elseif ($statusFilter === 'active') {
+    $fetched = Order::whereAny('status', $activeStatuses);
+} else {
+    $fetched = Order::where('status', $statusFilter);
+}
+$orders = $fetched;
+
 // Sort: newest created_at first (missing dates sink to the bottom).
-$sorted = $allOrders;
-uasort($sorted, function ($a, $b) {
-    $ta = strtotime((string)($a['created_at'] ?? ''));
-    $tb = strtotime((string)($b['created_at'] ?? ''));
-    if ($ta === false && $tb === false) return 0;
-    if ($ta === false) return 1;
-    if ($tb === false) return -1;
+uasort($orders, function ($a, $b) {
+    $ta = strtotime((string) ($a['created_at'] ?? ''));
+    $tb = strtotime((string) ($b['created_at'] ?? ''));
+    if ($ta === false && $tb === false) {
+        return 0;
+    }
+    if ($ta === false) {
+        return 1;
+    }
+    if ($tb === false) {
+        return -1;
+    }
     return $tb - $ta;
 });
 
-// Apply filter
-$orders = [];
-foreach ($sorted as $id => $o) {
-    if (!is_array($o)) continue;
-    $s = (string)($o['status'] ?? 'pending');
-    if ($statusFilter === 'all') {
-        $orders[$id] = $o;
-    } elseif ($statusFilter === 'active') {
-        if (in_array($s, $activeStatuses, true)) $orders[$id] = $o;
-    } else {
-        if ($s === $statusFilter) $orders[$id] = $o;
-    }
-}
-
-// Stat strip counts (across ALL orders, ignoring the filter)
-$statCounts = ['preparing' => 0, 'ready' => 0];
-foreach ($allOrders as $o) {
-    if (!is_array($o)) continue;
-    $s = (string)($o['status'] ?? '');
-    if (isset($statCounts[$s])) $statCounts[$s]++;
-}
+// Stat strip counts (indexed; independent of the filter)
+$statCounts = [
+    'preparing' => count(Order::where('status', 'preparing')),
+    'ready'     => count(Order::where('status', 'ready')),
+];
 
 $filterPills = [
     'active'    => 'Active',
@@ -177,12 +165,12 @@ require_once __DIR__ . '/../includes/header.php';
 <section class="grid grid--stat mb-4" aria-label="Order counts">
   <div class="stat">
     <div class="stat__label">Preparing</div>
-    <div class="stat__value"><?= (int)$statCounts['preparing'] ?></div>
+    <div class="stat__value"><?= (int) $statCounts['preparing'] ?></div>
     <div class="stat__delta muted">On the line</div>
   </div>
   <div class="stat">
     <div class="stat__label">Ready</div>
-    <div class="stat__value"><?= (int)$statCounts['ready'] ?></div>
+    <div class="stat__value"><?= (int) $statCounts['ready'] ?></div>
     <div class="stat__delta muted">Send to counter</div>
   </div>
 </section>
@@ -228,15 +216,15 @@ require_once __DIR__ . '/../includes/header.php';
       <tbody>
         <?php foreach ($orders as $id => $o): ?>
           <?php
-            $s       = (string)($o['status'] ?? 'pending');
+            $s       = (string) ($o['status'] ?? 'pending');
             [$lbl,$cls] = order_status_label($s);
-            $elapsed = k_elapsed((string)($o['created_at'] ?? ''));
-          ?>
+            $elapsed = k_elapsed((string) ($o['created_at'] ?? ''));
+            ?>
           <tr>
-            <td><span class="kbd">#<?= e(k_short_id((string)$id)) ?></span></td>
-            <td><?= e(k_customer_name($o)) ?></td>
+            <td><span class="kbd">#<?= e(short_id((string) $id)) ?></span></td>
+            <td><?= e(order_customer_name($o)) ?></td>
             <td>
-              <?= k_items_html($o['items'] ?? []) ?>
+              <?= items_html($o['items'] ?? []) ?>
               <?php if (!empty($o['notes'])): ?>
                 <div class="k-note" title="Special instructions"><?= e($o['notes']) ?></div>
               <?php endif; ?>
@@ -271,7 +259,7 @@ require_once __DIR__ . '/../includes/header.php';
                   <input type="hidden" name="action" value="done">
                   <input type="hidden" name="order_id" value="<?= e($id) ?>">
                   <button type="submit" class="btn btn--ghost btn--sm"
-                          data-confirm="Mark order #<?= e(k_short_id((string)$id)) ?> as done?">Mark done</button>
+                          data-confirm="Mark order #<?= e(short_id((string) $id)) ?> as done?">Mark done</button>
                 </form>
               <?php else: ?>
                 <span class="badge badge--muted">Completed</span>

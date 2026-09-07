@@ -20,10 +20,10 @@ $defaults = [
     'facebook_url'    => '',
     'instagram_url'   => '',
     'support_email'   => '',
-    'hero_title'      => "Your table is waiting.",
-    'hero_subtitle'   => "Order ahead for pickup, reserve a table, or book equipment for your next celebration — all from one account.",
+    'hero_title'      => 'Your table is waiting.',
+    'hero_subtitle'   => 'Order ahead for pickup, reserve a table, or book equipment for your next celebration — all from one account.',
     'about_headline'  => 'Your trusted partner for events and celebrations.',
-    'about_body'      => "From everyday meals to special gatherings, we bring quality food and reliable rental equipment to every table we serve in Iloilo City.",
+    'about_body'      => 'From everyday meals to special gatherings, we bring quality food and reliable rental equipment to every table we serve in Iloilo City.',
     'about_stat1_num' => '10+',
     'about_stat1_lbl' => 'Years Experience',
     'about_stat2_num' => '500+',
@@ -45,7 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
     $updated = [];
     foreach ($defaults as $key => $default) {
-        if ($key === 'gcash_qr') continue;
+        if ($key === 'gcash_qr') {
+            continue;
+        }
         $updated[$key] = trim(post($key, $default));
     }
     // Optional QR image upload (replaces the stored value only when a new file is sent)
@@ -55,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (post('gcash_qr_remove') === '1') {
         $updated['gcash_qr'] = '';
     } else {
-        $updated['gcash_qr'] = trim((string)($settings['gcash_qr'] ?? ''));
+        $updated['gcash_qr'] = trim((string) ($settings['gcash_qr'] ?? ''));
     }
     try {
         // PATCH the /settings node directly (no child id)
@@ -138,7 +140,7 @@ require_once __DIR__ . '/../includes/header.php';
       </div>
       <div class="field">
         <label for="gcash_qr">GCash QR code (optional)</label>
-        <?php $gcashQr = trim((string)($settings['gcash_qr'] ?? '')); ?>
+        <?php $gcashQr = trim((string) ($settings['gcash_qr'] ?? '')); ?>
         <?php if ($gcashQr !== ''): ?>
           <div style="margin:4px 0 10px">
             <img src="<?= e(image_display_src($gcashQr, 'settings')) ?>" alt="Current GCash QR" style="max-width:140px;height:auto;border-radius:8px;background:#fff;padding:6px;border:1px solid var(--line)">

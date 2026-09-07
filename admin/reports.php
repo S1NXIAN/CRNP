@@ -3,19 +3,25 @@
  * admin/reports.php — Sales report with calendar date picker.
  * Calendar replaces the old date-range inputs; all original charts and tables remain.
  */
-use App\Models\Order;
 use App\Models\Booking;
+use App\Models\Order;
 
 require_once __DIR__ . '/../init.php';
 require_admin();
 
 /* ---------- Calendar month + selected day ---------- */
 $calMonth = isset($_GET['month']) ? (int) $_GET['month'] : (int) date('n');
-$calYear  = isset($_GET['year'])  ? (int) $_GET['year']  : (int) date('Y');
+$calYear  = isset($_GET['year']) ? (int) $_GET['year'] : (int) date('Y');
 $selectedDay = $_GET['day'] ?? null;
 
-if ($calMonth < 1)  { $calMonth = 12; $calYear--; }
-if ($calMonth > 12) { $calMonth = 1;  $calYear++; }
+if ($calMonth < 1) {
+    $calMonth = 12;
+    $calYear--;
+}
+if ($calMonth > 12) {
+    $calMonth = 1;
+    $calYear++;
+}
 
 $monthStart = mktime(0, 0, 0, $calMonth, 1, $calYear);
 $daysInMonth = (int) date('t', $monthStart);
@@ -32,10 +38,16 @@ if ($selectedDay !== null) {
 /* ---------- Prev / next month ---------- */
 $prevMonth = $calMonth - 1;
 $prevYear  = $calYear;
-if ($prevMonth < 1) { $prevMonth = 12; $prevYear--; }
+if ($prevMonth < 1) {
+    $prevMonth = 12;
+    $prevYear--;
+}
 $nextMonth = $calMonth + 1;
 $nextYear  = $calYear;
-if ($nextMonth > 12) { $nextMonth = 1;  $nextYear++; }
+if ($nextMonth > 12) {
+    $nextMonth = 1;
+    $nextYear++;
+}
 
 /* ---------- Fetch month data ---------- */
 $monthFrom = date('Y-m-d', $monthStart);
@@ -115,7 +127,9 @@ while ($cursor <= $monthEndTs) {
     $cursor = strtotime('+1 day', $cursor);
 }
 foreach ($allOrders as $o) {
-    if ((string) ($o['payment_status'] ?? '') !== 'paid') continue;
+    if ((string) ($o['payment_status'] ?? '') !== 'paid') {
+        continue;
+    }
     $day = substr((string) ($o['created_at'] ?? ''), 0, 10);
     if (isset($dayTotals[$day])) {
         $dayTotals[$day] += (float) ($o['total'] ?? 0);
@@ -263,9 +277,9 @@ require_once __DIR__ . '/../includes/header.php';
 <div class="card mb-4">
   <div class="card__head">
     <div class="cal-nav" style="width:100%">
-      <a class="btn btn--ghost btn--sm" href="/admin/reports.php?month=<?= $prevMonth ?>&year=<?= $prevYear ?>">&larr; <?= date('M', mktime(0,0,0,$prevMonth,1,$prevYear)) ?></a>
+      <a class="btn btn--ghost btn--sm" href="/admin/reports.php?month=<?= $prevMonth ?>&year=<?= $prevYear ?>">&larr; <?= date('M', mktime(0, 0, 0, $prevMonth, 1, $prevYear)) ?></a>
       <span class="cal-nav__title"><?= e($monthLabel) ?></span>
-      <a class="btn btn--ghost btn--sm" href="/admin/reports.php?month=<?= $nextMonth ?>&year=<?= $nextYear ?>"><?= date('M', mktime(0,0,0,$nextMonth,1,$nextYear)) ?> &rarr;</a>
+      <a class="btn btn--ghost btn--sm" href="/admin/reports.php?month=<?= $nextMonth ?>&year=<?= $nextYear ?>"><?= date('M', mktime(0, 0, 0, $nextMonth, 1, $nextYear)) ?> &rarr;</a>
     </div>
   </div>
   <div class="card__body">
@@ -276,24 +290,31 @@ require_once __DIR__ . '/../includes/header.php';
       <?php for ($i = 0; $i < $firstDow; $i++): ?>
         <div class="cal-day cal-day--empty"></div>
       <?php endfor; ?>
-      <?php $todayStr = date('Y-m-d'); for ($d = 1; $d <= $daysInMonth; $d++):
-        $key  = sprintf('%04d-%02d-%02d', $calYear, $calMonth, $d);
-        $dd   = $dayData[$key];
-        $isToday    = ($key === $todayStr);
-        $isSelected = ($selectedDay === $key);
-        $hasData    = ($dd['orders'] > 0 || $dd['bookings'] > 0);
-        $cls = 'cal-day';
-        if ($isToday)    $cls .= ' cal-day--today';
-        if ($isSelected) $cls .= ' cal-day--selected';
-        if ($hasData)    $cls .= ' cal-day--has-data';
-      ?>
+      <?php $todayStr = date('Y-m-d');
+for ($d = 1; $d <= $daysInMonth; $d++):
+    $key  = sprintf('%04d-%02d-%02d', $calYear, $calMonth, $d);
+    $dd   = $dayData[$key];
+    $isToday    = ($key === $todayStr);
+    $isSelected = ($selectedDay === $key);
+    $hasData    = ($dd['orders'] > 0 || $dd['bookings'] > 0);
+    $cls = 'cal-day';
+    if ($isToday) {
+        $cls .= ' cal-day--today';
+    }
+    if ($isSelected) {
+        $cls .= ' cal-day--selected';
+    }
+    if ($hasData) {
+        $cls .= ' cal-day--has-data';
+    }
+    ?>
         <a class="<?= $cls ?>" href="/admin/reports.php?month=<?= $calMonth ?>&year=<?= $calYear ?>&day=<?= $key ?>" style="text-decoration:none;color:inherit;">
           <div class="cal-num"><?= $d ?></div>
           <?php if ($dd['orders'] > 0): ?>
-            <span class="cal-pip cal-pip--order"><?= $dd['orders'] ?> order<?= $dd['orders']===1?'':'s' ?></span>
+            <span class="cal-pip cal-pip--order"><?= $dd['orders'] ?> order<?= $dd['orders'] === 1 ? '' : 's' ?></span>
           <?php endif; ?>
           <?php if ($dd['bookings'] > 0): ?>
-            <span class="cal-pip cal-pip--booking"><?= $dd['bookings'] ?> booking<?= $dd['bookings']===1?'':'s' ?></span>
+            <span class="cal-pip cal-pip--booking"><?= $dd['bookings'] ?> booking<?= $dd['bookings'] === 1 ? '' : 's' ?></span>
           <?php endif; ?>
         </a>
       <?php endfor; ?>
@@ -344,7 +365,7 @@ require_once __DIR__ . '/../includes/header.php';
               [$pl, $pc] = payment_status_label((string) ($o['payment_status'] ?? ''));
               [$ol, $oc] = order_status_label((string) ($o['status'] ?? ''));
               $created = (string) ($o['created_at'] ?? '');
-          ?>
+              ?>
             <tr>
               <td class="micro"><?= $created ? e(date('M j, Y g:i A', strtotime($created))) : '—' ?></td>
               <td><code style="font-size:12px;color:var(--ink-soft);"><?= e(substr((string) $id, 0, 10)) ?>…</code></td>
@@ -395,7 +416,7 @@ require_once __DIR__ . '/../includes/header.php';
               [$bl, $bc] = booking_status_label((string) ($b['status'] ?? ''));
               [$pl, $pc] = payment_status_label((string) ($b['payment_status'] ?? ''));
               $created = (string) ($b['created_at'] ?? '');
-          ?>
+              ?>
             <tr>
               <td class="micro"><?= $created ? e(date('M j, Y g:i A', strtotime($created))) : '—' ?></td>
               <td><code style="font-size:12px;color:var(--ink-soft);"><?= e(substr((string) $id, 0, 10)) ?>…</code></td>
@@ -455,15 +476,16 @@ require_once __DIR__ . '/../includes/header.php';
                 <stop offset="100%" stop-color="#B8934A"/>
               </linearGradient>
             </defs>
-            <line x1="<?= $gap/2 ?>" y1="<?= $chartH ?>" x2="<?= $chartW - $gap/2 ?>" y2="<?= $chartH ?>"
+            <line x1="<?= $gap / 2 ?>" y1="<?= $chartH ?>" x2="<?= $chartW - $gap / 2 ?>" y2="<?= $chartH ?>"
                   stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
-            <?php $i = 0; foreach ($dayTotals as $day => $val):
-                $h    = $val > 0 ? max(3, ($val / $maxDay) * ($chartH - 18)) : 2;
-                $x    = $gap + $i * ($barW + $gap);
-                $y    = $chartH - $h;
-                $lab  = $dayLabels[$day];
-                $showLabel = ($dayCount <= 14) || ($i % max(1, intval($dayCount/12)) === 0);
-            ?>
+            <?php $i = 0;
+          foreach ($dayTotals as $day => $val):
+              $h    = $val > 0 ? max(3, ($val / $maxDay) * ($chartH - 18)) : 2;
+              $x    = $gap + $i * ($barW + $gap);
+              $y    = $chartH - $h;
+              $lab  = $dayLabels[$day];
+              $showLabel = ($dayCount <= 14) || ($i % max(1, intval($dayCount / 12)) === 0);
+              ?>
               <rect x="<?= $x ?>" y="0" width="<?= $barW ?>" height="<?= $chartH ?>"
                     fill="#2D241B" rx="4" opacity=".4"/>
               <rect class="bar" x="<?= $x ?>" y="<?= $y ?>" width="<?= $barW ?>" height="<?= $h ?>"
@@ -471,13 +493,13 @@ require_once __DIR__ . '/../includes/header.php';
                 <title><?= e($lab . ' — ' . money($val)) ?></title>
               </rect>
               <?php if ($val > 0 && $dayCount <= 14): ?>
-                <text x="<?= $x + $barW/2 ?>" y="<?= max(16, $y - 5) ?>" text-anchor="middle"
+                <text x="<?= $x + $barW / 2 ?>" y="<?= max(16, $y - 5) ?>" text-anchor="middle"
                       font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#F5F1E8">
                   <?= e('₱' . number_format($val, 0)) ?>
                 </text>
               <?php endif; ?>
               <?php if ($showLabel): ?>
-                <text x="<?= $x + $barW/2 ?>" y="<?= $chartH + 18 ?>" text-anchor="middle"
+                <text x="<?= $x + $barW / 2 ?>" y="<?= $chartH + 18 ?>" text-anchor="middle"
                       font-family="Inter, sans-serif" font-size="12" fill="#A8A29E">
                   <?= e($lab) ?>
                 </text>
@@ -504,12 +526,12 @@ require_once __DIR__ . '/../includes/header.php';
       <div class="card__body">
         <?php
           $lineW = max(400, $dayCount * 60 + 60);
-          $lineH = 180;
-          $linePadL = 60;
-          $linePadB = 38;
-          $plotW = $lineW - $linePadL - 10;
-          $plotH = $lineH - $linePadB - 10;
-        ?>
+$lineH = 180;
+$linePadL = 60;
+$linePadB = 38;
+$plotW = $lineW - $linePadL - 10;
+$plotH = $lineH - $linePadB - 10;
+?>
         <div class="scroll-x">
           <svg class="chart-svg" viewBox="0 0 <?= $lineW ?> <?= $lineH + $linePadB ?>"
                role="img" aria-label="Line chart comparing order and booking revenue">
@@ -517,7 +539,7 @@ require_once __DIR__ . '/../includes/header.php';
             <?php for ($gi = 0; $gi <= 4; $gi++):
                 $gy = 10 + $plotH - ($gi / 4) * $plotH;
                 $gv = ($maxRev / 4) * $gi;
-            ?>
+                ?>
               <line x1="<?= $linePadL ?>" y1="<?= $gy ?>" x2="<?= $lineW - 10 ?>" y2="<?= $gy ?>"
                     stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="<?= $gi === 0 ? '0' : '4,4' ?>"/>
               <text x="<?= $linePadL - 6 ?>" y="<?= $gy + 4 ?>" text-anchor="end"
@@ -525,23 +547,23 @@ require_once __DIR__ . '/../includes/header.php';
             <?php endfor; ?>
 
             <?php
-              $days = array_keys($dayOrderRevenue);
-              $coords = function(array $data, float $max) use ($days, $linePadL, $plotW, $plotH) {
-                  $pts = [];
-                  $n = count($days);
-                  foreach ($days as $i => $d) {
-                      $x = $linePadL + ($n > 1 ? ($i / ($n - 1)) * $plotW : $plotW / 2);
-                      $y = 10 + $plotH - ($max > 0 ? ($data[$d] / $max) * $plotH : 0);
-                      $pts[] = [$x, $y, $data[$d], $d];
-                  }
-                  return $pts;
-              };
-              $orderPts   = $coords($dayOrderRevenue, $maxRev);
-              $bookingPts = $coords($dayBookingRevenue, $maxRev);
-            ?>
+                  $days = array_keys($dayOrderRevenue);
+$coords = function (array $data, float $max) use ($days, $linePadL, $plotW, $plotH) {
+    $pts = [];
+    $n = count($days);
+    foreach ($days as $i => $d) {
+        $x = $linePadL + ($n > 1 ? ($i / ($n - 1)) * $plotW : $plotW / 2);
+        $y = 10 + $plotH - ($max > 0 ? ($data[$d] / $max) * $plotH : 0);
+        $pts[] = [$x, $y, $data[$d], $d];
+    }
+    return $pts;
+};
+$orderPts   = $coords($dayOrderRevenue, $maxRev);
+$bookingPts = $coords($dayBookingRevenue, $maxRev);
+?>
 
             <!-- Order revenue line (gold) -->
-            <polyline points="<?= implode(' ', array_map(fn($p) => $p[0] . ',' . $p[1], $orderPts)) ?>"
+            <polyline points="<?= implode(' ', array_map(fn ($p) => $p[0] . ',' . $p[1], $orderPts)) ?>"
                       fill="none" stroke="#D4A937" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
             <?php foreach ($orderPts as $p): ?>
               <circle cx="<?= $p[0] ?>" cy="<?= $p[1] ?>" r="3.5" fill="#D4A937">
@@ -550,7 +572,7 @@ require_once __DIR__ . '/../includes/header.php';
             <?php endforeach; ?>
 
             <!-- Booking revenue line (green) -->
-            <polyline points="<?= implode(' ', array_map(fn($p) => $p[0] . ',' . $p[1], $bookingPts)) ?>"
+            <polyline points="<?= implode(' ', array_map(fn ($p) => $p[0] . ',' . $p[1], $bookingPts)) ?>"
                       fill="none" stroke="#2E8B57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
             <?php foreach ($bookingPts as $p): ?>
               <circle cx="<?= $p[0] ?>" cy="<?= $p[1] ?>" r="3.5" fill="#2E8B57">
@@ -559,10 +581,11 @@ require_once __DIR__ . '/../includes/header.php';
             <?php endforeach; ?>
 
             <!-- X-axis labels -->
-            <?php $n = count($days); foreach ($days as $i => $d):
-                $x = $linePadL + ($n > 1 ? ($i / ($n - 1)) * $plotW : $plotW / 2);
-                $showLabel = ($n <= 14) || ($i % max(1, intval($n / 12)) === 0);
-            ?>
+            <?php $n = count($days);
+foreach ($days as $i => $d):
+    $x = $linePadL + ($n > 1 ? ($i / ($n - 1)) * $plotW : $plotW / 2);
+    $showLabel = ($n <= 14) || ($i % max(1, intval($n / 12)) === 0);
+    ?>
               <?php if ($showLabel): ?>
                 <text x="<?= $x ?>" y="<?= $lineH + 18 ?>" text-anchor="middle"
                       font-family="Inter,sans-serif" font-size="12" fill="#A8A29E"><?= e($dayLabels[$d]) ?></text>
@@ -588,31 +611,32 @@ require_once __DIR__ . '/../includes/header.php';
       <div class="card__body">
         <?php
           $colW = max(400, $dayCount * 60 + 60);
-          $colH = 180;
-          $colPadL = 50;
-          $colPadB = 38;
-          $colPlotW = $colW - $colPadL - 10;
-          $colPlotH = $colH - $colPadB - 10;
-          $groupW = max(20, min(50, $colPlotW / max(1, $dayCount) * 0.7));
-          $barPairW = $groupW * 2 + 4;
-        ?>
+$colH = 180;
+$colPadL = 50;
+$colPadB = 38;
+$colPlotW = $colW - $colPadL - 10;
+$colPlotH = $colH - $colPadB - 10;
+$groupW = max(20, min(50, $colPlotW / max(1, $dayCount) * 0.7));
+$barPairW = $groupW * 2 + 4;
+?>
         <div class="scroll-x">
           <svg class="chart-svg" viewBox="0 0 <?= $colW ?> <?= $colH + $colPadB ?>"
                role="img" aria-label="Column chart comparing order and booking counts">
             <?php for ($gi = 0; $gi <= 4; $gi++):
                 $gy = 10 + $colPlotH - ($gi / 4) * $colPlotH;
                 $gv = ($maxCnt / 4) * $gi;
-            ?>
+                ?>
               <line x1="<?= $colPadL ?>" y1="<?= $gy ?>" x2="<?= $colW - 10 ?>" y2="<?= $gy ?>"
                     stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="<?= $gi === 0 ? '0' : '4,4' ?>"/>
               <text x="<?= $colPadL - 6 ?>" y="<?= $gy + 4 ?>" text-anchor="end"
-                    font-family="Inter,sans-serif" font-size="12" fill="#A8A29E"><?= (int)$gv ?></text>
+                    font-family="Inter,sans-serif" font-size="12" fill="#A8A29E"><?= (int) $gv ?></text>
             <?php endfor; ?>
 
-            <?php $days = array_keys($dayOrderCount); $n = count($days);
-                  $totalGroupSpace = $colPlotW / max(1, $n);
-                  $actualGroupW = min($barPairW + 8, $totalGroupSpace * 0.85);
-            ?>
+            <?php $days = array_keys($dayOrderCount);
+$n = count($days);
+$totalGroupSpace = $colPlotW / max(1, $n);
+$actualGroupW = min($barPairW + 8, $totalGroupSpace * 0.85);
+?>
             <?php foreach ($days as $i => $d):
                 $centerX = $colPadL + $totalGroupSpace * $i + $totalGroupSpace / 2;
                 $ox = $centerX - $actualGroupW / 2;
@@ -621,7 +645,7 @@ require_once __DIR__ . '/../includes/header.php';
                 $oh = $maxCnt > 0 ? ($dayOrderCount[$d] / $maxCnt) * $colPlotH : 0;
                 $bh = $maxCnt > 0 ? ($dayBookingCount[$d] / $maxCnt) * $colPlotH : 0;
                 $showLabel = ($n <= 14) || ($i % max(1, intval($n / 12)) === 0);
-            ?>
+                ?>
               <!-- Order bar (gold) -->
               <rect x="<?= $bx ?>" y="<?= 10 + $colPlotH - max(2, $oh) ?>" width="<?= $halfW ?>" height="<?= max(2, $oh) ?>"
                     fill="#D4A937" rx="3" opacity=".9">
@@ -660,19 +684,19 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="card__body">
       <?php
         $lineW = max(400, $dayCount * 60 + 60);
-        $lineH = 300;
-        $linePadL = 60;
-        $linePadB = 38;
-        $plotW = $lineW - $linePadL - 10;
-        $plotH = $lineH - $linePadB - 10;
-      ?>
+$lineH = 300;
+$linePadL = 60;
+$linePadB = 38;
+$plotW = $lineW - $linePadL - 10;
+$plotH = $lineH - $linePadB - 10;
+?>
       <div class="scroll-x">
         <svg class="chart-svg" viewBox="0 0 <?= $lineW ?> <?= $lineH + $linePadB ?>"
              role="img" aria-label="Line chart comparing order and booking revenue">
           <?php for ($gi = 0; $gi <= 4; $gi++):
               $gy = 10 + $plotH - ($gi / 4) * $plotH;
               $gv = ($maxRev / 4) * $gi;
-          ?>
+              ?>
             <line x1="<?= $linePadL ?>" y1="<?= $gy ?>" x2="<?= $lineW - 10 ?>" y2="<?= $gy ?>"
                   stroke="#e6dfd1" stroke-width="1" stroke-dasharray="<?= $gi === 0 ? '0' : '4,4' ?>"/>
             <text x="<?= $linePadL - 6 ?>" y="<?= $gy + 4 ?>" text-anchor="end"
@@ -680,22 +704,22 @@ require_once __DIR__ . '/../includes/header.php';
           <?php endfor; ?>
 
           <?php
-            $days = array_keys($dayOrderRevenue);
-            $coords = function(array $data, float $max) use ($days, $linePadL, $plotW, $plotH) {
-                $pts = [];
-                $n = count($days);
-                foreach ($days as $i => $d) {
-                    $x = $linePadL + ($n > 1 ? ($i / ($n - 1)) * $plotW : $plotW / 2);
-                    $y = 10 + $plotH - ($max > 0 ? ($data[$d] / $max) * $plotH : 0);
-                    $pts[] = [$x, $y, $data[$d], $d];
-                }
-                return $pts;
-            };
-            $orderPts   = $coords($dayOrderRevenue, $maxRev);
-            $bookingPts = $coords($dayBookingRevenue, $maxRev);
-          ?>
+                $days = array_keys($dayOrderRevenue);
+$coords = function (array $data, float $max) use ($days, $linePadL, $plotW, $plotH) {
+    $pts = [];
+    $n = count($days);
+    foreach ($days as $i => $d) {
+        $x = $linePadL + ($n > 1 ? ($i / ($n - 1)) * $plotW : $plotW / 2);
+        $y = 10 + $plotH - ($max > 0 ? ($data[$d] / $max) * $plotH : 0);
+        $pts[] = [$x, $y, $data[$d], $d];
+    }
+    return $pts;
+};
+$orderPts   = $coords($dayOrderRevenue, $maxRev);
+$bookingPts = $coords($dayBookingRevenue, $maxRev);
+?>
 
-          <polyline points="<?= implode(' ', array_map(fn($p) => $p[0] . ',' . $p[1], $orderPts)) ?>"
+          <polyline points="<?= implode(' ', array_map(fn ($p) => $p[0] . ',' . $p[1], $orderPts)) ?>"
                     fill="none" stroke="#d8a94e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
           <?php foreach ($orderPts as $p): ?>
             <circle cx="<?= $p[0] ?>" cy="<?= $p[1] ?>" r="3.5" fill="#d8a94e">
@@ -703,7 +727,7 @@ require_once __DIR__ . '/../includes/header.php';
             </circle>
           <?php endforeach; ?>
 
-          <polyline points="<?= implode(' ', array_map(fn($p) => $p[0] . ',' . $p[1], $bookingPts)) ?>"
+          <polyline points="<?= implode(' ', array_map(fn ($p) => $p[0] . ',' . $p[1], $bookingPts)) ?>"
                     fill="none" stroke="#2d6a4f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
           <?php foreach ($bookingPts as $p): ?>
             <circle cx="<?= $p[0] ?>" cy="<?= $p[1] ?>" r="3.5" fill="#2d6a4f">
@@ -711,10 +735,11 @@ require_once __DIR__ . '/../includes/header.php';
             </circle>
           <?php endforeach; ?>
 
-          <?php $n = count($days); foreach ($days as $i => $d):
-              $x = $linePadL + ($n > 1 ? ($i / ($n - 1)) * $plotW : $plotW / 2);
-              $showLabel = ($n <= 14) || ($i % max(1, intval($n / 12)) === 0);
-          ?>
+          <?php $n = count($days);
+foreach ($days as $i => $d):
+    $x = $linePadL + ($n > 1 ? ($i / ($n - 1)) * $plotW : $plotW / 2);
+    $showLabel = ($n <= 14) || ($i % max(1, intval($n / 12)) === 0);
+    ?>
             <?php if ($showLabel): ?>
               <text x="<?= $x ?>" y="<?= $lineH + 18 ?>" text-anchor="middle"
                     font-family="Inter,sans-serif" font-size="12" fill="#8a7f70"><?= e($dayLabels[$d]) ?></text>
@@ -742,31 +767,32 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="card__body">
       <?php
         $colW = max(400, $dayCount * 60 + 60);
-        $colH = 300;
-        $colPadL = 50;
-        $colPadB = 38;
-        $colPlotW = $colW - $colPadL - 10;
-        $colPlotH = $colH - $colPadB - 10;
-        $groupW = max(20, min(50, $colPlotW / max(1, $dayCount) * 0.7));
-        $barPairW = $groupW * 2 + 4;
-      ?>
+$colH = 300;
+$colPadL = 50;
+$colPadB = 38;
+$colPlotW = $colW - $colPadL - 10;
+$colPlotH = $colH - $colPadB - 10;
+$groupW = max(20, min(50, $colPlotW / max(1, $dayCount) * 0.7));
+$barPairW = $groupW * 2 + 4;
+?>
       <div class="scroll-x">
         <svg class="chart-svg" viewBox="0 0 <?= $colW ?> <?= $colH + $colPadB ?>"
              role="img" aria-label="Column chart comparing order and booking counts">
           <?php for ($gi = 0; $gi <= 4; $gi++):
               $gy = 10 + $colPlotH - ($gi / 4) * $colPlotH;
               $gv = ($maxCnt / 4) * $gi;
-          ?>
+              ?>
             <line x1="<?= $colPadL ?>" y1="<?= $gy ?>" x2="<?= $colW - 10 ?>" y2="<?= $gy ?>"
                   stroke="#e6dfd1" stroke-width="1" stroke-dasharray="<?= $gi === 0 ? '0' : '4,4' ?>"/>
             <text x="<?= $colPadL - 6 ?>" y="<?= $gy + 4 ?>" text-anchor="end"
-                  font-family="Inter,sans-serif" font-size="12" fill="#8a7f70"><?= (int)$gv ?></text>
+                  font-family="Inter,sans-serif" font-size="12" fill="#8a7f70"><?= (int) $gv ?></text>
           <?php endfor; ?>
 
-          <?php $days = array_keys($dayOrderCount); $n = count($days);
-                $totalGroupSpace = $colPlotW / max(1, $n);
-                $actualGroupW = min($barPairW + 8, $totalGroupSpace * 0.85);
-          ?>
+          <?php $days = array_keys($dayOrderCount);
+$n = count($days);
+$totalGroupSpace = $colPlotW / max(1, $n);
+$actualGroupW = min($barPairW + 8, $totalGroupSpace * 0.85);
+?>
           <?php foreach ($days as $i => $d):
               $centerX = $colPadL + $totalGroupSpace * $i + $totalGroupSpace / 2;
               $ox = $centerX - $actualGroupW / 2;
@@ -775,7 +801,7 @@ require_once __DIR__ . '/../includes/header.php';
               $oh = $maxCnt > 0 ? ($dayOrderCount[$d] / $maxCnt) * $colPlotH : 0;
               $bh = $maxCnt > 0 ? ($dayBookingCount[$d] / $maxCnt) * $colPlotH : 0;
               $showLabel = ($n <= 14) || ($i % max(1, intval($n / 12)) === 0);
-          ?>
+              ?>
             <rect x="<?= $bx ?>" y="<?= 10 + $colPlotH - max(2, $oh) ?>" width="<?= $halfW ?>" height="<?= max(2, $oh) ?>"
                   fill="#d8a94e" rx="3" opacity=".9">
               <title><?= e(date('M j', strtotime($d)) . ' — Orders: ' . $dayOrderCount[$d]) ?></title>

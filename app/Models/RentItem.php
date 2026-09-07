@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use App\Core\Model;
@@ -15,23 +16,15 @@ class RentItem extends Model
         'status', 'created_at', 'updated_at',
     ];
 
-    /** Count of items with quantity > 0. */
-    public static function activeCount(): int
-    {
-        $n = 0;
-        foreach (static::raw() as $r) {
-            if (is_array($r) && (int)($r['quantity'] ?? 0) > 0) $n++;
-        }
-        return $n;
-    }
-
     /** Decrement stock for a rent item. */
     public static function decrementStock(string $itemId, int $qty, ?int $currentStock = null): void
     {
         if ($currentStock === null) {
             $row = static::db()->retrieve('/rent_items/' . $itemId);
-            if (!is_array($row) || !isset($row['quantity'])) return;
-            $currentStock = (int)$row['quantity'];
+            if (!is_array($row) || !isset($row['quantity'])) {
+                return;
+            }
+            $currentStock = (int) $row['quantity'];
         }
         $new = max(0, $currentStock - $qty);
         static::db()->update('/rent_items', $itemId, ['quantity' => $new]);
@@ -42,7 +35,7 @@ class RentItem extends Model
     {
         if ($currentStock === null) {
             $row = static::db()->retrieve('/rent_items/' . $itemId);
-            $currentStock = (is_array($row) && isset($row['quantity'])) ? (int)$row['quantity'] : 0;
+            $currentStock = (is_array($row) && isset($row['quantity'])) ? (int) $row['quantity'] : 0;
         }
         static::db()->update('/rent_items', $itemId, ['quantity' => $currentStock + $qty]);
     }

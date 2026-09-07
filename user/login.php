@@ -1,13 +1,10 @@
 <?php
 /**
- * login.php — customer sign-in (email + password, or Google Identity Services).
+ * login.php — customer sign-in (email + password).
  * On success regenerates the session and stores the customer session keys.
  */
 require_once __DIR__ . '/../init.php';
 security_headers();
-
-// GOOGLE_CLIENT_ID is defined in config.php (from env var). Empty = not configured.
-$googleConfigured = (defined('GOOGLE_CLIENT_ID') && GOOGLE_CLIENT_ID !== '');
 
 // Already signed in? Skip the form.
 if (!empty($_SESSION['user_id'])) {
@@ -36,8 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user   = null;
     $userId = null;
     if (!$errors) {
-        $db       = getDB();
-        $existing = filter_by(rows($db->retrieve('/user')), 'email', $email);
+        $existing = db_find_by_email('/user', $email);
         if (!$existing) {
             $errors[] = 'Invalid email or password.';
         } else {
@@ -89,9 +85,6 @@ $flashes = get_flashes();
     .auth__aside { background-image: linear-gradient(160deg, rgba(42,33,24,.88), rgba(24,18,16,.95)), url('/assets/img/login-bg.png'); background-size: cover; background-position: center; }
   </style>
   <link rel="icon" href="/assets/img/logo.png">
-  <?php if ($googleConfigured): ?>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <?php endif; ?>
 </head>
 <body>
 <button class="theme-toggle theme-toggle--floating" type="button" aria-label="Toggle dark mode" aria-pressed="false" data-theme-toggle title="Toggle theme">
@@ -162,36 +155,6 @@ $flashes = get_flashes();
           </div>
         </div>
       </form>
-
-      <?php if ($googleConfigured): ?>
-        <div class="divider"></div>
-        <div class="t-center muted" style="font-size:13px;margin-bottom:10px;">or continue with</div>
-        <div id="g_id_onload"
-             data-client_id="<?= e(GOOGLE_CLIENT_ID) ?>"
-             data-callback="handleGoogle"
-             data-auto_prompt="false"></div>
-        <div class="t-center">
-          <div class="g_id_signin" data-type="standard" data-shape="pill" data-size="large" data-theme="outline" data-text="continue_with" data-locale="en"></div>
-        </div>
-        <form id="googleForm" method="post" action="/user/google_auth.php" style="display:none;">
-          <?= csrf_field() ?>
-          <input type="hidden" name="credential" id="googleCredential">
-        </form>
-        <script>
-          function handleGoogle(response) {
-            document.getElementById('googleCredential').value = response.credential;
-            document.getElementById('googleForm').submit();
-          }
-        </script>
-      <?php else: ?>
-        <div class="divider"></div>
-        <div class="t-center muted" style="font-size:13px;margin-bottom:10px;">or continue with</div>
-        <button class="btn btn--outline btn--block" type="button" disabled title="Google sign-in requires a Client ID — see Admin → Settings or config.php">
-          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.4 29.3 35 24 35c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.2 5.1 29.4 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.2 5.1 29.4 3 24 3 16 3 9.1 7.6 6.3 14.7z"/><path fill="#4CAF50" d="M24 45c5.2 0 10-2 13.6-5.2l-6.3-5.3C29.2 35.9 26.7 37 24 37c-5.3 0-9.7-2.6-11.3-7l-6.5 5C9 40.3 15.9 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.3 5.3C41.9 35.7 45 30.4 45 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
-          Continue with Google
-        </button>
-        <p class="muted" style="font-size:11px;text-align:center;margin-top:8px;">Google sign-in is not yet configured.</p>
-      <?php endif; ?>
 
       <p class="auth__switch">
         New here? <a href="/user/signup.php">Create an account</a>

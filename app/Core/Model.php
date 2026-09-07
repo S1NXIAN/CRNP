@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Core;
 
 /**
@@ -7,9 +8,7 @@ namespace App\Core;
  * Each subclass sets $table (the Firebase path) and optionally $fillable.
  * Static helpers wrap getDB() so page files stay thin:
  *
- *   Order::all();
  *   Product::find($id);
- *   Booking::where('status', 'pending');
  *   $order = new Order($data); $order->save();
  */
 abstract class Model
@@ -51,17 +50,13 @@ abstract class Model
     /*  Finders                                                            */
     /* ------------------------------------------------------------------ */
 
-    /** Return every row under the table node, keyed by Firebase push key. */
-    public static function all(): array
-    {
-        return static::hydrateMany(static::raw());
-    }
-
     /** Find a single record by its Firebase key. Returns null when missing. */
     public static function find(string $key): ?static
     {
         $row = static::db()->retrieve('/' . static::$table . '/' . $key);
-        if (!is_array($row)) return null;
+        if (!is_array($row)) {
+            return null;
+        }
         $model = new static($row);
         $model->key = $key;
         return $model;
@@ -80,40 +75,61 @@ abstract class Model
         return self::$rawCache[$table];
     }
 
-    /** PHP-side filter (avoids indexOn). Returns raw arrays keyed by key. */
-    public static function where(string $field, mixed $value): array
+    /* ------------------------------------------------------------------ */
+    /*  Indexed queries (server-side; need database.rules.json .indexOn)   */
+    /*  Firebase allows ONE orderBy per request: compound filters issue    */
+    /*  one query per value and refine the rest in PHP.                    */
+    /* ------------------------------------------------------------------ */
+
+    /** Equality query on an indexed field. Returns rows keyed by Firebase key. */
+    public static function where(string $field, string $value): array
     {
-        $all = static::raw();
-        return \filter_by($all, $field, $value);
+        $rows = static::db()->retrieve('/' . static::$table, $field, \firebaseRDB::EQUAL, $value);
+        return \is_array($rows) ? $rows : [];
+    }
+
+    /** Multi-value equality (RTDB has no OR): one indexed query per value, merged. */
+    public static function whereAny(string $field, array $values): array
+    {
+        $out = [];
+        $seen = [];
+        foreach ($values as $value) {
+            $value = (string) $value;
+            if (isset($seen[$value])) {
+                continue;
+            }
+            $seen[$value] = true;
+            foreach (static::where($field, $value) as $k => $row) {
+                $out[$k] = $row;
+            }
+        }
+        return $out;
+    }
+
+    /** Ordered range on an indexed field (e.g. created_at month slice). */
+    public static function whereRange(string $field, string $start, string $end): array
+    {
+        $rows = static::db()->retrieve('/' . static::$table, $field, null, null, ['startAt' => $start, 'endAt' => $end]);
+        return \is_array($rows) ? $rows : [];
+    }
+
+    /** Latest $limit rows by $field, newest first (indexed orderBy + limitToLast). */
+    public static function recentBy(string $field, int $limit = 8): array
+    {
+        $rows = static::db()->retrieve('/' . static::$table, $field, null, null, ['limitToLast' => $limit]);
+        if (!\is_array($rows)) {
+            return [];
+        }
+        uasort($rows, function ($a, $b) use ($field) {
+            return strcmp((string) ($b[$field] ?? ''), (string) ($a[$field] ?? ''));
+        });
+        return $rows;
     }
 
     /** Return the latest $limit rows by a date field, newest first (raw arrays). */
     public static function recentLimited(string $dateField, int $limit = 50): array
     {
-        $all = static::raw();
-        if (count($all) <= $limit) {
-            uasort($all, function ($a, $b) use ($dateField) {
-                $ta = strtotime((string)($a[$dateField] ?? ''));
-                $tb = strtotime((string)($b[$dateField] ?? ''));
-                if ($ta === false && $tb === false) return 0;
-                if ($ta === false) return 1;
-                if ($tb === false) return -1;
-                return $tb <=> $ta;
-            });
-            return $all;
-        }
-        $timestamps = [];
-        foreach ($all as $k => $v) {
-            $t = strtotime((string)($v[$dateField] ?? ''));
-            $timestamps[$k] = $t === false ? 0 : $t;
-        }
-        arsort($timestamps);
-        $keys = array_slice(array_keys($timestamps), 0, $limit, true);
-        $out = [];
-        foreach ($keys as $k) {
-            $out[$k] = $all[$k];
-        }
-        return $out;
+        return static::recentBy($dateField, $limit);
     }
 
     /** Paginate raw rows: returns ['data' => ..., 'page' => ..., 'perPage' => ..., 'total' => ...]. */
@@ -129,7 +145,7 @@ abstract class Model
             'page'    => $page,
             'perPage' => $perPage,
             'total'   => $total,
-            'pages'   => max(1, (int)ceil($total / $perPage)),
+            'pages'   => max(1, (int) ceil($total / $perPage)),
         ];
     }
 
@@ -186,19 +202,9 @@ abstract class Model
     /*  Attribute access                                                   */
     /* ------------------------------------------------------------------ */
 
-    public function getKey(): ?string
-    {
-        return $this->key;
-    }
-
     public function get(string $key, mixed $default = null): mixed
     {
         return $this->attributes[$key] ?? $default;
-    }
-
-    public function set(string $key, mixed $value): void
-    {
-        $this->attributes[$key] = $value;
     }
 
     /** Allow $order->status syntax (read-only). */
@@ -222,11 +228,6 @@ abstract class Model
         return $this->attributes;
     }
 
-    public function toJson(): string
-    {
-        return json_encode($this->toArray(), JSON_UNESCAPED_UNICODE);
-    }
-
     /* ------------------------------------------------------------------ */
     /*  Internal helpers                                                   */
     /* ------------------------------------------------------------------ */
@@ -245,27 +246,9 @@ abstract class Model
     protected function toFillableArray(): array
     {
         $fillable = static::$fillable;
-        if (empty($fillable)) return $this->attributes;
-        return array_intersect_key($this->attributes, array_flip($fillable));
-    }
-
-    /** Hydrate a single raw array into a Model instance with key set. */
-    protected static function hydrateOne(string $key, array $row): static
-    {
-        $model = new static($row);
-        $model->key = $key;
-        return $model;
-    }
-
-    /** Hydrate many raw rows into Model instances keyed by Firebase key. */
-    protected static function hydrateMany(array $rows): array
-    {
-        $out = [];
-        foreach ($rows as $k => $v) {
-            if (is_array($v)) {
-                $out[$k] = static::hydrateOne($k, $v);
-            }
+        if (empty($fillable)) {
+            return $this->attributes;
         }
-        return $out;
+        return array_intersect_key($this->attributes, array_flip($fillable));
     }
 }

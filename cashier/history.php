@@ -6,50 +6,26 @@
 require_once __DIR__ . '/../init.php';
 require_cashier();
 
-use App\Models\Order;
 use App\Models\Booking;
+use App\Models\Order;
 
 $orderStatuses   = ['cashier_cancelled', 'cancelled', 'done'];
 $bookingStatuses = ['rejected', 'returned', 'cancelled'];
 
-$orders   = Order::raw();
-$bookings = Booking::raw();
-
-// Filter
-$ordersHist = [];
-foreach ($orders as $id => $o) {
-    if (is_array($o) && in_array((string)($o['status'] ?? ''), $orderStatuses, true)) {
-        $ordersHist[$id] = $o;
-    }
-}
-$bookingsHist = [];
-foreach ($bookings as $id => $b) {
-    if (is_array($b) && in_array((string)($b['status'] ?? ''), $bookingStatuses, true)) {
-        $bookingsHist[$id] = $b;
-    }
-}
+$ordersHist   = Order::whereAny('status', $orderStatuses);
+$bookingsHist = Booking::whereAny('status', $bookingStatuses);
 
 // Sort newest first
 uasort($ordersHist, function ($a, $b) {
-    $ta = strtotime((string)($a['cancelled_at'] ?? $a['created_at'] ?? 'now'));
-    $tb = strtotime((string)($b['cancelled_at'] ?? $b['created_at'] ?? 'now'));
+    $ta = strtotime((string) ($a['cancelled_at'] ?? $a['created_at'] ?? 'now'));
+    $tb = strtotime((string) ($b['cancelled_at'] ?? $b['created_at'] ?? 'now'));
     return $tb <=> $ta;
 });
 uasort($bookingsHist, function ($a, $b) {
-    $ta = strtotime((string)($a['returned_at'] ?? $a['rejected_at'] ?? $a['cancelled_at'] ?? $a['created_at'] ?? 'now'));
-    $tb = strtotime((string)($b['returned_at'] ?? $b['rejected_at'] ?? $b['cancelled_at'] ?? $b['created_at'] ?? 'now'));
+    $ta = strtotime((string) ($a['returned_at'] ?? $a['rejected_at'] ?? $a['cancelled_at'] ?? $a['created_at'] ?? 'now'));
+    $tb = strtotime((string) ($b['returned_at'] ?? $b['rejected_at'] ?? $b['cancelled_at'] ?? $b['created_at'] ?? 'now'));
     return $tb <=> $ta;
 });
-
-$itemsCount = static function (array $row): int {
-    $n = 0;
-    foreach (($row['items'] ?? []) as $info) {
-        if (is_array($info)) {
-            $n += (int)($info['qty'] ?? 0);
-        }
-    }
-    return $n;
-};
 
 $pageTitle = 'History';
 $activeNav = 'history';
@@ -94,25 +70,25 @@ require_once __DIR__ . '/../includes/header.php';
           </thead>
           <tbody>
           <?php foreach ($ordersHist as $id => $o):
-              $st       = (string)($o['status'] ?? '');
+              $st       = (string) ($o['status'] ?? '');
               [$sLabel,$sCls] = order_status_label($st);
-              $ps       = (string)($o['payment_status'] ?? '');
+              $ps       = (string) ($o['payment_status'] ?? '');
               [$pLabel,$pCls] = payment_status_label($ps);
-              $custName = (string)($o['customer_name'] ?? $o['user_name'] ?? '');
+              $custName = (string) ($o['customer_name'] ?? $o['user_name'] ?? '');
               $rawTs    = $o['cancelled_at'] ?? $o['completed_at'] ?? $o['updated_at'] ?? $o['created_at'] ?? '';
               $ts       = $rawTs ? date('M j, Y \a\t g:i A', strtotime($rawTs)) : '';
-              $count    = $itemsCount($o);
-          ?>
+              $count    = items_count($o);
+              ?>
             <tr>
-              <td><strong>#<?= e(substr((string)$id, 0, 6)) ?></strong></td>
+              <td><strong>#<?= e(substr((string) $id, 0, 6)) ?></strong></td>
               <td>
                 <?= e($custName ?: '—') ?>
                 <?php if (!empty($o['contact'])): ?>
                   <br><small class="muted"><?= e($o['contact']) ?></small>
                 <?php endif; ?>
               </td>
-              <td><?= (int)$count ?> item<?= (int)$count === 1 ? '' : 's' ?></td>
-              <td class="num"><strong><?= e(money((float)($o['total'] ?? 0))) ?></strong></td>
+              <td><?= (int) $count ?> item<?= (int) $count === 1 ? '' : 's' ?></td>
+              <td class="num"><strong><?= e(money((float) ($o['total'] ?? 0))) ?></strong></td>
               <td><span class="badge <?= e($pCls) ?>"><?= e($pLabel) ?></span></td>
               <td><span class="badge <?= e($sCls) ?>"><?= e($sLabel) ?></span></td>
               <td>
@@ -163,19 +139,19 @@ require_once __DIR__ . '/../includes/header.php';
           </thead>
           <tbody>
           <?php foreach ($bookingsHist as $id => $b):
-              $st       = (string)($b['status'] ?? '');
+              $st       = (string) ($b['status'] ?? '');
               [$sLabel,$sCls] = booking_status_label($st);
-              $ps       = (string)($b['payment_status'] ?? '');
+              $ps       = (string) ($b['payment_status'] ?? '');
               [$pLabel,$pCls] = payment_status_label($ps);
-              $custName = (string)($b['user_name'] ?? $b['full_name'] ?? '');
+              $custName = (string) ($b['user_name'] ?? $b['full_name'] ?? '');
               $rawTs    = $b['returned_at'] ?? $b['rejected_at'] ?? $b['cancelled_at'] ?? $b['created_at'] ?? '';
               $ts       = $rawTs ? date('M j, Y \a\t g:i A', strtotime($rawTs)) : '';
-              $count    = $itemsCount($b);
-              $by       = (string)($b['returned_by'] ?? $b['rejected_by'] ?? $b['cancelled_by'] ?? '');
-          ?>
+              $count    = items_count($b);
+              $by       = (string) ($b['returned_by'] ?? $b['rejected_by'] ?? $b['cancelled_by'] ?? '');
+              ?>
             <tr>
               <td>
-                <strong>#<?= e(substr((string)$id, 0, 6)) ?></strong>
+                <strong>#<?= e(substr((string) $id, 0, 6)) ?></strong>
                 <?php if (($b['user_email'] ?? '') === 'walk-in'): ?>
                   <br><span class="badge badge--gold" style="font-size:10px">Walk-in</span>
                 <?php endif; ?>
@@ -186,8 +162,8 @@ require_once __DIR__ . '/../includes/header.php';
                   <br><small class="muted"><?= e($b['contact']) ?></small>
                 <?php endif; ?>
               </td>
-              <td><?= (int)$count ?> item<?= (int)$count === 1 ? '' : 's' ?></td>
-              <td class="num"><strong><?= e(money((float)($b['total'] ?? 0))) ?></strong></td>
+              <td><?= (int) $count ?> item<?= (int) $count === 1 ? '' : 's' ?></td>
+              <td class="num"><strong><?= e(money((float) ($b['total'] ?? 0))) ?></strong></td>
               <td><span class="badge <?= e($pCls) ?>"><?= e($pLabel) ?></span></td>
               <td><span class="badge <?= e($sCls) ?>"><?= e($sLabel) ?></span></td>
               <td>

@@ -198,4 +198,37 @@
       if (btn) { btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Buy Now'; }
     });
   });
+
+  // ====================================================================
+  //  OTP RESEND COOLDOWN — links carry data-resend-in="seconds left".
+  //  Same clock as code expiry: link arms exactly when the code dies.
+  //  Server re-checks on click, so this is display-only hardening.
+  // ====================================================================
+  document.querySelectorAll('[data-resend-in]').forEach(function (el) {
+    var wait = parseInt(el.getAttribute('data-resend-in'), 10) || 0;
+    if (wait <= 0) { return; }
+    var href = el.getAttribute('href');
+    var label = el.textContent;
+    el.removeAttribute('href');
+    el.style.pointerEvents = 'none';
+    el.style.opacity = '.55';
+    function fmt(s) {
+      return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    }
+    function tick() {
+      var left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      if (left <= 0) {
+        clearInterval(t);
+        el.setAttribute('href', href);
+        el.style.pointerEvents = '';
+        el.style.opacity = '';
+        el.textContent = label;
+        return;
+      }
+      el.textContent = 'Resend in ' + fmt(left);
+    }
+    var end = Date.now() + wait * 1000;
+    var t = setInterval(tick, 1000);
+    tick();
+  });
 })();

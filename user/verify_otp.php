@@ -17,8 +17,7 @@ if ($isResend) {
         flash('We couldn\'t find that email. Please sign up again.', 'danger');
         redirect('/user/signup.php');
     }
-    $db        = getDB();
-    $existing  = filter_by(rows($db->retrieve('/user')), 'email', $email);
+    $existing  = db_find_by_email('/user', $email);
     if (!$existing) {
         flash('We couldn\'t find that email. Please sign up again.', 'danger');
         redirect('/user/signup.php');
@@ -31,6 +30,8 @@ if ($isResend) {
         redirect('/user/login.php');
     }
 
+    otp_resend_gate($user, 'otp_expires', '/user/verify_otp.php?email=' . urlencode($email));
+
     // Rate limit: 3 OTP sends per 15 minutes per email.
     if (!rate_limit('signup_otp_' . $email, 3, 900)) {
         flash('Too many code requests for that email. Please try again in 15 minutes.', 'danger');
@@ -39,6 +40,7 @@ if ($isResend) {
 
     $otp     = gen_otp();
     $expires = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+    $db = getDB();
 
     try {
         $db->update('/user', $id, ['otp' => $otp, 'otp_expires' => $expires]);
@@ -50,8 +52,8 @@ if ($isResend) {
     $sent = sendOTP($email, $otp);
     if (!$sent) {
         // P0: never leak the OTP in production. Only surface the dev
-        // fallback when the host has explicitly opted into DEV_MODE.
-        if (defined('DEV_MODE') && DEV_MODE) {
+        // fallback when the host has explicitly opted into DEV_SHOW_OTP.
+        if (defined('DEV_SHOW_OTP') && DEV_SHOW_OTP) {
             flash('SMTP not configured — new OTP is ' . $otp . ' (dev only).', 'warn');
         } else {
             flash('Could not send verification email. Please try again or contact support.', 'danger');
@@ -78,8 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = null;
     $userId = null;
     if (!$errors) {
-        $db       = getDB();
-        $existing = filter_by(rows($db->retrieve('/user')), 'email', $email);
+        $existing = db_find_by_email('/user', $email);
         if (!$existing) {
             $errors[] = 'We couldn\'t find that account. Please sign up again.';
         } else {
@@ -117,6 +118,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$resendWait = 0;
+if ($email !== '') {
+    $found = db_find_by_email('/user', $email);
+    if (!empty($found)) {
+        $row = reset($found);
+        $resendWait = otp_resend_wait(is_array($row) ? $row : null, 'otp_expires');
+    }
+}
 $flashes = get_flashes();
 ?>
 <!doctype html>
@@ -194,7 +203,7 @@ $flashes = get_flashes();
 
       <div class="row row--between mt-4" style="font-size:14px;">
         <a class="muted" href="/user/signup.php">Use a different email</a>
-        <a href="/user/verify_otp.php?resend=1&email=<?= e(urlencode($email)) ?>">Resend code</a>
+        <a data-resend-in="<?= (int) $resendWait ?>" href="/user/verify_otp.php?resend=1&email=<?= e(urlencode($email)) ?>">Resend code</a>
       </div>
 
       <p class="auth__switch">

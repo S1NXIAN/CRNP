@@ -74,7 +74,9 @@ $q         = trim($_GET['q'] ?? '');
 $products  = Product::raw();
 $cats = [];
 foreach ($products as $p) {
-    if (!empty($p['category'])) $cats[$p['category']] = true;
+    if (!empty($p['category'])) {
+        $cats[$p['category']] = true;
+    }
 }
 ksort($cats);
 if ($q !== '') {
@@ -83,7 +85,8 @@ if ($q !== '') {
 
 require_once __DIR__ . '/../includes/header.php';
 
-function shop_cat_icon(string $cat): string {
+function shop_cat_icon(string $cat): string
+{
     $icons = [
         'starters'  => '<path d="M11 20A7 7 0 0 1 9.8 6.9C15.5 4.9 17 3.5 19 2c1 2 2 4.5 2 8 0 5.5-3.8 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
         'mains'     => '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>',
@@ -212,13 +215,13 @@ function shop_cat_icon(string $cat): string {
 
     <div class="grid grid--products">
       <?php foreach ($products as $id => $p):
-        $isAvailable = ($p['status'] ?? 'available') === 'available';
-        $desc    = trim($p['description'] ?? $p['short'] ?? '');
-        if (mb_strlen($desc) > 130) {
-            $desc = mb_substr($desc, 0, 127) . '…';
-        }
-        $img = product_image_url($p['image'] ?? '', $id, 'products');
-      ?>
+          $isAvailable = ($p['status'] ?? 'available') === 'available';
+          $desc    = trim($p['description'] ?? $p['short'] ?? '');
+          if (mb_strlen($desc) > 130) {
+              $desc = mb_substr($desc, 0, 127) . '…';
+          }
+          $img = product_image_url($p['image'] ?? '', $id, 'products');
+          ?>
         <article class="product" style="<?= !$isAvailable ? 'opacity:.55;' : '' ?>">
           <div class="product__media">
             <img src="<?= e($img) ?>" alt="<?= e($p['name'] ?? 'Dish') ?>" loading="lazy" onerror="this.onerror=null;this.src='/assets/img/placeholder.svg'">

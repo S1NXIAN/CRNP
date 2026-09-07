@@ -8,24 +8,31 @@ require_once __DIR__ . '/../init.php';
 require_admin();
 security_headers();
 
-use App\Models\Order;
 use App\Models\Booking;
+use App\Models\Order;
 
-$q    = trim((string)($_GET['q'] ?? ''));
-$date = trim((string)($_GET['date'] ?? ''));
+$q    = trim((string) ($_GET['q'] ?? ''));
+$date = trim((string) ($_GET['date'] ?? ''));
 
-if ($date !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) $date = '';
+if ($date !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+    $date = '';
+}
 $hasFilter = ($q !== '' || $date !== '');
 
-$orders   = Order::raw();
-$bookings = Booking::raw();
+// Date narrowing is an indexed range; the free-text search refines it in PHP.
+$orders   = $date !== '' ? Order::whereRange('created_at', $date, $date . '\uf8ff') : Order::raw();
+$bookings = $date !== '' ? Booking::whereRange('created_at', $date, $date . '\uf8ff') : Booking::raw();
 
 if ($hasFilter) {
     $needle = mb_strtolower($q);
     foreach ($orders as $id => $o) {
-        if (!is_array($o)) { unset($orders[$id]); continue; }
-        if ($date !== '' && substr((string)($o['created_at'] ?? 'now'), 0, 10) !== $date) {
-            unset($orders[$id]); continue;
+        if (!is_array($o)) {
+            unset($orders[$id]);
+            continue;
+        }
+        if ($date !== '' && substr((string) ($o['created_at'] ?? 'now'), 0, 10) !== $date) {
+            unset($orders[$id]);
+            continue;
         }
         if ($q !== '') {
             $hay = mb_strtolower(implode(' ', [
@@ -33,15 +40,24 @@ if ($hasFilter) {
                 $o['user_email'] ?? '', $o['contact'] ?? '', $o['notes'] ?? '', $id,
             ]));
             foreach (($o['items'] ?? []) as $it) {
-                if (is_array($it)) $hay .= ' ' . mb_strtolower((string)($it['name'] ?? ''));
+                if (is_array($it)) {
+                    $hay .= ' ' . mb_strtolower((string) ($it['name'] ?? ''));
+                }
             }
-            if (strpos($hay, $needle) === false) { unset($orders[$id]); continue; }
+            if (strpos($hay, $needle) === false) {
+                unset($orders[$id]);
+                continue;
+            }
         }
     }
     foreach ($bookings as $id => $b) {
-        if (!is_array($b)) { unset($bookings[$id]); continue; }
-        if ($date !== '' && substr((string)($b['created_at'] ?? 'now'), 0, 10) !== $date) {
-            unset($bookings[$id]); continue;
+        if (!is_array($b)) {
+            unset($bookings[$id]);
+            continue;
+        }
+        if ($date !== '' && substr((string) ($b['created_at'] ?? 'now'), 0, 10) !== $date) {
+            unset($bookings[$id]);
+            continue;
         }
         if ($q !== '') {
             $hay = mb_strtolower(implode(' ', [
@@ -49,33 +65,28 @@ if ($hasFilter) {
                 $b['user_email'] ?? '', $b['contact'] ?? '', $b['address'] ?? '', $b['notes'] ?? '', $id,
             ]));
             foreach (($b['items'] ?? []) as $it) {
-                if (is_array($it)) $hay .= ' ' . mb_strtolower((string)($it['name'] ?? ''));
+                if (is_array($it)) {
+                    $hay .= ' ' . mb_strtolower((string) ($it['name'] ?? ''));
+                }
             }
-            if (strpos($hay, $needle) === false) { unset($bookings[$id]); continue; }
+            if (strpos($hay, $needle) === false) {
+                unset($bookings[$id]);
+                continue;
+            }
         }
     }
 }
 
 uasort($orders, function ($a, $b) {
-    $ta = strtotime((string)($a['created_at'] ?? 'now'));
-    $tb = strtotime((string)($b['created_at'] ?? 'now'));
+    $ta = strtotime((string) ($a['created_at'] ?? 'now'));
+    $tb = strtotime((string) ($b['created_at'] ?? 'now'));
     return $tb <=> $ta;
 });
 uasort($bookings, function ($a, $b) {
-    $ta = strtotime((string)($a['created_at'] ?? 'now'));
-    $tb = strtotime((string)($b['created_at'] ?? 'now'));
+    $ta = strtotime((string) ($a['created_at'] ?? 'now'));
+    $tb = strtotime((string) ($b['created_at'] ?? 'now'));
     return $tb <=> $ta;
 });
-
-$itemsCount = static function (array $row): int {
-    $n = 0;
-    foreach (($row['items'] ?? []) as $info) {
-        if (is_array($info)) {
-            $n += (int)($info['qty'] ?? 0);
-        }
-    }
-    return $n;
-};
 
 $pageTitle = 'History';
 $activeNav = 'history';
@@ -145,15 +156,15 @@ require_once __DIR__ . '/../includes/header.php';
       <?php if (!$orders): ?>
         <tr><td colspan="7" class="muted t-center">No orders yet.</td></tr>
       <?php else: foreach ($orders as $id => $o):
-          $st       = (string)($o['status'] ?? '');
+          $st       = (string) ($o['status'] ?? '');
           [$sLabel, $sCls] = order_status_label($st);
-          $ps       = (string)($o['payment_status'] ?? '');
+          $ps       = (string) ($o['payment_status'] ?? '');
           [$pLabel, $pCls] = payment_status_label($ps);
-          $custName = (string)($o['customer_name'] ?? $o['user_name'] ?? '');
-          $count    = $itemsCount($o);
-      ?>
+          $custName = (string) ($o['customer_name'] ?? $o['user_name'] ?? '');
+          $count    = items_count($o);
+          ?>
         <tr>
-          <td><strong>#<?= e(substr((string)$id, 0, 6)) ?></strong></td>
+          <td><strong>#<?= e(substr((string) $id, 0, 6)) ?></strong></td>
           <td>
             <?= e($custName ?: '—') ?>
             <?php if (!empty($o['contact'])): ?>
@@ -161,15 +172,15 @@ require_once __DIR__ . '/../includes/header.php';
             <?php endif; ?>
           </td>
           <td>
-            <?= (int)$count ?> item<?= (int)$count === 1 ? '' : 's' ?>
+            <?= (int) $count ?> item<?= (int) $count === 1 ? '' : 's' ?>
             <?php if (!empty($o['notes'])): ?>
               <br><small class="note-badge"><?= e($o['notes']) ?></small>
             <?php endif; ?>
           </td>
-          <td class="num"><strong><?= e(money((float)($o['total'] ?? 0))) ?></strong></td>
+          <td class="num"><strong><?= e(money((float) ($o['total'] ?? 0))) ?></strong></td>
           <td><span class="badge <?= e($pCls) ?>"><?= e($pLabel) ?></span></td>
           <td><span class="badge <?= e($sCls) ?>"><?= e($sLabel) ?></span></td>
-          <td class="micro"><?= e(date('M j, Y g:i A', strtotime((string)($o['created_at'] ?? 'now')))) ?></td>
+          <td class="micro"><?= e(date('M j, Y g:i A', strtotime((string) ($o['created_at'] ?? 'now')))) ?></td>
         </tr>
       <?php endforeach; endif; ?>
       </tbody>
@@ -199,17 +210,17 @@ require_once __DIR__ . '/../includes/header.php';
       <?php if (!$bookings): ?>
         <tr><td colspan="7" class="muted t-center">No bookings yet.</td></tr>
       <?php else: foreach ($bookings as $id => $b):
-          $st       = (string)($b['status'] ?? '');
+          $st       = (string) ($b['status'] ?? '');
           [$sLabel, $sCls] = booking_status_label($st);
-          $ps       = (string)($b['payment_status'] ?? '');
+          $ps       = (string) ($b['payment_status'] ?? '');
           [$pLabel, $pCls] = payment_status_label($ps);
-          $custName = (string)($b['user_name'] ?? $b['full_name'] ?? '');
-          $count    = $itemsCount($b);
-          $appt     = (string)($b['appointment_time'] ?? '');
-      ?>
+          $custName = (string) ($b['user_name'] ?? $b['full_name'] ?? '');
+          $count    = items_count($b);
+          $appt     = (string) ($b['appointment_time'] ?? '');
+          ?>
         <tr>
           <td>
-            <strong>#<?= e(substr((string)$id, 0, 6)) ?></strong>
+            <strong>#<?= e(substr((string) $id, 0, 6)) ?></strong>
             <?php if (($b['user_email'] ?? '') === 'walk-in'): ?>
               <br><span class="badge badge--gold" style="font-size:10px">Walk-in</span>
             <?php endif; ?>
@@ -221,12 +232,12 @@ require_once __DIR__ . '/../includes/header.php';
             <?php endif; ?>
           </td>
           <td>
-            <?= (int)$count ?> item<?= (int)$count === 1 ? '' : 's' ?>
+            <?= (int) $count ?> item<?= (int) $count === 1 ? '' : 's' ?>
             <?php if (!empty($b['notes'])): ?>
               <br><small class="note-badge"><?= e($b['notes']) ?></small>
             <?php endif; ?>
           </td>
-          <td class="num"><strong><?= e(money((float)($b['total'] ?? 0))) ?></strong></td>
+          <td class="num"><strong><?= e(money((float) ($b['total'] ?? 0))) ?></strong></td>
           <td><span class="badge <?= e($pCls) ?>"><?= e($pLabel) ?></span></td>
           <td><span class="badge <?= e($sCls) ?>"><?= e($sLabel) ?></span></td>
           <td class="micro"><?= $appt ? e(date('M j, Y g:i A', strtotime($appt))) : '—' ?></td>

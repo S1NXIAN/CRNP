@@ -1,4 +1,5 @@
 <?php
+
 /**
  * firebaseRDB — thin cURL wrapper over the Firebase Realtime Database REST API.
  *
@@ -10,11 +11,12 @@
  * insert/update/delete throw on {"error": ...} responses.
  * On cURL failure the error is logged and retrieve() returns [].
  *
- * Auth: when FIREBASE_CREDENTIALS holds a service-account JSON, every request
- * is signed with a cached OAuth2 access token (see accessToken()). Without it,
- * requests go out unauthenticated — pair with locked-down RTDB rules in prod.
+ * Auth: when FIREBASE_SERVICE_ACCOUNT_JSON holds a service-account JSON,
+ * every request is signed with a cached OAuth2 access token (see accessToken()).
+ * Without it, requests go out unauthenticated — pair with locked-down RTDB rules in prod.
  */
-class firebaseRDB {
+class firebaseRDB
+{
     public const EQUAL = 'EQUAL';
     public const LIKE  = 'LIKE';
 
@@ -24,25 +26,37 @@ class firebaseRDB {
     /** @var string */
     private $lastError = '';
 
-    public function __construct(string $url) {
+    public function __construct(string $url)
+    {
         $this->url = rtrim($url, '/');
     }
 
     /**
      * GET a node. When $queryKey is supplied a server-side query is attempted;
-     * returns an associative array (decoded). On cURL failure returns [].
-     *
-     * Advanced options ($options map):
-     *   limitToLast => int
-     *   limitToFirst => int
-     *   startAt => string|int
-     *   endAt => string|int
+     * the queried field MUST be listed in database.rules.json (.indexOn) or
+     * Firebase answers 400 "Index not defined" (logged, read as []).
+     * Pass $queryVal null with startAt/endAt/limit options for an ordered
+     * range or ordered limit on $queryKey.
      */
-    public function retrieve(string $path, ?string $queryKey = null, string $queryType = self::EQUAL, $queryVal = null, array $options = []) {
+    public function retrieve(string $path, ?string $queryKey = null, ?string $queryType = self::EQUAL, $queryVal = null, array $options = [])
+    {
+        $resp = $this->_exec($this->buildQueryUrl($path, $queryKey, $queryType, $queryVal, $options), 'GET');
+        if ($resp === null) {
+            return [];
+        }
+        return $this->parseGetResponse($resp);
+    }
+
+    /**
+     * Build the REST URL for a GET, without the access_token (added in _exec).
+     * Extracted so offline tests can pin the exact query strings.
+     */
+    public function buildQueryUrl(string $path, ?string $queryKey = null, ?string $queryType = self::EQUAL, $queryVal = null, array $options = []): string
+    {
         $url = $this->url . '/' . ltrim($path, '/') . '.json';
         $qs = [];
         if ($queryKey !== null && $queryVal !== null) {
-            $val = (string)$queryVal;
+            $val = (string) $queryVal;
             if ($queryType === self::LIKE) {
                 $qs[] = 'orderBy="' . rawurlencode($queryKey) . '"';
                 $qs[] = 'startAt="' . rawurlencode($val) . '"';
@@ -51,24 +65,49 @@ class firebaseRDB {
                 $qs[] = 'orderBy="' . rawurlencode($queryKey) . '"';
                 $qs[] = 'equalTo="' . rawurlencode($val) . '"';
             }
+        } elseif ($queryKey !== null) {
+            $qs[] = 'orderBy="' . rawurlencode($queryKey) . '"';
         }
-        if (!empty($options['limitToLast']))  $qs[] = 'limitToLast=' . (int)$options['limitToLast'];
-        if (!empty($options['limitToFirst'])) $qs[] = 'limitToFirst=' . (int)$options['limitToFirst'];
-        if (isset($options['startAt']))       $qs[] = 'startAt="' . rawurlencode((string)$options['startAt']) . '"';
-        if (isset($options['endAt']))         $qs[] = 'endAt="' . rawurlencode((string)$options['endAt']) . '"';
+        if (!empty($options['limitToLast'])) {
+            $qs[] = 'limitToLast=' . (int) $options['limitToLast'];
+        }
+        if (!empty($options['limitToFirst'])) {
+            $qs[] = 'limitToFirst=' . (int) $options['limitToFirst'];
+        }
+        if (isset($options['startAt'])) {
+            $qs[] = 'startAt="' . rawurlencode((string) $options['startAt']) . '"';
+        }
+        if (isset($options['endAt'])) {
+            $qs[] = 'endAt="' . rawurlencode((string) $options['endAt']) . '"';
+        }
         if ($qs !== []) {
             $url .= '?' . implode('&', $qs);
         }
-        $resp = $this->_exec($url, 'GET');
-        if ($resp === null) {
+        return $url;
+    }
+
+    /**
+     * Decode a GET body. {"error": ...} (e.g. missing .indexOn) is logged
+     * and read as [] so pages keep rendering instead of iterating the error.
+     * @return mixed decoded rows, or [] when empty / failed
+     */
+    public function parseGetResponse(string $resp)
+    {
+        $data = json_decode($resp, true);
+        if ($data === null) {
             return [];
         }
-        $data = json_decode($resp, true);
-        return $data === null ? [] : $data;
+        if (is_array($data) && isset($data['error'])) {
+            $msg = is_string($data['error']) ? $data['error'] : json_encode($data['error']);
+            error_log('[firebaseRDB] GET failed: ' . $msg);
+            return [];
+        }
+        return $data;
     }
 
     /** POST — creates a new auto-key. Returns the new Firebase push key. */
-    public function insert(string $table, array $data) {
+    public function insert(string $table, array $data)
+    {
         $url  = $this->url . '/' . ltrim($table, '/') . '.json';
         $resp = $this->_exec($url, 'POST', json_encode($data, JSON_UNESCAPED_UNICODE));
         if ($resp === null) {
@@ -80,7 +119,8 @@ class firebaseRDB {
     }
 
     /** PATCH — partial update of a child node. */
-    public function update(string $table, string $id, array $data) {
+    public function update(string $table, string $id, array $data)
+    {
         $url  = $this->url . '/' . ltrim($table, '/') . '/' . rawurlencode($id) . '.json';
         $resp = $this->_exec($url, 'PATCH', json_encode($data, JSON_UNESCAPED_UNICODE));
         if ($resp === null) {
@@ -92,7 +132,8 @@ class firebaseRDB {
     }
 
     /** PATCH a whole node directly (e.g. /settings) without a child id. */
-    public function updateNode(string $path, array $data) {
+    public function updateNode(string $path, array $data)
+    {
         $url  = $this->url . '/' . ltrim($path, '/') . '.json';
         $resp = $this->_exec($url, 'PATCH', json_encode($data, JSON_UNESCAPED_UNICODE));
         if ($resp === null) {
@@ -104,7 +145,8 @@ class firebaseRDB {
     }
 
     /** DELETE — remove a child node. */
-    public function delete(string $table, string $id): bool {
+    public function delete(string $table, string $id): bool
+    {
         $url  = $this->url . '/' . ltrim($table, '/') . '/' . rawurlencode($id) . '.json';
         $resp = $this->_exec($url, 'DELETE');
         if ($resp === null) {
@@ -116,9 +158,9 @@ class firebaseRDB {
     }
 
     /**
-     * Short-lived Google OAuth2 access token minted from the FIREBASE_CREDENTIALS
-     * service-account JSON via an RS256 JWT bearer grant. Returns null when the
-     * variable is unset/invalid so callers fall back to unauthenticated REST
+     * Short-lived Google OAuth2 access token minted from the
+     * FIREBASE_SERVICE_ACCOUNT_JSON service-account JSON via an RS256 JWT bearer
+     * grant. Returns null when the variable is unset/invalid so callers fall back
      * (local dev against open rules). Valid tokens are memoized per-request and
      * cached on disk until a minute before expiry.
      */
@@ -130,17 +172,17 @@ class firebaseRDB {
         }
 
         static $warnedUnset = false;
-        $raw = getenv('FIREBASE_CREDENTIALS');
+        $raw = getenv('FIREBASE_SERVICE_ACCOUNT_JSON');
         if ($raw === false || trim($raw) === '') {
             if (!$warnedUnset) {
                 $warnedUnset = true;
-                error_log('[firebaseRDB] FIREBASE_CREDENTIALS is not set; RTDB requests go out unsigned.');
+                error_log('[firebaseRDB] FIREBASE_SERVICE_ACCOUNT_JSON is not set; RTDB requests go out unsigned.');
             }
             return null;
         }
         $sa = json_decode($raw, true);
         if (!is_array($sa) || empty($sa['client_email']) || empty($sa['private_key'])) {
-            error_log('[firebaseRDB] FIREBASE_CREDENTIALS is set but is not a valid service-account JSON.');
+            error_log('[firebaseRDB] FIREBASE_SERVICE_ACCOUNT_JSON is set but is not a valid service-account JSON.');
             return null;
         }
 
@@ -210,7 +252,8 @@ class firebaseRDB {
         return rtrim(strtr(base64_encode($bytes), '+/', '-_'), '=');
     }
 
-    private function _exec(string $url, string $method, ?string $body = null): ?string {
+    private function _exec(string $url, string $method, ?string $body = null): ?string
+    {
         $token = $this->accessToken();
         if ($token !== null) {
             $url .= (str_contains($url, '?') ? '&' : '?') . 'access_token=' . rawurlencode($token);
@@ -240,7 +283,8 @@ class firebaseRDB {
     }
 
     /** @param mixed $arr decoded JSON */
-    private function _guardError($arr): void {
+    private function _guardError($arr): void
+    {
         if (is_array($arr) && isset($arr['error'])) {
             $msg = is_string($arr['error']) ? $arr['error'] : json_encode($arr['error']);
             throw new RuntimeException('Firebase error: ' . $msg);

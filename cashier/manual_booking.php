@@ -17,19 +17,19 @@ $rentItems   = RentItem::raw();
 
 /** price accessor that tolerates either `price` or `rental_price`. */
 $priceOf = static function (array $item): float {
-    return (float)($item['price'] ?? $item['rental_price'] ?? 0);
+    return (float) ($item['price'] ?? $item['rental_price'] ?? 0);
 };
 
 /* ---------- POST: build & insert walk-in booking ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
-    $fullName         = trim((string)post('full_name', ''));
-    $contact          = trim((string)post('contact', ''));
-    $address          = trim((string)post('address', ''));
-    $appointmentTime  = trim((string)post('appointment_time', ''));
-    $returnTime       = trim((string)post('return_time', ''));
-    $notes            = trim((string)post('notes', ''));
-    $paymentMethod    = (string)post('payment_method', 'counter');
+    $fullName         = trim((string) post('full_name', ''));
+    $contact          = trim((string) post('contact', ''));
+    $address          = trim((string) post('address', ''));
+    $appointmentTime  = trim((string) post('appointment_time', ''));
+    $returnTime       = trim((string) post('return_time', ''));
+    $notes            = trim((string) post('notes', ''));
+    $paymentMethod    = (string) post('payment_method', 'counter');
     if (!in_array($paymentMethod, ['gcash', 'counter'], true)) {
         $paymentMethod = 'counter';
     }
@@ -58,14 +58,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $total  = 0.0;
     $anyQty = false;
     foreach ($qtyMap as $itemId => $qty) {
-        $itemId = (string)$itemId;
-        $qty    = (int)$qty;
+        $itemId = (string) $itemId;
+        $qty    = (int) $qty;
         if ($qty <= 0 || !isset($liveItems[$itemId]) || !is_array($liveItems[$itemId])) {
             continue;
         }
         $anyQty = true;
         $item   = $liveItems[$itemId];
-        $stock  = (int)($item['quantity'] ?? 0);
+        $stock  = (int) ($item['quantity'] ?? 0);
         if ($qty > $stock) {
             $errors[] = 'Requested ' . $qty . ' × ' . ($item['name'] ?? 'item')
                       . ' but only ' . $stock . ' in stock.';
@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $price    = $priceOf($item);
         $subtotal = $price * $qty;
         $items[$itemId] = [
-            'name'     => (string)($item['name'] ?? 'Item'),
+            'name'     => (string) ($item['name'] ?? 'Item'),
             'qty'      => $qty,
             'price'    => $price,
             'subtotal' => $subtotal,
@@ -133,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             // Decrement rent stock by KEY (only after a successful insert).
             foreach ($items as $itemId => $info) {
-                RentItem::decrementStock((string)$itemId, (int)$info['qty']);
+                RentItem::decrementStock((string) $itemId, (int) $info['qty']);
             }
             flash('Walk-in booking #' . substr($newBooking, 0, 6) . ' created for ' . $fullName . '.', 'ok');
             redirect('/cashier/bookings.php');
@@ -214,10 +214,10 @@ require_once __DIR__ . '/../includes/header.php';
         </thead>
         <tbody>
           <?php foreach ($rentItems as $itemId => $item):
-              $stock   = (int)($item['quantity'] ?? 0);
+              $stock   = (int) ($item['quantity'] ?? 0);
               $price   = $priceOf($item);
-              $current = (int)($_POST['qty'][$itemId] ?? 0);
-          ?>
+              $current = (int) ($_POST['qty'][$itemId] ?? 0);
+              ?>
             <tr>
               <td>
                 <strong><?= e($item['name'] ?? 'Item') ?></strong>
@@ -228,7 +228,7 @@ require_once __DIR__ . '/../includes/header.php';
               <td class="num <?= $stock === 0 ? 'muted' : '' ?>"><?= $stock ?></td>
               <td class="num"><?= e(money($price)) ?></td>
               <td class="num">
-                <input class="input" type="number" min="0" max="<?= (int)$stock ?>"
+                <input class="input" type="number" min="0" max="<?= (int) $stock ?>"
                        name="qty[<?= e($itemId) ?>]" value="<?= $current ?>"
                        style="width:84px;text-align:right" <?= $stock === 0 ? 'disabled' : '' ?>>
               </td>
@@ -246,7 +246,7 @@ require_once __DIR__ . '/../includes/header.php';
       <label for="payment_method">Payment method</label>
       <select class="select" id="payment_method" name="payment_method">
         <option value="counter" <?= post('payment_method') === 'counter' ? 'selected' : '' ?>>Pay at counter</option>
-        <option value="gcash"   <?= post('payment_method') === 'gcash'   ? 'selected' : '' ?>>GCash</option>
+        <option value="gcash"   <?= post('payment_method') === 'gcash' ? 'selected' : '' ?>>GCash</option>
       </select>
       <span class="hint">For GCash, attach a screenshot of the transfer receipt (optional but recommended).</span>
     </div>

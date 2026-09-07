@@ -24,13 +24,15 @@ if ($isResend) {
     }
 
     $db       = getDB();
-    $existing = filter_by(rows($db->retrieve('/user')), 'email', $email);
+    $existing = db_find_by_email('/user', $email);
     if (!$existing) {
         flash('No account found with that email.', 'danger');
         redirect('/user/forgot_password.php');
     }
 
     $id      = (string) array_key_first($existing);
+    $row     = reset($existing);
+    otp_resend_gate($row, 'reset_otp_expires', '/user/reset_password.php?email=' . urlencode($email));
     $otp     = gen_otp();
     $expires = date('Y-m-d H:i:s', strtotime('+10 minutes'));
 
@@ -41,9 +43,9 @@ if ($isResend) {
         redirect('/user/reset_password.php?email=' . urlencode($email));
     }
 
-    $sent = sendOTP($email, $otp);
+    $sent = sendOTP($email, $otp, 'reset');
     if (!$sent) {
-        if (defined('DEV_MODE') && DEV_MODE) {
+        if (defined('DEV_SHOW_OTP') && DEV_SHOW_OTP) {
             flash('SMTP not configured — OTP is ' . $otp . ' (dev only).', 'warn');
         } else {
             flash('Could not send email. Please try again.', 'danger');
@@ -78,8 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user   = null;
     $userId = null;
     if (!$errors) {
-        $db       = getDB();
-        $existing = filter_by(rows($db->retrieve('/user')), 'email', $email);
+        $existing = db_find_by_email('/user', $email);
         if (!$existing) {
             $errors[] = 'Account not found. Please start over.';
         } else {
@@ -117,6 +118,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$resendWait = 0;
+if ($email !== '') {
+    $found = db_find_by_email('/user', $email);
+    if (!empty($found)) {
+        $row = reset($found);
+        $resendWait = otp_resend_wait(is_array($row) ? $row : null, 'reset_otp_expires');
+    }
+}
 $flashes = get_flashes();
 ?>
 <!doctype html>
@@ -202,7 +211,7 @@ $flashes = get_flashes();
 
       <div class="row row--between mt-4" style="font-size:14px;">
         <a class="muted" href="/user/forgot_password.php">Use a different email</a>
-        <a href="/user/reset_password.php?resend=1&email=<?= e(urlencode($email)) ?>">Resend code</a>
+        <a data-resend-in="<?= (int) $resendWait ?>" href="/user/reset_password.php?resend=1&email=<?= e(urlencode($email)) ?>">Resend code</a>
       </div>
 
       <p class="auth__switch">

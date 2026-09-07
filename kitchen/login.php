@@ -14,8 +14,8 @@ if (!empty($_SESSION['kitchen_email'])) {
 // ----- POST: authenticate -----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
-    $email    = trim((string)post('email', ''));
-    $password = (string)post('password', '');
+    $email    = trim((string) post('email', ''));
+    $password = (string) post('password', '');
 
     // Rate limit: 5 attempts per 15 minutes per email (fallback to IP).
     $rlKey = 'login_' . ($email !== '' ? $email : ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
@@ -29,8 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('/kitchen/login.php');
     }
 
-    $db    = getDB();
-    $staff = filter_by(rows($db->retrieve('/kitchen')), 'email', $email);
+    $staff = db_find_by_email('/kitchen', $email);
     $k     = $staff ? reset($staff) : null;
 
     if ($k && !empty($k['password_hash']) && password_verify($password, $k['password_hash'])) {

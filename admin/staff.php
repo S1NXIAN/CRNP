@@ -40,12 +40,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($role === 'cashier') {
                 $name = trim((string) post('name', ''));
                 $data = ['name' => $name, 'email' => $email];
-                if ($password !== '') $data['password_hash'] = password_hash($password, PASSWORD_BCRYPT);
+                if ($password !== '') {
+                    $data['password_hash'] = password_hash($password, PASSWORD_BCRYPT);
+                }
                 $db->update('/cashiers', $id, $data);
             } else {
                 $fullName = trim((string) post('full_name', ''));
                 $data = ['full_name' => $fullName, 'email' => $email];
-                if ($password !== '') $data['password_hash'] = password_hash($password, PASSWORD_BCRYPT);
+                if ($password !== '') {
+                    $data['password_hash'] = password_hash($password, PASSWORD_BCRYPT);
+                }
                 $db->update('/kitchen', $id, $data);
             }
             flash(($role === 'kitchen' ? 'Kitchen staff' : 'Cashier') . ' updated.', 'ok');
@@ -235,7 +239,7 @@ require_once __DIR__ . '/../includes/header.php';
           <?php else: foreach ($cashiers as $cid => $c):
               $initial = strtoupper(mb_substr((string) ($c['name'] ?? '?'), 0, 1));
               $created = (string) ($c['created_at'] ?? '');
-          ?>
+              ?>
             <tr>
               <td>
                 <div class="img-row" style="display:flex;align-items:center;gap:10px;">
@@ -332,7 +336,7 @@ require_once __DIR__ . '/../includes/header.php';
           <?php else: foreach ($kitchen as $kid => $k):
               $initial = strtoupper(mb_substr((string) ($k['full_name'] ?? '?'), 0, 1));
               $created = (string) ($k['created_at'] ?? '');
-          ?>
+              ?>
             <tr>
               <td>
                 <div class="img-row" style="display:flex;align-items:center;gap:10px;">

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * health.php — platform liveness endpoint.
  * Deliberately touches nothing (no session, no Firebase): answers 200 as long

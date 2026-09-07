@@ -1,27 +1,33 @@
 <?php
+
 /**
  * mailer.php — PHPMailer configured for Gmail SMTP (STARTTLS, port 587).
- * Exposes sendOTP($email, $otp).
+ * Exposes sendOTP($email, $otp, $purpose).
  */
 require_once __DIR__ . '/PHPMailer/PHPMailer.php';
 require_once __DIR__ . '/PHPMailer/SMTP.php';
 require_once __DIR__ . '/PHPMailer/Exception.php';
 
-use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
+use PHPMailer\PHPMailer\PHPMailer;
 
 /**
- * Send a 6-digit OTP verification email. Returns true on success.
+ * Send a 6-digit OTP email. $purpose is 'signup' (verify a new account) or
+ * 'reset' (approve a password reset) — subject, heading, and copy differ so
+ * the recipient knows which flow the code belongs to. Returns true on success.
  */
-function sendOTP(string $email, string $otp): bool {
+function sendOTP(string $email, string $otp, string $purpose = 'signup'): bool
+{
+    $isReset = $purpose === 'reset';
+    $subject = $isReset ? 'Reset your ' . BRAND_NAME . ' password' : 'Confirm your ' . BRAND_NAME . ' account';
     $mail = new PHPMailer(true);
     try {
         // Server settings
         $mail->isSMTP();
         $mail->Host       = SMTP_HOST;
         $mail->SMTPAuth   = true;
-        $mail->Username   = SMTP_USER;
-        $mail->Password   = SMTP_PASS;
+        $mail->Username   = GMAIL_ADDRESS;
+        $mail->Password   = GMAIL_APP_PASSWORD;
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = SMTP_PORT;
         $mail->CharSet    = 'UTF-8';
@@ -33,9 +39,9 @@ function sendOTP(string $email, string $otp): bool {
 
         // Content
         $mail->isHTML(true);
-        $mail->Subject = 'Your ' . BRAND_NAME . ' verification code';
-        $mail->Body    = otp_email_html($otp);
-        $mail->AltBody = "Your " . BRAND_NAME . " verification code is: " . $otp . "\nThis code expires in 10 minutes.";
+        $mail->Subject = $subject;
+        $mail->Body    = otp_email_html($otp, $purpose);
+        $mail->AltBody = $subject . ': ' . $otp . "\nThis code expires in 10 minutes.";
 
         $mail->send();
         return true;
@@ -48,14 +54,15 @@ function sendOTP(string $email, string $otp): bool {
 /**
  * Generic mailer for receipts / notifications.
  */
-function sendMail(string $to, string $subject, string $htmlBody, string $altBody = ''): bool {
+function sendMail(string $to, string $subject, string $htmlBody, string $altBody = ''): bool
+{
     $mail = new PHPMailer(true);
     try {
         $mail->isSMTP();
         $mail->Host       = SMTP_HOST;
         $mail->SMTPAuth   = true;
-        $mail->Username   = SMTP_USER;
-        $mail->Password   = SMTP_PASS;
+        $mail->Username   = GMAIL_ADDRESS;
+        $mail->Password   = GMAIL_APP_PASSWORD;
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = SMTP_PORT;
         $mail->CharSet    = 'UTF-8';
@@ -73,22 +80,31 @@ function sendMail(string $to, string $subject, string $htmlBody, string $altBody
     }
 }
 
-function otp_email_html(string $otp): string {
+function otp_email_html(string $otp, string $purpose = 'signup'): string
+{
     $brand   = BRAND_NAME;
     $tagline = BRAND_TAGLINE;
+    $isReset = $purpose === 'reset';
+    $heading = $isReset ? 'Reset your password' : 'Confirm your account';
+    $intro   = $isReset
+        ? 'You asked to reset your password. Enter the code below to continue. It expires in 10 minutes.'
+        : 'Thanks for signing up. Enter the code below to confirm your email address. It expires in 10 minutes.';
+    $footer  = $isReset
+        ? 'If you did not ask to reset your password, you can safely ignore this email.'
+        : 'If you did not create an account, you can safely ignore this email.';
     return <<<HTML
 <!doctype html><html><body style="margin:0;background:#f6f2ea;font-family:Georgia,'Times New Roman',serif;">
   <div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e6dfd1;border-radius:14px;overflow:hidden;">
     <div style="background:#211b14;color:#f6f2ea;padding:28px 32px;">
       <div style="font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:#c8a45c;">{$brand}</div>
-      <div style="font-size:22px;margin-top:6px;">Email verification</div>
+      <div style="font-size:22px;margin-top:6px;">{$heading}</div>
     </div>
     <div style="padding:32px;color:#211b14;">
-      <p style="margin:0 0 14px;">Please use the code below to verify your email address. It expires in 10 minutes.</p>
+      <p style="margin:0 0 14px;">{$intro}</p>
       <div style="text-align:center;margin:26px 0;">
         <span style="display:inline-block;font-family:'Courier New',monospace;font-size:34px;letter-spacing:.5em;color:#211b14;background:#f6f2ea;border:1px dashed #c8a45c;border-radius:12px;padding:16px 22px 16px 28px;">{$otp}</span>
       </div>
-      <p style="margin:0;color:#8a7f70;font-size:13px;">If you did not create an account, you can safely ignore this email.</p>
+      <p style="margin:0;color:#8a7f70;font-size:13px;">{$footer}</p>
     </div>
     <div style="background:#fbf8f2;color:#8a7f70;font-size:12px;padding:16px 32px;text-align:center;">&copy; {$brand} &middot; {$tagline}</div>
   </div>
@@ -106,14 +122,15 @@ HTML;
  * Visually consistent with otp_email_html() — dark header, gold accent,
  * warm cream body. Returns true on success, false on failure.
  */
-function sendOrderReceipt(string $email, array $order): bool {
+function sendOrderReceipt(string $email, array $order): bool
+{
     $brand   = BRAND_NAME;
     $tagline = BRAND_TAGLINE;
 
     $orderId     = (string) ($order['id'] ?? '');
     $shortId     = $orderId !== '' ? substr($orderId, 0, 8) : '—';
     $fullName    = (string) ($order['full_name'] ?? '');
-    $total       = (float)  ($order['total'] ?? 0);
+    $total       = (float) ($order['total'] ?? 0);
     $method      = (string) ($order['payment_method'] ?? 'counter');
     $payStatus   = (string) ($order['payment_status'] ?? '');
     $createdAt   = (string) ($order['created_at'] ?? '');
@@ -131,11 +148,13 @@ function sendOrderReceipt(string $email, array $order): bool {
     /* Items table rows. */
     $rowsHtml = '';
     foreach ($items as $row) {
-        if (!is_array($row)) continue;
+        if (!is_array($row)) {
+            continue;
+        }
         $name      = htmlspecialchars((string) ($row['name'] ?? 'Item'), ENT_QUOTES, 'UTF-8');
-        $qty       = (int)    ($row['qty'] ?? 1);
-        $price     = (float)  ($row['price'] ?? 0);
-        $subtotal  = (float)  ($row['subtotal'] ?? ($price * $qty));
+        $qty       = (int) ($row['qty'] ?? 1);
+        $price     = (float) ($row['price'] ?? 0);
+        $subtotal  = (float) ($row['subtotal'] ?? ($price * $qty));
         $priceTxt    = "\u{20B1}" . number_format($price, 2);
         $subtotalTxt = "\u{20B1}" . number_format($subtotal, 2);
         $rowsHtml .= <<<HTML
@@ -219,10 +238,10 @@ HTML;
 </body></html>
 HTML;
 
-    $alt = "Your " . $brand . " order #" . $shortId . "\n"
-         . "Total: " . $totalTxt . "\n"
-         . "Payment: " . $payLine . "\n\n"
-         . "Special instructions: " . ($notes !== '' ? $notes : "None") . "\n\n"
+    $alt = 'Your ' . $brand . ' order #' . $shortId . "\n"
+         . 'Total: ' . $totalTxt . "\n"
+         . 'Payment: ' . $payLine . "\n\n"
+         . 'Special instructions: ' . ($notes !== '' ? $notes : 'None') . "\n\n"
          . "Please present this confirmation at the counter.\n"
          . "We'll notify you when your order is ready for pickup.";
 
@@ -236,14 +255,15 @@ HTML;
  * full_name, payment_method ('gcash' | 'counter'), payment_status,
  * appointment_time, return_time, created_at, contact, address.
  */
-function sendBookingReceipt(string $email, array $booking): bool {
+function sendBookingReceipt(string $email, array $booking): bool
+{
     $brand   = BRAND_NAME;
     $tagline = BRAND_TAGLINE;
 
     $bookingId = (string) ($booking['id'] ?? '');
     $shortId   = $bookingId !== '' ? substr($bookingId, 0, 8) : '—';
     $fullName  = (string) ($booking['full_name'] ?? $booking['user_name'] ?? '');
-    $total     = (float)  ($booking['total'] ?? 0);
+    $total     = (float) ($booking['total'] ?? 0);
     $method    = (string) ($booking['payment_method'] ?? 'counter');
     $payStatus = (string) ($booking['payment_status'] ?? '');
     $apptTime  = (string) ($booking['appointment_time'] ?? '');
@@ -262,11 +282,13 @@ function sendBookingReceipt(string $email, array $booking): bool {
 
     $rowsHtml = '';
     foreach ($items as $row) {
-        if (!is_array($row)) continue;
+        if (!is_array($row)) {
+            continue;
+        }
         $name      = htmlspecialchars((string) ($row['name'] ?? 'Item'), ENT_QUOTES, 'UTF-8');
-        $qty       = (int)    ($row['qty'] ?? 1);
-        $price     = (float)  ($row['price'] ?? 0);
-        $subtotal  = (float)  ($row['subtotal'] ?? ($price * $qty));
+        $qty       = (int) ($row['qty'] ?? 1);
+        $price     = (float) ($row['price'] ?? 0);
+        $subtotal  = (float) ($row['subtotal'] ?? ($price * $qty));
         $priceTxt    = "\u{20B1}" . number_format($price, 2);
         $subtotalTxt = "\u{20B1}" . number_format($subtotal, 2);
         $rowsHtml .= <<<HTML
@@ -350,12 +372,12 @@ HTML;
 </body></html>
 HTML;
 
-    $alt = "Your " . $brand . " booking #" . $shortId . "\n"
-         . "Total: " . $totalTxt . "\n"
-         . "Payment: " . $payLine . "\n\n"
-         . "Special instructions: " . ($notes !== '' ? $notes : "None") . "\n\n"
+    $alt = 'Your ' . $brand . ' booking #' . $shortId . "\n"
+         . 'Total: ' . $totalTxt . "\n"
+         . 'Payment: ' . $payLine . "\n\n"
+         . 'Special instructions: ' . ($notes !== '' ? $notes : 'None') . "\n\n"
          . "Please present this confirmation when picking up your rental items.\n"
-         . "We will confirm your booking shortly.";
+         . 'We will confirm your booking shortly.';
 
     return sendMail($email, $subject, $html, $alt);
 }

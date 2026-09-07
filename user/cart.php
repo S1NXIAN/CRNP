@@ -128,11 +128,11 @@ require_once __DIR__ . '/../includes/header.php';
   <div class="card card--pad" id="cartWrap">
     <div id="cartItems">
     <?php foreach ($cart as $id => $item):
-      $unit     = (float) ($item['price'] ?? 0);
-      $qty      = (int)   ($item['qty']   ?? 1);
-      $subtotal = $unit * $qty;
-      $img      = product_image_url($item['image'] ?? '', $id, 'products');
-    ?>
+        $unit     = (float) ($item['price'] ?? 0);
+        $qty      = (int) ($item['qty']   ?? 1);
+        $subtotal = $unit * $qty;
+        $img      = product_image_url($item['image'] ?? '', $id, 'products');
+        ?>
       <div class="cart-item" data-item-id="<?= e($id) ?>" data-unit="<?= $unit ?>">
         <img class="cart-item__media" src="<?= e($img) ?>" alt="" loading="lazy">
 

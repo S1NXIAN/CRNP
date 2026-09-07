@@ -10,8 +10,11 @@ Firebase client: `$db = getDB();` returns a firebaseRDB.
   - $db->insert('/orders', $data)               -> new push key (throws on error)
   - $db->update('/orders', $id, $data)          -> patched array (throws on error)
   - $db->delete('/orders', $id)                 -> true (throws on error)
-IMPORTANT: To list items belonging to a user/field, call retrieve('/table') then
-filter_by($rows,'user_email',$email) — do NOT rely on Firebase orderBy index rules.
+IMPORTANT: Use indexed server-side queries so list pages never download whole
+tables: Model::where($field,$val), ::whereAny, ::whereRange, ::recentBy, or
+db_find_by_email($table,$email). Queried fields MUST stay listed in
+database.rules.json (.indexOn). Keep PHP-side filter_by/filter_like only as a
+refine on top of an indexed result (case-insensitive match, text search).
 
 Layout: render header + footer:
   $pageTitle='...'; $activeNav='shop'; $layout='narrow|wide|';  // optional
@@ -26,9 +29,9 @@ Flash messages: flash($msg,$type) with type in ok|warn|danger|info. Shown by hea
 
 Helpers available: e() redirect() now() money() gen_otp() rows()
   filter_by() filter_like() save_upload() upload_web()
+  upload_to_base64() image_display_src() product_image_url()
   get_cart() set_cart() cart_count() cart_total()
-  decrement_product_stock() restore_product_stock()
-  decrement_rent_stock() restore_rent_stock()
+  items_html() items_count() short_id() order_customer_name()
   order_status_label() booking_status_label() payment_status_label() -> [$label,$badgeClass]
   post($key,$default)
 
@@ -63,10 +66,6 @@ Timezone is Asia/Manila everywhere (set in config).
 
 Deploy assumption: app served at web root, so links use leading slash: /user/login.php,
 /assets/css/style.css, /uploads/...
-
-Google login: frontend posts a JWT to google_auth.php. Decode the payload segment
-(base64url) -> json -> {email,name,picture}. Create/update /user record by email,
-set $_SESSION['user_id'], 'user_email','user_name','user_image'. Regenerate session id.
 
 Password storage: password_hash($pw, PASSWORD_BCRYPT) on signup; password_verify on login.
 Signup flow: insert pending user with otp + otp_expires (now+10min), email OTP via sendOTP(),

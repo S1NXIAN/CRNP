@@ -23,8 +23,12 @@ $userId = $_SESSION['user_id'] ?? '';
 if ($userId !== '') {
     $rec = $db->retrieve('/user/' . $userId);
     if (is_array($rec)) {
-        if (!empty($rec['name']))    $profileName    = (string) $rec['name'];
-        if (!empty($rec['contact'])) $profileContact = (string) $rec['contact'];
+        if (!empty($rec['name'])) {
+            $profileName    = (string) $rec['name'];
+        }
+        if (!empty($rec['contact'])) {
+            $profileContact = (string) $rec['contact'];
+        }
     }
 }
 
@@ -41,8 +45,8 @@ $reservationDate = date('Y-m-d');
 $buyNowProductId = '';
 $buyNowQty = 1;
 if (isset($_GET['buy_now']) && $_GET['buy_now'] === '1') {
-    $buyNowProductId = trim((string)($_GET['product_id'] ?? ''));
-    $buyNowQty = max(1, (int)($_GET['qty'] ?? 1));
+    $buyNowProductId = trim((string) ($_GET['product_id'] ?? ''));
+    $buyNowQty = max(1, (int) ($_GET['qty'] ?? 1));
 }
 
 /* Guard: need either cart or buy-now item. */
@@ -63,7 +67,7 @@ if ($buyNowProductId !== '') {
         $buyNowProductId => [
             'id'    => $buyNowProductId,
             'name'  => $p->name ?? 'Item',
-            'price' => (float)($p->price ?? 0),
+            'price' => (float) ($p->price ?? 0),
             'qty'   => $buyNowQty,
             'image' => $p->image ?? '',
         ],
@@ -83,8 +87,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $errors = [];
-    if ($full_name === '') $errors[] = 'Please enter your full name.';
-    if ($contact   === '') $errors[] = 'Please enter a contact number.';
+    if ($full_name === '') {
+        $errors[] = 'Please enter your full name.';
+    }
+    if ($contact   === '') {
+        $errors[] = 'Please enter a contact number.';
+    }
     if ($pickup === '' || !in_array($pickup, $pickupSlots, true)) {
         $errors[] = 'Please choose a pickup time.';
     }
@@ -93,8 +101,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
        In buy-now mode, rebuild the single-item cart from POST data. */
     $cart = get_cart();
     if (isset($_POST['buy_now']) && $_POST['buy_now'] === '1') {
-        $bPid = trim((string)post('buy_now_product_id', ''));
-        $bQty = max(1, (int)post('buy_now_qty', 1));
+        $bPid = trim((string) post('buy_now_product_id', ''));
+        $bQty = max(1, (int) post('buy_now_qty', 1));
         if ($bPid !== '') {
             $bp = Product::find($bPid);
             if ($bp && ($bp->status ?? 'available') === 'available') {
@@ -102,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $bPid => [
                         'id'    => $bPid,
                         'name'  => $bp->name ?? 'Item',
-                        'price' => (float)($bp->price ?? 0),
+                        'price' => (float) ($bp->price ?? 0),
                         'qty'   => $bQty,
                         'image' => $bp->image ?? '',
                     ],
@@ -119,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $items = [];
     $total = 0.0;
     foreach ($cart as $pid => $item) {
-        $qty   = (int)   ($item['qty']   ?? 1);
+        $qty   = (int) ($item['qty']   ?? 1);
         $price = (float) ($item['price'] ?? 0);
         $sub   = $price * $qty;
         $items[$pid] = [
@@ -197,7 +205,7 @@ if ($buyNowProductId !== '') {
             $buyNowProductId => [
                 'id'    => $buyNowProductId,
                 'name'  => $p->name ?? 'Item',
-                'price' => (float)($p->price ?? 0),
+                'price' => (float) ($p->price ?? 0),
                 'qty'   => $buyNowQty,
                 'image' => $p->image ?? '',
             ],
@@ -224,7 +232,7 @@ require_once __DIR__ . '/../includes/header.php';
   <?php if ($buyNowProductId !== ''): ?>
     <input type="hidden" name="buy_now" value="1">
     <input type="hidden" name="buy_now_product_id" value="<?= e($buyNowProductId) ?>">
-    <input type="hidden" name="buy_now_qty" value="<?= (int)$buyNowQty ?>">
+    <input type="hidden" name="buy_now_qty" value="<?= (int) $buyNowQty ?>">
   <?php endif; ?>
 
   <div class="card">
@@ -237,10 +245,10 @@ require_once __DIR__ . '/../includes/header.php';
           </thead>
           <tbody>
             <?php foreach ($cart as $pid => $item):
-              $qty  = (int)   ($item['qty']   ?? 1);
-              $unit = (float) ($item['price'] ?? 0);
-              $sub  = $unit * $qty;
-            ?>
+                $qty  = (int) ($item['qty']   ?? 1);
+                $unit = (float) ($item['price'] ?? 0);
+                $sub  = $unit * $qty;
+                ?>
               <tr>
                 <td><?= e($item['name'] ?? 'Item') ?></td>
                 <td class="num"><?= $qty ?></td>
@@ -252,7 +260,10 @@ require_once __DIR__ . '/../includes/header.php';
           <tfoot>
             <tr>
               <td colspan="3" class="t-right muted" style="text-transform:uppercase;font-size:12px;letter-spacing:.08em">Total</td>
-              <td class="num"><strong style="font-family:var(--sans);font-size:1.1rem"><?php $t = 0.0; foreach($cart as $it) { $t += (float)($it['price']??0) * (int)($it['qty']??1); } ?><?= money($t) ?></strong></td>
+              <td class="num"><strong style="font-family:var(--sans);font-size:1.1rem"><?php $t = 0.0;
+foreach ($cart as $it) {
+    $t += (float) ($it['price'] ?? 0) * (int) ($it['qty'] ?? 1);
+} ?><?= money($t) ?></strong></td>
             </tr>
           </tfoot>
         </table>
@@ -286,9 +297,9 @@ require_once __DIR__ . '/../includes/header.php';
         <select class="select" id="pickup_time" name="pickup_time" required>
           <option value="" disabled <?= post('pickup_time', '') === '' ? 'selected' : '' ?>>Choose a pickup time</option>
           <?php foreach ($pickupSlots as $slot):
-            $label = date('g:i A', strtotime($slot));
-            $sel   = post('pickup_time', '') === $slot ? 'selected' : '';
-          ?>
+              $label = date('g:i A', strtotime($slot));
+              $sel   = post('pickup_time', '') === $slot ? 'selected' : '';
+              ?>
             <option value="<?= e($slot) ?>" <?= $sel ?>><?= e($label) ?></option>
           <?php endforeach; ?>
         </select>
@@ -305,7 +316,7 @@ require_once __DIR__ . '/../includes/header.php';
         <label>Payment method</label>
         <div class="row">
           <label class="checkbox-row"><input type="radio" name="payment_method" value="counter" <?= post('payment_method', 'counter') === 'counter' ? 'checked' : '' ?> data-pay="counter"> Pay at counter</label>
-          <label class="checkbox-row"><input type="radio" name="payment_method" value="gcash"   <?= post('payment_method')          === 'gcash'   ? 'checked' : '' ?> data-pay="gcash"> GCash</label>
+          <label class="checkbox-row"><input type="radio" name="payment_method" value="gcash"   <?= post('payment_method')          === 'gcash' ? 'checked' : '' ?> data-pay="gcash"> GCash</label>
         </div>
         <?= gcash_payment_info_html() ?>
       </div>
