@@ -5,14 +5,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends cron curl \
 
 COPY keepalive.sh /usr/local/bin/keepalive.sh
 COPY keepalive.cron /etc/cron.d/keepalive
-RUN chmod +x /usr/local/bin/keepalive.sh && chmod 644 /etc/cron.d/keepalive
+COPY docker-entry.sh /usr/local/bin/docker-entry.sh
+RUN chmod +x /usr/local/bin/keepalive.sh /usr/local/bin/docker-entry.sh \
+    && chmod 644 /etc/cron.d/keepalive
 
 COPY . /var/www/html/
 
 RUN chown -R www-data:www-data /var/www/html \
-    && rm -f /var/www/html/keepalive.sh /var/www/html/keepalive.cron /var/www/html/Dockerfile
+    && rm -f /var/www/html/keepalive.sh /var/www/html/keepalive.cron \
+        /var/www/html/docker-entry.sh /var/www/html/Dockerfile
 
-# cron in background, apache replaces shell as PID 1 so it gets signals.
-CMD ["sh", "-c", "cron && exec apache2-foreground"]
+# Entry exports runtime env for cron, starts cron, execs apache as PID 1.
+CMD ["/usr/local/bin/docker-entry.sh"]
 
 EXPOSE 80
