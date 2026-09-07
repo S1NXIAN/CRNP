@@ -1,0 +1,5 @@
+# keepalive.cron — ping every 14 min, inside the 15-min idle window.
+# Installed to /etc/cron.d (needs root ownership, 644). Logs failures only.
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+*/14 * * * * root /usr/local/bin/keepalive.sh >>/var/log/keepalive.log 2>&1
