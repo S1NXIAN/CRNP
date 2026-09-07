@@ -254,10 +254,9 @@ if (isset($_GET['check'])) {
     $pending = Order::where('status', 'pending');
     $rows = [];
     if ($statusFilter === '' || $statusFilter === 'pending') {
-        $knownIds = array_filter(array_map('strval', explode(',', (string) ($_GET['known'] ?? ''))));
+        $knownIds = array_filter(explode(',', (string) ($_GET['known'] ?? '')));
         foreach (Order::selectNew($pending, $knownIds, 20) as $oid => $o) {
-            $rows[] = ['id' => (string) $oid,
-                'html' => cashier_order_row((string) $oid, $o, $backAction, $backQuery)];
+            $rows[] = ['html' => cashier_order_row((string) $oid, $o, $backAction, $backQuery)];
         }
     }
     echo json_encode(['pending' => count($pending), 'rows' => $rows]);
@@ -602,7 +601,7 @@ require_once __DIR__ . '/../includes/header.php';
       document.querySelectorAll('#activeOrdersBody tr[data-order-id]').forEach(function (tr) {
         ids.push(tr.getAttribute('data-order-id'));
       });
-      return ids.slice(-100).join(',');
+      return ids.join(',');
     }
 
     function showToast(message, withRefresh) {

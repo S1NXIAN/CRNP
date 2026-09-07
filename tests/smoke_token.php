@@ -11,15 +11,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../firebaseRDB.php';
 
-$fails = 0;
-function check(string $name, bool $ok): void
-{
-    global $fails;
-    echo ($ok ? 'PASS' : 'FAIL') . "  $name\n";
-    if (!$ok) {
-        $fails++;
-    }
-}
+require_once __DIR__ . '/helpers.php';
 
 $db       = new firebaseRDB('https://example-default-rtdb.firebaseio.com');
 $refToken = new ReflectionMethod('firebaseRDB', 'accessToken');

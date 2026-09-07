@@ -13,15 +13,7 @@ require __DIR__ . '/../app/Models/Order.php';
 
 use App\Models\Order;
 
-$fails = 0;
-function check(string $name, bool $ok): void
-{
-    global $fails;
-    echo ($ok ? 'PASS' : 'FAIL') . "  $name\n";
-    if (!$ok) {
-        $fails++;
-    }
-}
+require_once __DIR__ . '/helpers.php';
 
 $pending = [
     'aaa' => ['status' => 'pending', 'created_at' => '2026-09-07 10:00:00', 'total' => 100],

@@ -74,7 +74,7 @@ class Order extends Model
         uasort($fresh, function ($a, $b) {
             return strcmp((string) ($b['created_at'] ?? $b['placed_at'] ?? ''), (string) ($a['created_at'] ?? $a['placed_at'] ?? ''));
         });
-        return array_slice($fresh, 0, max(1, $cap), true);
+        return array_slice($fresh, 0, $cap, true);
     }
 
     /** Unpaid count (excludes cancelled). */
