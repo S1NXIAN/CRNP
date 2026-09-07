@@ -127,39 +127,7 @@ The repository ships with two files that make deployment nearly automatic:
 
    Publish **after** step 4 is complete, otherwise the server loses database access. Keep the file and the Console copy in sync — adding a new `Model::where()` field means adding its `.indexOn` here too.
    Never paste the file wholesale: always keep the existing `.read` / `.write` lines and append only the per-node `.indexOn` blocks, changing access lines only as a deliberate separate step. Replacing open rules with `auth != null` before the server authenticates cuts off all database access, and every indexed query (`Model::where`) silently returns empty — list pages render as if there were no rows. Time-boxed rules also stop the app dead on expiry; extend or lock down before the date.
-   Pre-lockdown copy-paste (open access plus indexes — keep your own `.read` / `.write` lines if they differ):
-   ```json
-   {
-     "rules": {
-       ".read": "now < 1791302400000",
-       ".write": "now < 1791302400000",
-       "user": {
-         ".indexOn": ["email"]
-       },
-       "admins": {
-         ".indexOn": ["email"]
-       },
-       "cashiers": {
-         ".indexOn": ["email"]
-       },
-       "kitchen": {
-         ".indexOn": ["email"]
-       },
-       "orders": {
-         ".indexOn": ["user_email", "status", "created_at", "payment_status"]
-       },
-       "bookings": {
-         ".indexOn": ["user_email", "status", "created_at", "payment_status"]
-       },
-       "products": {
-         ".indexOn": ["name", "status", "category"]
-       },
-       "rent_items": {
-         ".indexOn": ["name", "status"]
-       }
-     }
-   }
-   ```
+   Pre-lockdown: paste `database.rules.json` with `.read` / `.write` set to `"now < 1791302400000"` (keep your own lines if they differ).
 
 > **Regional URL warning.** Databases created outside US-central live on a `*.firebasedatabase.app` domain. Always copy the URL shown above your data tree in Firebase Console — pointing at a `.firebaseio.com` address makes every request fail with *"Database lives in a different region."*
 
