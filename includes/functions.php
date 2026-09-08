@@ -296,7 +296,6 @@ function upload_normalize_bytes(string $raw, string $category): string
             $nh = max(1, (int) round($h * $scale));
             $scaled = @imagescale($src, $nw, $nh, IMG_BILINEAR_FIXED);
             if ($scaled !== false) {
-                imagedestroy($src);
                 $src = $scaled;
                 $w = $nw;
                 $h = $nh;
@@ -304,13 +303,11 @@ function upload_normalize_bytes(string $raw, string $category): string
         }
         $flat = imagecreatetruecolor($w, $h);
         if ($flat === false) {
-            imagedestroy($src);
             throw new Exception('Failed to process image.');
         }
         $white = imagecolorallocate($flat, 255, 255, 255);
         imagefill($flat, 0, 0, $white === false ? 0 : $white);
         imagecopy($flat, $src, 0, 0, 0, 0, $w, $h);
-        imagedestroy($src);
         $best = null;
         foreach ([82, 72, 65, 60] as $q) {
             ob_start();
@@ -320,11 +317,9 @@ function upload_normalize_bytes(string $raw, string $category): string
                 $best = $out;
             }
             if ($out !== '' && strlen($out) <= $maxBytes) {
-                imagedestroy($flat);
                 return $out;
             }
         }
-        imagedestroy($flat);
         // ponytail: quality floor 60; dimension bound keeps worst case small, per-category retune if budgets miss.
         if ($best !== null && $best !== '') {
             return $best;
