@@ -2,8 +2,9 @@
 /**
  * cashier/order_now.php — POS / walk-in order creation.
  * Cashier browses products, adds to a running order, fills customer details,
- * picks a payment method (gcash with optional receipt, or counter), and
- * submits. The order lands in the orders queue as 'accepted'.
+ * and submits. Walk-ins always record 'counter'; a manual GCash payment is
+ * verified by the cashier and recorded as counter. The order lands in the
+ * orders queue as 'accepted'.
  */
 use App\Models\Order;
 use App\Models\Product;
@@ -30,10 +31,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $numCustomers  = max(1, (int) post('num_customers', 1));
     $cashTendered  = (float) post('cash_tendered', 0);
     $notes         = trim((string) post('notes', ''));
-    $paymentMethod = (string) post('payment_method', 'counter');
-    if (!in_array($paymentMethod, ['gcash', 'counter'], true)) {
-        $paymentMethod = 'counter';
-    }
     $qtyMap = post('qty', []);
     if (!is_array($qtyMap)) {
         $qtyMap = [];
@@ -49,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($numCustomers < 1) {
         $errors[] = 'Number of customers must be at least 1.';
     }
-    if ($paymentMethod === 'counter' && $cashTendered <= 0) {
+    if ($cashTendered <= 0) {
         $errors[] = 'Please enter the cash amount tendered.';
     }
 
@@ -80,23 +77,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Add at least one product with a quantity.';
     }
 
-    // Receipt upload only when everything else validates (no orphan bytes on invalid forms).
-    $receiptFile = null;
-    if (!$errors && $paymentMethod === 'gcash') {
-        try {
-            $receiptFile = upload_to_base64('receipt', UPLOAD_ROOT . '/user/bookings');
-        } catch (Throwable $ex) {
-            $errors[] = 'Receipt upload failed: ' . $ex->getMessage();
-        }
-    }
-
     if ($errors) {
         foreach ($errors as $msg) {
             flash($msg, 'danger');
         }
         // Fall through to re-render form with preserved inputs.
     } else {
-        $change = $paymentMethod === 'counter' ? max(0, $cashTendered - $total) : 0;
+        $change = max(0, $cashTendered - $total);
         $acceptedAt = now();
 
         $order = [
@@ -111,12 +98,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'notes'            => $notes,
             'cash_tendered'    => $cashTendered,
             'change'           => $change,
-            'payment_method'   => $paymentMethod,
+            'payment_method'   => 'counter', // Walk-ins always counter; manual GCash verified in person.
             'payment_status'   => 'paid',
             'payment_verified' => true,
             'verified_at'      => $acceptedAt,
             'verified_by'      => $cashierName,
-            'receipt'          => $receiptFile,
+            'receipt'          => null,
             'status'           => 'accepted',
             'accepted_at'      => $acceptedAt,
             'accepted_by'      => $cashierName,
@@ -248,7 +235,7 @@ foreach ($products as $pid => $p) {
     <p>An administrator must add products before you can create an order.</p>
   </div>
 <?php else: ?>
-<form method="post" enctype="multipart/form-data" id="posForm">
+<form method="post" id="posForm">
   <?= csrf_field() ?>
   <input type="hidden" name="qty" id="qtyPayload" value="">
 
@@ -331,11 +318,8 @@ foreach ($products as $pid => $p) {
             </div>
           </div>
           <div class="field">
-            <label for="payment_method">Payment method</label>
-            <select class="select" id="payment_method" name="payment_method">
-              <option value="counter" <?= post('payment_method') === 'counter' ? 'selected' : '' ?>>Pay at counter</option>
-              <option value="gcash" <?= post('payment_method') === 'gcash' ? 'selected' : '' ?>>GCash</option>
-            </select>
+            <label>Payment method</label>
+            <p class="muted" style="margin:0">Pay at counter — cashier verifies manual GCash in person.</p>
           </div>
           <div class="field" id="cash-field">
             <label for="cash_tendered">Cash tendered</label>
@@ -345,11 +329,6 @@ foreach ($products as $pid => $p) {
           <div class="field" id="change-display" style="display:none">
             <label>Change</label>
             <div style="font-family:var(--sans);font-size:1.3rem;font-weight:700;color:var(--ok,#16a34a)" id="changeValue">₱0.00</div>
-          </div>
-          <div class="field" id="receipt-field" style="display:none">
-            <label for="receipt">GCash receipt</label>
-            <input class="input" type="file" id="receipt" name="receipt" accept="image/jpeg,image/png,image/webp">
-            <span class="hint">JPG, PNG, or WEBP. Max 5 MB.</span>
           </div>
           <div class="field">
             <label for="notes">Special instructions</label>
@@ -379,8 +358,6 @@ foreach ($products as $pid => $p) {
   var qtyField = document.getElementById('qtyPayload');
   var submitBtn= document.getElementById('submitBtn');
   var searchEl = document.getElementById('posSearch');
-  var pmSelect = document.getElementById('payment_method');
-  var recField = document.getElementById('receipt-field');
   var cashField = document.getElementById('cash-field');
   var cashInput = document.getElementById('cash_tendered');
   var changeDisp = document.getElementById('change-display');
@@ -391,11 +368,6 @@ foreach ($products as $pid => $p) {
   /* ---- cash/change calculation ---- */
   function calcChange() {
     if (!cashInput || !changeDisp || !changeVal) return;
-    if (pmSelect && pmSelect.value === 'gcash') {
-      cashField.style.display = 'none';
-      changeDisp.style.display = 'none';
-      return;
-    }
     cashField.style.display = '';
     var tendered = parseFloat(cashInput.value) || 0;
     var total = 0;
@@ -510,13 +482,6 @@ foreach ($products as $pid => $p) {
     });
   }
 
-  /* ---- payment method toggle ---- */
-  if (pmSelect) {
-    pmSelect.addEventListener('change', function () {
-      recField.style.display = pmSelect.value === 'gcash' ? '' : 'none';
-      calcChange();
-    });
-  }
   if (cashInput) {
     cashInput.addEventListener('input', calcChange);
   }

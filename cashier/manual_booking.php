@@ -2,9 +2,9 @@
 /**
  * cashier/manual_booking.php — create a walk-in rental booking.
  * Cashier picks rent items + qty, fills the customer's name/contact/address,
- * appointment/return times, and payment method (gcash with optional receipt,
- * or counter). Stock is decremented immediately and the booking lands in the
- * bookings queue as 'pending'.
+ * and appointment/return times. Walk-ins always record 'counter'; a manual
+ * GCash payment is verified in person. Stock is decremented immediately and
+ * the booking lands in the bookings queue as 'pending'.
  */
 require_once __DIR__ . '/../init.php';
 require_cashier();
@@ -29,10 +29,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $appointmentTime  = trim((string) post('appointment_time', ''));
     $returnTime       = trim((string) post('return_time', ''));
     $notes            = trim((string) post('notes', ''));
-    $paymentMethod    = (string) post('payment_method', 'counter');
-    if (!in_array($paymentMethod, ['gcash', 'counter'], true)) {
-        $paymentMethod = 'counter';
-    }
     $qtyMap           = post('qty', []);
     if (!is_array($qtyMap)) {
         $qtyMap = [];
@@ -85,26 +81,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Select at least one rental item with a quantity.';
     }
 
-    // Receipt upload only when everything else validates (no orphan bytes on invalid forms).
-    $receiptFile = null;
-    if (!$errors && $paymentMethod === 'gcash') {
-        try {
-            $receiptFile = upload_to_base64('receipt', UPLOAD_ROOT . '/user/bookings');
-        } catch (Throwable $ex) {
-            $errors[] = 'Receipt upload failed: ' . $ex->getMessage();
-        }
-    }
-
     if ($errors) {
         foreach ($errors as $msg) {
             flash($msg, 'danger');
         }
         // Fall through to render form (input preserved via post()).
     } else {
-        $paymentStatus = $paymentMethod === 'gcash'
-            ? ($receiptFile ? 'pending_verification' : 'unpaid')
-            : 'no_payment_required';
-
         $booking = [
             'user_email'       => 'walk-in',
             'user_id'          => '',
@@ -117,10 +99,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'notes'            => $notes,
             'appointment_time' => $appointmentTime,
             'return_time'      => $returnTime,
-            'payment_method'   => $paymentMethod,
-            'payment_status'   => $paymentStatus,
+            'payment_method'   => 'counter', // Walk-ins always counter; manual GCash verified in person.
+            'payment_status'   => 'no_payment_required',
             'payment_verified' => false,
-            'receipt'          => $receiptFile,
+            'receipt'          => null,
             'status'           => 'pending',
             'created_at'       => now(),
             'created_by'       => $cashierName,
@@ -157,7 +139,7 @@ require_once __DIR__ . '/../includes/header.php';
   </div>
 </header>
 
-<form method="post" enctype="multipart/form-data" class="card card--pad">
+<form method="post" class="card card--pad">
   <?= csrf_field() ?>
   <h3 class="mb-2">Customer details</h3>
   <div class="form-grid form-grid--2 mb-4">
@@ -243,17 +225,8 @@ require_once __DIR__ . '/../includes/header.php';
   <h3 class="mb-2 mt-6">Payment</h3>
   <div class="form-grid mb-2">
     <div class="field">
-      <label for="payment_method">Payment method</label>
-      <select class="select" id="payment_method" name="payment_method">
-        <option value="counter" <?= post('payment_method') === 'counter' ? 'selected' : '' ?>>Pay at counter</option>
-        <option value="gcash"   <?= post('payment_method') === 'gcash' ? 'selected' : '' ?>>GCash</option>
-      </select>
-      <span class="hint">For GCash, attach a screenshot of the transfer receipt (optional but recommended).</span>
-    </div>
-    <div class="field" id="receipt-field" style="display:none">
-      <label for="receipt">GCash receipt</label>
-      <input class="input" type="file" id="receipt" name="receipt" accept="image/jpeg,image/png,image/webp">
-      <span class="hint">JPG, PNG, or WEBP. Max 5 MB.</span>
+      <label>Payment method</label>
+      <p class="muted" style="margin:0">Pay at counter — cashier verifies manual GCash in person.</p>
     </div>
     <div class="field" style="grid-column:1 / -1">
       <label for="notes">Special instructions</label>
@@ -267,17 +240,4 @@ require_once __DIR__ . '/../includes/header.php';
   </div>
 </form>
 
-<script>
-  // Toggle receipt field on payment method change — no framework, no build step.
-  (function () {
-    var pm   = document.getElementById('payment_method');
-    var rec  = document.getElementById('receipt-field');
-    if (!pm || !rec) return;
-    function sync() {
-      rec.style.display = (pm.value === 'gcash') ? '' : 'none';
-    }
-    pm.addEventListener('change', sync);
-    sync();
-  })();
-</script>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
