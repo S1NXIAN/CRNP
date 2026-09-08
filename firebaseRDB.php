@@ -156,6 +156,20 @@ class firebaseRDB
         $this->_guardError($arr);
         return true;
     }
+    /**
+     * Full REST URL for a node with the access token attached when configured.
+     * Lets callers run their own requests (e.g. parallel batches) under the
+     * same auth as _exec().
+     */
+    public function authedUrl(string $path): string
+    {
+        $url = $this->url . '/' . ltrim($path, '/') . '.json';
+        $token = $this->accessToken();
+        if ($token !== null) {
+            $url .= '?access_token=' . rawurlencode($token);
+        }
+        return $url;
+    }
 
     /**
      * Short-lived Google OAuth2 access token minted from the
