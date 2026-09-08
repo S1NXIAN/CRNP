@@ -25,3 +25,6 @@ composer.lock
 # Editor / IDE
 .idea/
 *.swp
+
+# Local seed script (dev-only data, stays out of history)
+seed.php
