@@ -37,10 +37,10 @@ if (!function_exists('k_elapsed')) {
 
 /* Render one ticket card. Shared by the initial board + the ?check poll. */
 if (!function_exists('kitchen_ticket_html')) {
-    function kitchen_ticket_html(string $id, array $o, string $col): string
+    function kitchen_ticket_html(string $id, array $order, string $col): string
     {
-        $elapsed = k_elapsed((string) ($o['created_at'] ?? $o['placed_at'] ?? ''));
-        $status = (string) ($o['status'] ?? 'accepted');
+        $elapsed = k_elapsed((string) ($order['created_at'] ?? $order['placed_at'] ?? ''));
+        $status = (string) ($order['status'] ?? 'accepted');
         ob_start();
         ?>
         <article class="k-ticket" data-order-id="<?= e($id) ?>" data-status="<?= e($status) ?>" tabindex="0">
@@ -48,9 +48,9 @@ if (!function_exists('kitchen_ticket_html')) {
             <span class="kbd">#<?= e(short_id($id)) ?></span>
             <span class="muted"><?= e($elapsed) ?></span>
           </div>
-          <div class="k-ticket__items"><?= items_html($o['items'] ?? []) ?></div>
-          <?php if (!empty($o['notes'])): ?>
-            <div class="k-note"><?= e($o['notes']) ?></div>
+          <div class="k-ticket__items"><?= items_html($order['items'] ?? []) ?></div>
+          <?php if (!empty($order['notes'])): ?>
+            <div class="k-note"><?= e($order['notes']) ?></div>
           <?php endif; ?>
           <div class="k-ticket__actions">
             <?php if ($col === 'accepted'): ?>
@@ -94,13 +94,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     };
 
     $transitions = [
-        'accept' => ['pending' => 'accepted'],
         'start' => ['accepted' => 'preparing'],
-        'ready' => ['preparing' => 'ready'],
-        'done' => ['accepted' => 'done', 'preparing' => 'done', 'ready' => 'done'],
+        'done' => ['preparing' => 'done', 'ready' => 'done'],
     ];
 
-    $order = $orderId !== '' ? Order::find($orderId) : null;
+    if ($orderId === '' || ($action !== 'undo' && !isset($transitions[$action]))) {
+        $fail('Invalid request.');
+    }
+    $order = Order::find($orderId);
     if (!$order || !isset($order->status)) {
         $fail('Order not found.');
     }
@@ -124,14 +125,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $newStatus = $map[$current];
         $patch = ['status' => $newStatus, 'updated_at' => now()];
-        if ($newStatus === 'accepted') {
-            $patch['accepted_at'] = now();
-        }
         if ($newStatus === 'preparing') {
             $patch['preparing_at'] = now();
-        }
-        if ($newStatus === 'ready') {
-            $patch['ready_at'] = now();
         }
         if ($newStatus === 'done') {
             $patch['done_at'] = now();
@@ -177,7 +172,6 @@ if (isset($_GET['check'])) {
 /* ---------- GET: initial board (indexed; oldest first for FIFO cooking) ---------- */
 $fetched = Order::whereAny('status', ['accepted', 'preparing', 'ready']);
 $board = Order::kitchenBoard($fetched);
-$chefName = (string) ($_SESSION['kitchen_name'] ?? 'Kitchen');
 
 $pageTitle = 'Kitchen Board';
 $activeNav = 'orders';
@@ -225,23 +219,23 @@ require_once __DIR__ . '/../includes/header.php';
       <?php if (empty($board['accepted'])): ?>
         <div class="empty" data-empty="accepted"><p>Nothing waiting. New accepted orders land here.</p></div>
       <?php else: ?>
-        <?php foreach ($board['accepted'] as $id => $o): ?>
-          <?= kitchen_ticket_html((string) $id, $o, 'accepted') ?>
+        <?php foreach ($board['accepted'] as $id => $orderRow): ?>
+          <?= kitchen_ticket_html((string) $id, $orderRow, 'accepted') ?>
         <?php endforeach; ?>
       <?php endif; ?>
     </div>
   </section>
   <section class="k-col" id="kColCooking" aria-label="Cooking column">
     <div class="k-col__head">
-      <h2><?= e($chefName) ?> — Cooking</h2>
+      <h2>Cooking</h2>
       <span class="muted" aria-live="polite"><span id="kCookingCount"><?= count($board['cooking']) ?></span> cooking</span>
     </div>
     <div class="k-list" id="kCookingList">
       <?php if (empty($board['cooking'])): ?>
         <div class="empty" data-empty="cooking"><p>Nothing cooking. Claim a ticket to start.</p></div>
       <?php else: ?>
-        <?php foreach ($board['cooking'] as $id => $o): ?>
-          <?= kitchen_ticket_html((string) $id, $o, 'cooking') ?>
+        <?php foreach ($board['cooking'] as $id => $orderRow): ?>
+          <?= kitchen_ticket_html((string) $id, $orderRow, 'cooking') ?>
         <?php endforeach; ?>
       <?php endif; ?>
     </div>
@@ -508,8 +502,17 @@ require_once __DIR__ . '/../includes/header.php';
   var knownGone = {};
   function refresh(silent) {
     if (dragging) return;
-    fetch('/kitchen/?check=1', { cache: 'no-store', headers: { 'Accept': 'application/json' } })
-      .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    fetch('/kitchen/?check=1', { cache: 'no-store', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) {
+        if (r.status === 401 || r.status === 403) {
+          if (Date.now() - lastAuthReload > 10000) {
+            lastAuthReload = Date.now();
+            window.location.reload();
+          }
+          return Promise.reject();
+        }
+        return r.ok ? r.json() : Promise.reject();
+      })
       .then(function (d) {
         var seen = {};
         (d.cards || []).forEach(function (c) {

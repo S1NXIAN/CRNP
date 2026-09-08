@@ -93,14 +93,14 @@ class Order extends Model
             if (!is_array($row)) {
                 continue;
             }
-            $st = (string) ($row['status'] ?? '');
-            if ($st === 'accepted') {
+            $status = (string) ($row['status'] ?? '');
+            if ($status === 'accepted') {
                 $accepted[(string) $oid] = $row;
-            } elseif ($st === 'preparing' || $st === 'ready') {
+            } elseif ($status === 'preparing' || $status === 'ready') {
                 $cooking[(string) $oid] = $row;
             }
         }
-        $byOldest = function ($a, $b) {
+        $byOldest = function (array $a, array $b): int {
             $ta = strtotime((string) ($a['created_at'] ?? $a['placed_at'] ?? ''));
             $tb = strtotime((string) ($b['created_at'] ?? $b['placed_at'] ?? ''));
             if ($ta === false && $tb === false) {
