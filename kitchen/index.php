@@ -280,7 +280,23 @@ require_once __DIR__ . '/../includes/header.php';
     document.body.appendChild(t);
   }
 
-  function postAction(id, action, to, onOk, onFail) {
+  var lastAuthReload = 0;
+  var AUTH_RETRY_KEY = 'kAuthRetry';
+  function stashAuthRetry(id, action, to) {
+    try { sessionStorage.setItem(AUTH_RETRY_KEY, JSON.stringify({ id: id, action: action, to: to || null, at: Date.now() })); } catch (e) {}
+  }
+  function takeAuthRetry() {
+    try {
+      var raw = sessionStorage.getItem(AUTH_RETRY_KEY);
+      sessionStorage.removeItem(AUTH_RETRY_KEY);
+      if (!raw) return null;
+      var r = JSON.parse(raw);
+      if (!r || !r.id || !r.action || Date.now() - r.at > 30000) return null;
+      return r;
+    } catch (e) { return null; }
+  }
+
+  function postAction(id, action, to, onOk, onFail, noRetry) {
     var fd = new FormData();
     var token = document.querySelector('input[name="csrf_token"]');
     fd.append('action', action);
@@ -288,8 +304,18 @@ require_once __DIR__ . '/../includes/header.php';
     if (to) fd.append('to', to);
     if (token) fd.append(token.name, token.value);
     fetch('/kitchen/', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
-      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }, function () { return { ok: false, d: null }; }); })
-      .then(function (res) { if (res.ok && res.d && res.d.success) { onOk(res.d); } else { onFail(res.d && res.d.message); } })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, d: d }; }, function () { return { ok: false, status: r.status, d: null }; }); })
+      .then(function (res) {
+        if (res.ok && res.d && res.d.success) { onOk(res.d); return; }
+        // 401/419 fire before any order write, so one retry after a reload is safe: the action never ran.
+        if ((res.status === 401 || res.status === 419) && !noRetry && Date.now() - lastAuthReload > 10000) {
+          lastAuthReload = Date.now();
+          stashAuthRetry(id, action, to);
+          window.location.reload();
+          return;
+        }
+        onFail(res.d && res.d.message);
+      })
       .catch(function () { onFail(); });
   }
 
@@ -519,6 +545,10 @@ require_once __DIR__ . '/../includes/header.php';
         updateCounts();
       })
       .catch(function () { if (!silent) toast('Refresh failed. Check connection.'); });
+  }
+  var authRetry = takeAuthRetry();
+  if (authRetry) {
+    postAction(authRetry.id, authRetry.action, authRetry.to, function () { refresh(true); }, function (msg) { toast('Still failing.' + (msg ? ' ' + msg : '')); }, true);
   }
   setInterval(refresh, 10000);
 })();
