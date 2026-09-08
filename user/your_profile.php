@@ -76,12 +76,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action', '') === 'change_pass
 // ---------- Upload avatar ----------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action', '') === 'upload_image') {
     csrf_verify();
+    $oldAvatar = (string) ($user['profile_image'] ?? '');
     try {
         $filename = save_upload('profile_image', UPLOAD_ROOT . '/user/profile');
         if ($filename === null) {
             flash('Please choose an image file to upload.', 'warn');
         } else {
             $db->update('/user', $uid, ['profile_image' => $filename]);
+            upload_retire_file('user/profile', $oldAvatar, $filename);
             $_SESSION['user_image'] = $filename;
             $user['profile_image'] = $filename;
             flash('Profile photo updated.', 'ok');

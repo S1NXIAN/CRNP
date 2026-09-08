@@ -80,9 +80,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Add at least one product with a quantity.';
     }
 
-    // Optional GCash receipt upload.
+    // Receipt upload only when everything else validates (no orphan bytes on invalid forms).
     $receiptFile = null;
-    if ($paymentMethod === 'gcash') {
+    if (!$errors && $paymentMethod === 'gcash') {
         try {
             $receiptFile = upload_to_base64('receipt', UPLOAD_ROOT . '/user/bookings');
         } catch (Throwable $ex) {
@@ -117,7 +117,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'verified_at'      => $acceptedAt,
             'verified_by'      => $cashierName,
             'receipt'          => $receiptFile,
-            'gcash_receipt'    => $receiptFile,
             'status'           => 'accepted',
             'accepted_at'      => $acceptedAt,
             'accepted_by'      => $cashierName,

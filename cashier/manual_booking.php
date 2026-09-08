@@ -85,9 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Select at least one rental item with a quantity.';
     }
 
-    // Optional GCash receipt upload
+    // Receipt upload only when everything else validates (no orphan bytes on invalid forms).
     $receiptFile = null;
-    if ($paymentMethod === 'gcash') {
+    if (!$errors && $paymentMethod === 'gcash') {
         try {
             $receiptFile = upload_to_base64('receipt', UPLOAD_ROOT . '/user/bookings');
         } catch (Throwable $ex) {

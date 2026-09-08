@@ -27,9 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $item = RentItem::find($id);
             if ($item) {
-                @unlink(UPLOAD_ROOT . '/cache/rent_items/' . $id . '.img');
-                @unlink(UPLOAD_ROOT . '/cache/rent_items/' . $id . '.img.meta');
                 $item->delete();
+                product_image_cache_invalidate($id, 'rent_items');
             }
             flash('Rent item deleted.', 'ok');
         } catch (Throwable $ex) {
@@ -68,13 +67,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($id !== '') {
-                if (isset($data['image'])) {
-                    @unlink(UPLOAD_ROOT . '/cache/rent_items/' . $id . '.img');
-                    @unlink(UPLOAD_ROOT . '/cache/rent_items/' . $id . '.img.meta');
-                }
                 $item = RentItem::find($id);
                 if ($item) {
                     $item->update($data);
+                    if (isset($data['image'])) {
+                        product_image_cache_invalidate($id, 'rent_items');
+                    }
                 }
                 flash('Rent item updated.', 'ok');
             } else {
@@ -95,8 +93,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-/* ---------- List ---------- */
-$rentItems = RentItem::raw();
+/* ---------- List (paged; images lazy via proxy, no full payloads in HTML) ---------- */
+$rentPage = max(1, (int) ($_GET['page'] ?? 1));
+$rentPerPage = 50;
+$rentPaged = RentItem::paginate($rentPage, $rentPerPage);
+$rentItems = $rentPaged['data'];
+$rentTotal = $rentPaged['total'];
+$rentPages = $rentPaged['pages'];
 uasort($rentItems, function ($a, $b) {
     $ta = strtotime((string) ($a['created_at'] ?? '')) ?: 0;
     $tb = strtotime((string) ($b['created_at'] ?? '')) ?: 0;
@@ -139,7 +142,13 @@ require_once __DIR__ . '/../includes/header.php';
   <!-- List -->
   <div class="card">
     <div class="card__head">
-      <div><h2>All rent items</h2><small><?= count($rentItems) ?> item(s)</small></div>
+      <div><h2>All rent items</h2><small><?= $rentTotal ?> item(s) &middot; page <?= $rentPage ?> of <?= $rentPages ?></small></div>
+      <?php if ($rentPages > 1): ?>
+        <div class="row" style="gap:6px">
+          <?php if ($rentPage > 1): ?><a class="btn btn--ghost btn--sm" href="?page=<?= $rentPage - 1 ?>">&larr; Prev</a><?php endif; ?>
+          <?php if ($rentPage < $rentPages): ?><a class="btn btn--ghost btn--sm" href="?page=<?= $rentPage + 1 ?>">Next &rarr;</a><?php endif; ?>
+        </div>
+      <?php endif; ?>
     </div>
     <div class="table-wrap" style="border:0;border-radius:0;">
       <table class="tbl">

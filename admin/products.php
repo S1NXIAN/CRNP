@@ -27,9 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $product = Product::find($id);
             if ($product) {
-                @unlink(UPLOAD_ROOT . '/cache/products/' . $id . '.img');
-                @unlink(UPLOAD_ROOT . '/cache/products/' . $id . '.img.meta');
                 $product->delete();
+                product_image_cache_invalidate($id, 'products');
             }
             flash('Product deleted.', 'ok');
         } catch (Throwable $ex) {
@@ -77,26 +76,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($b64 !== null) {
                 $data['image'] = $b64;
             }
-            // Client-side canvas crop (no GD dependency)
-            $cropped = post('cropped');
-            if ($cropped) {
-                $parts = explode(',', $cropped, 2);
-                $raw = base64_decode($parts[1] ?? $parts[0] ?? '', true);
-                if ($raw !== false && strlen($raw) > 0) {
-                    $filename = bin2hex(random_bytes(16)) . '.jpg';
-                    file_put_contents(__DIR__ . '/../assets/img/products/' . $filename, $raw);
-                    $data['image'] = 'b64:' . base64_encode($raw);
-                }
+            $croppedB64 = upload_cropped_to_base64(post('cropped'), 'admin/item');
+            if ($croppedB64 !== null) {
+                $data['image'] = $croppedB64;
             }
 
             if ($id !== '') {
-                if (isset($data['image'])) {
-                    @unlink(UPLOAD_ROOT . '/cache/products/' . $id . '.img');
-                    @unlink(UPLOAD_ROOT . '/cache/products/' . $id . '.img.meta');
-                }
                 $product = Product::find($id);
                 if ($product) {
                     $product->update($data);
+                    if (isset($data['image'])) {
+                        product_image_cache_invalidate($id, 'products');
+                    }
                 }
                 flash('Product updated.', 'ok');
             } else {

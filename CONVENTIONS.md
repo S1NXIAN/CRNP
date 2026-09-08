@@ -44,10 +44,18 @@ Stock rules (BUSINESS LOGIC):
     items array (never match by name). Check current status first to avoid double-restore.
   - Booking items are stored as { itemId: {name, qty, price, subtotal} }.
 
-Uploads: save_upload($field, UPLOAD_ROOT.'/user/bookings') returns filename;
-  display with upload_web('user/bookings', $filename).
-  Categories in use: 'user/bookings' (receipts), 'user/profile' (avatars),
-  'admin/item' (item images).
+Uploads: single pipeline in includes/functions.php owns all photo intake —
+  upload_normalize_bytes() validates real type, bounds dims, compresses to
+  JPEG, strips metadata; identity is content-addressed (hash of normalized
+  bytes) so retries converge; callers retire replaced refs after DB wins.
+  save_upload($field, UPLOAD_ROOT.'/user/profile') returns filename; display
+  with upload_web('user/profile', $filename). upload_to_base64() returns b64:
+  with no local copy. Retire with upload_retire_file(); invalidate proxy with
+  product_image_cache_invalidate().
+  Categories in use: 'user/profile' (avatars, file), 'settings' (QR, file),
+  'user/bookings' (receipts, b64), 'admin/item' (menu/rent, b64).
+  Read paths: avatars/settings via upload_web(); menu/rent via
+  product_image_url() proxy; receipts via image_display_src().
 
 CSS classes available (style.css): .card .card--pad .card__head .card__body
   .btn .btn--gold .btn--outline .btn--ghost .btn--danger .btn--ok .btn--sm .btn--lg .btn--block

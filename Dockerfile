@@ -1,6 +1,7 @@
 FROM php:8.2-apache
 
-RUN apt-get update && apt-get install -y --no-install-recommends cron curl \
+RUN apt-get update && apt-get install -y --no-install-recommends cron curl libpng-dev libjpeg-dev libwebp-dev \
+    && docker-php-ext-configure gd --with-jpeg --with-webp && docker-php-ext-install -j$(nproc) gd \
     && rm -rf /var/lib/apt/lists/* && a2enmod rewrite
 
 COPY keepalive.sh /usr/local/bin/keepalive.sh

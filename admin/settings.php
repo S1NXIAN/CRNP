@@ -50,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $updated[$key] = trim(post($key, $default));
     }
+    $oldQr = trim((string) ($settings['gcash_qr'] ?? ''));
     // Optional QR image upload (replaces the stored value only when a new file is sent)
     $qr = save_upload('gcash_qr', UPLOAD_ROOT . '/settings', ['jpg', 'jpeg', 'png', 'webp'], 2);
     if ($qr !== null) {
@@ -57,14 +58,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (post('gcash_qr_remove') === '1') {
         $updated['gcash_qr'] = '';
     } else {
-        $updated['gcash_qr'] = trim((string) ($settings['gcash_qr'] ?? ''));
+        $updated['gcash_qr'] = $oldQr;
     }
     try {
         // PATCH the /settings node directly (no child id)
         $db->updateNode('/settings', $updated);
         cache_file_forget('business_settings');
+        $newQr = (string) $updated['gcash_qr'];
+        upload_retire_file('settings', $oldQr, $newQr);
         flash('Business settings saved.', 'ok');
     } catch (Exception $e) {
+        if ($qr !== null && $qr !== $oldQr && $qr !== '') {
+            @unlink(rtrim(UPLOAD_ROOT, '/') . '/settings/' . basename($qr));
+        }
         flash('Could not save settings: ' . $e->getMessage(), 'danger');
     }
     redirect('/admin/settings.php');

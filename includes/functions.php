@@ -233,14 +233,111 @@ function db_find_by_email(string $table, string $email): array
     return filter_by(rows(getDB()->retrieve($path)), 'email', $email);
 }
 
-/* ---------- file uploads (C4 hardened) ---------- */
-/**
- * Save an uploaded file. Returns the generated filename or null if no file.
- * Verifies the real MIME type via finfo AND proves it's a real image with
- * getimagesize() — never trusts the client-supplied extension.
- * @throws Exception on validation / IO failure.
+/* ---------- upload pipeline (single seam) ----------
+ * Every photo intake routes through upload_normalize_bytes(): validate real
+ * image type, bound dimensions, compress to JPEG, strip metadata. Identity is
+ * content-addressed (hash of normalized bytes) so retries converge.
+ * File categories (avatar, settings) persist one file per distinct image;
+ * b64 categories (menu, rent, receipt) persist one b64 value with no local
+ * copy. Callers delete the replaced reference only after the DB write wins.
  */
-function save_upload(string $field, string $destDir, array $allowed = ['jpg', 'jpeg', 'png', 'webp'], int $maxMB = 5): ?string
+/** @return array{dim:int,bytes:int,kind:string} */
+function upload_preset(string $category): array
+{
+    $cat = trim($category, '/');
+    if ($cat === 'user/profile') {
+        return ['dim' => 384, 'bytes' => 100 * 1024, 'kind' => 'file'];
+    }
+    if ($cat === 'settings') {
+        return ['dim' => 512, 'bytes' => 120 * 1024, 'kind' => 'file'];
+    }
+    if ($cat === 'user/bookings') {
+        return ['dim' => 1024, 'bytes' => 300 * 1024, 'kind' => 'b64'];
+    }
+    return ['dim' => 1280, 'bytes' => 400 * 1024, 'kind' => 'b64'];
+}
+function upload_category_for_dir(string $dir): string
+{
+    if (str_contains($dir, 'user/profile')) {
+        return 'user/profile';
+    }
+    if (str_contains($dir, 'settings')) {
+        return 'settings';
+    }
+    if (str_contains($dir, 'user/bookings')) {
+        return 'user/bookings';
+    }
+    return 'admin/item';
+}
+function upload_normalize_bytes(string $raw, string $category): string
+{
+    $preset = upload_preset($category);
+    $maxDim = (int) $preset['dim'];
+    $maxBytes = (int) $preset['bytes'];
+    $info = @getimagesizefromstring($raw);
+    if ($info === false) {
+        throw new Exception('File is not a valid image.');
+    }
+    $mime = (string) $info['mime'];
+    if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true)) {
+        throw new Exception('Invalid file type. Only images are allowed.');
+    }
+    if (function_exists('imagecreatefromstring') && function_exists('imagejpeg')) {
+        $src = @imagecreatefromstring($raw);
+        if ($src === false) {
+            throw new Exception('File is not a valid image.');
+        }
+        $w = imagesx($src);
+        $h = imagesy($src);
+        // ponytail: EXIF orientation ignored (no ext-exif); phone shots already upright via canvas crop, fix with exif if misrotated reports arrive.
+        if (max($w, $h) > $maxDim) {
+            $scale = $maxDim / max($w, $h);
+            $nw = max(1, (int) round($w * $scale));
+            $nh = max(1, (int) round($h * $scale));
+            $scaled = @imagescale($src, $nw, $nh, IMG_BILINEAR_FIXED);
+            if ($scaled !== false) {
+                imagedestroy($src);
+                $src = $scaled;
+                $w = $nw;
+                $h = $nh;
+            }
+        }
+        $flat = imagecreatetruecolor($w, $h);
+        if ($flat === false) {
+            imagedestroy($src);
+            throw new Exception('Failed to process image.');
+        }
+        $white = imagecolorallocate($flat, 255, 255, 255);
+        imagefill($flat, 0, 0, $white === false ? 0 : $white);
+        imagecopy($flat, $src, 0, 0, 0, 0, $w, $h);
+        imagedestroy($src);
+        $best = null;
+        foreach ([82, 72, 65, 60] as $q) {
+            ob_start();
+            imagejpeg($flat, null, $q);
+            $out = (string) ob_get_clean();
+            if ($out !== '') {
+                $best = $out;
+            }
+            if ($out !== '' && strlen($out) <= $maxBytes) {
+                imagedestroy($flat);
+                return $out;
+            }
+        }
+        imagedestroy($flat);
+        // ponytail: quality floor 60; dimension bound keeps worst case small, per-category retune if budgets miss.
+        if ($best !== null && $best !== '') {
+            return $best;
+        }
+        throw new Exception('Failed to process image.');
+    }
+    // ponytail: no GD means no resize/re-encode; size gate stays as backstop, add GD/Imagick when budgets must hold.
+    if (strlen($raw) > $maxBytes * 12) {
+        throw new Exception('Image is too large.');
+    }
+    return $raw;
+}
+function upload_normalize_upload(string $field, string $category, int $maxMB = 5): ?string
 {
     if (!isset($_FILES[$field]) || $_FILES[$field]['error'] === UPLOAD_ERR_NO_FILE) {
         return null;
@@ -249,37 +346,75 @@ function save_upload(string $field, string $destDir, array $allowed = ['jpg', 'j
         throw new Exception('Upload error (code ' . $_FILES[$field]['error'] . ').');
     }
     if ($_FILES[$field]['size'] > $maxMB * 1024 * 1024) {
-        throw new Exception("File exceeds {$maxMB}MB limit.");
+        throw new Exception('File exceeds ' . $maxMB . 'MB limit.');
     }
-    $tmp = $_FILES[$field]['tmp_name'];
-    // verify real MIME via finfo (do NOT trust the client extension)
+    $tmp = (string) $_FILES[$field]['tmp_name'];
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $mime  = finfo_file($finfo, $tmp);
-    finfo_close($finfo);
-    $mimeToExt = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
-    if (!isset($mimeToExt[$mime])) {
+    $mime = $finfo !== false ? (string) finfo_file($finfo, $tmp) : '';
+    if ($finfo !== false) {
+        finfo_close($finfo);
+    }
+    if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true)) {
         throw new Exception('Invalid file type. Only images are allowed.');
     }
-    $ext = $mimeToExt[$mime];
-    if (!in_array($ext, $allowed)) {
+    $raw = @file_get_contents($tmp);
+    if ($raw === false || $raw === '') {
+        throw new Exception('Failed to read uploaded file.');
+    }
+    return upload_normalize_bytes($raw, $category);
+}
+/**
+ * Save an uploaded file through the pipeline. Returns the content-addressed
+ * filename or null if no file. Reuses the stored file on retry.
+ * Delete the replaced filename only after the DB write succeeds.
+ * @throws Exception on validation / IO failure.
+ */
+function save_upload(string $field, string $destDir, array $allowed = ['jpg', 'jpeg', 'png', 'webp'], int $maxMB = 5): ?string
+{
+    $category = upload_category_for_dir($destDir);
+    $norm = upload_normalize_upload($field, $category, $maxMB);
+    if ($norm === null) {
+        return null;
+    }
+    if (!in_array('jpg', $allowed, true)) {
         throw new Exception('File type not permitted.');
     }
-    // verify it's a real image (rejects polyglots / crafted headers)
-    $imgInfo = @getimagesize($tmp);
-    if ($imgInfo === false) {
-        throw new Exception('File is not a valid image.');
+    $name = hash('sha256', $norm) . '.jpg';
+    $dir = rtrim($destDir, '/');
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
     }
-    if (!is_dir($destDir)) {
-        @mkdir($destDir, 0775, true);
-    }
-    $name   = bin2hex(random_bytes(16)) . '.' . $ext;
-    $target = rtrim($destDir, '/') . '/' . $name;
-    if (!move_uploaded_file($tmp, $target)) {
-        throw new Exception('Failed to save uploaded file.');
+    $target = $dir . '/' . $name;
+    if (!is_file($target)) {
+        $tmpFile = $target . '.tmp' . bin2hex(random_bytes(4));
+        if (@file_put_contents($tmpFile, $norm, LOCK_EX) === false) {
+            throw new Exception('Failed to save uploaded file.');
+        }
+        @rename($tmpFile, $target);
     }
     return $name;
 }
-
+/** Delete a replaced file reference; no-op when empty or identical. */
+function upload_retire_file(string $category, ?string $old, ?string $next): void
+{
+    if ($old === null || $old === '' || $next === null) {
+        return;
+    }
+    if ($old === $next) {
+        return;
+    }
+    if (preg_match('#^https?://#i', $old) === 1 || str_starts_with($old, 'b64:')) {
+        return;
+    }
+    $cat = trim($category, '/');
+    if ($cat === 'admin/item') {
+        return;
+    }
+    $path = rtrim(UPLOAD_ROOT, '/') . '/' . $cat . '/' . basename($old);
+    if (is_file($path)) {
+        @unlink($path);
+    }
+}
 /** Web URL for an uploaded asset given a category subpath and filename. */
 function upload_web(string $category, ?string $filename): string
 {
@@ -299,57 +434,39 @@ function upload_web(string $category, ?string $filename): string
     }
     return UPLOAD_WEB . '/' . $category . '/' . rawurlencode($filename);
 }
-
-/* ---------- base64 image storage (Firebase) + local save ---------- */
-/**
- * Save uploaded image locally to UPLOAD_ROOT/admin/item/ AND return a
- * "b64:<base64data>" string for Firebase storage.
+/* ---------- base64 image storage (Firebase, single authoritative store) ----------
+ * Returns a "b64:<base64data>" string of normalized bytes. No local copy is
+ * kept; the product proxy holds the only disk cache. Identical retries yield
+ * byte-identical values so failed-then-retried writes never duplicate.
  * @throws Exception on validation / IO failure.
  */
 function upload_to_base64(string $field, string $localDir = '', int $maxMB = 5): ?string
 {
-    if (!isset($_FILES[$field]) || $_FILES[$field]['error'] === UPLOAD_ERR_NO_FILE) {
+    $category = $localDir !== '' ? upload_category_for_dir($localDir) : 'user/bookings';
+    if ($field === 'image') {
+        $category = 'admin/item';
+    }
+    $norm = upload_normalize_upload($field, $category, $maxMB);
+    if ($norm === null) {
         return null;
     }
-    if ($_FILES[$field]['error'] !== UPLOAD_ERR_OK) {
-        throw new Exception('Upload error (code ' . $_FILES[$field]['error'] . ').');
+    return 'b64:' . base64_encode($norm);
+}
+/**
+ * Normalize a client-side canvas crop data URL through the same pipeline.
+ * Consumes the existing crop input as-is; no uploader redesign.
+ */
+function upload_cropped_to_base64(mixed $cropped, string $category = 'admin/item'): ?string
+{
+    if (!is_string($cropped) || $cropped === '') {
+        return null;
     }
-    if ($_FILES[$field]['size'] > $maxMB * 1024 * 1024) {
-        throw new Exception("File exceeds {$maxMB}MB limit.");
+    $parts = explode(',', $cropped, 2);
+    $raw = base64_decode($parts[1] ?? $parts[0] ?? '', true);
+    if ($raw === false || strlen($raw) === 0) {
+        return null;
     }
-    $tmp = $_FILES[$field]['tmp_name'];
-
-    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $mime  = finfo_file($finfo, $tmp);
-    finfo_close($finfo);
-
-    $mimeToExt = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
-    if (!isset($mimeToExt[$mime])) {
-        throw new Exception('Invalid file type. Only JPG, PNG, GIF, and WebP are allowed.');
-    }
-    $imgInfo = @getimagesize($tmp);
-    if ($imgInfo === false) {
-        throw new Exception('File is not a valid image.');
-    }
-
-    $bytes = file_get_contents($tmp);
-    if ($bytes === false) {
-        throw new Exception('Failed to read uploaded file.');
-    }
-
-    // Save locally if a directory is specified
-    if ($localDir !== '') {
-        $ext  = $mimeToExt[$mime];
-        $name = bin2hex(random_bytes(16)) . '.' . $ext;
-        if (!is_dir($localDir)) {
-            @mkdir($localDir, 0775, true);
-        }
-        if (!move_uploaded_file($tmp, rtrim($localDir, '/') . '/' . $name)) {
-            throw new Exception('Failed to save uploaded file locally.');
-        }
-    }
-
-    return 'b64:' . base64_encode($bytes);
+    return 'b64:' . base64_encode(upload_normalize_bytes($raw, $category));
 }
 
 /**
@@ -396,6 +513,59 @@ function product_image_url(?string $image, string $id, string $table = 'products
         return '/user/product_image.php?id=' . rawurlencode($id) . '&table=' . rawurlencode($table);
     }
     return image_display_src($image);
+}
+/* ---------- product proxy cache discipline ---------- */
+function product_image_cache_path(string $id, string $table): string
+{
+    $safeTable = $table === 'rent_items' ? 'rent_items' : 'products';
+    return rtrim(UPLOAD_ROOT, '/') . '/cache/' . $safeTable . '/' . $id . '.img';
+}
+function product_image_cache_invalidate(string $id, string $table): void
+{
+    if (!preg_match('/^[a-zA-Z0-9_\\-]+$/', $id)) {
+        return;
+    }
+    $base = product_image_cache_path($id, $table);
+    @unlink($base);
+    @unlink($base . '.meta');
+}
+function product_image_cache_prune(string $table = '', int $maxFiles = 500, int $maxBytes = 100 * 1024 * 1024): void
+{
+    $roots = [];
+    if ($table !== '') {
+        $roots[] = rtrim(UPLOAD_ROOT, '/') . '/cache/' . ($table === 'rent_items' ? 'rent_items' : 'products');
+    } else {
+        $roots[] = rtrim(UPLOAD_ROOT, '/') . '/cache/products';
+        $roots[] = rtrim(UPLOAD_ROOT, '/') . '/cache/rent_items';
+    }
+    foreach ($roots as $dir) {
+        if (!is_dir($dir)) {
+            continue;
+        }
+        $files = [];
+        $total = 0;
+        foreach ((array) glob($dir . '/*.img') as $file) {
+            if (!is_file($file)) {
+                continue;
+            }
+            $size = (int) filesize($file);
+            $total += $size;
+            $files[] = ['path' => $file, 'mtime' => (int) filemtime($file), 'size' => $size];
+        }
+        if (count($files) <= $maxFiles && $total <= $maxBytes) {
+            continue;
+        }
+        usort($files, static fn (array $a, array $b): int => $a['mtime'] <=> $b['mtime']);
+        foreach ($files as $entry) {
+            if (count($files) <= $maxFiles && $total <= $maxBytes) {
+                break;
+            }
+            @unlink($entry['path']);
+            @unlink($entry['path'] . '.meta');
+            $total -= $entry['size'];
+            array_shift($files);
+        }
+    }
 }
 
 /* ---------- session cart ---------- */
