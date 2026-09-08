@@ -42,23 +42,6 @@ function proxy_serve(string $cacheFile, string $mime, string $etag, int $mtime):
     exit;
 }
 
-function proxy_mime(string $raw): string
-{
-    if (str_starts_with($raw, "\x89PNG\r\n\x1a\n")) {
-        return 'image/png';
-    }
-    if (str_starts_with($raw, 'RIFF') && substr($raw, 8, 4) === 'WEBP') {
-        return 'image/webp';
-    }
-    if (str_starts_with($raw, "\xff\xd8\xff")) {
-        return 'image/jpeg';
-    }
-    if (str_starts_with($raw, 'GIF87a') || str_starts_with($raw, 'GIF89a')) {
-        return 'image/gif';
-    }
-    return 'image/jpeg';
-}
-
 /* Fresh cache wins without a database hit. */
 if (is_file($cacheFile) && filesize($cacheFile) > 0 && (time() - (int) filemtime($cacheFile)) < 300) {
     $meta = @unserialize((string) @file_get_contents($cacheFile . '.meta'));
@@ -90,7 +73,7 @@ if ($raw === false || strlen($raw) < 8) {
     exit;
 }
 
-$mime = proxy_mime($raw);
+$mime = image_mime($raw);
 $etag = '"' . sha1($raw) . '"';
 
 /* Converge stale cache; keep serving it when the database is unreachable. */

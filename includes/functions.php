@@ -331,11 +331,7 @@ function upload_normalize_bytes(string $raw, string $category): string
         }
         throw new Exception('Failed to process image.');
     }
-    // ponytail: no GD means no resize/re-encode; size gate stays as backstop, add GD/Imagick when budgets must hold.
-    if (strlen($raw) > $maxBytes * 12) {
-        throw new Exception('Image is too large.');
-    }
-    return $raw;
+    throw new Exception('Failed to process image.');
 }
 function upload_normalize_upload(string $field, string $category, int $maxMB = 5): ?string
 {
@@ -369,15 +365,12 @@ function upload_normalize_upload(string $field, string $category, int $maxMB = 5
  * Delete the replaced filename only after the DB write succeeds.
  * @throws Exception on validation / IO failure.
  */
-function save_upload(string $field, string $destDir, array $allowed = ['jpg', 'jpeg', 'png', 'webp'], int $maxMB = 5): ?string
+function save_upload(string $field, string $destDir, int $maxMB = 5): ?string
 {
     $category = upload_category_for_dir($destDir);
     $norm = upload_normalize_upload($field, $category, $maxMB);
     if ($norm === null) {
         return null;
-    }
-    if (!in_array('jpg', $allowed, true)) {
-        throw new Exception('File type not permitted.');
     }
     $name = hash('sha256', $norm) . '.jpg';
     $dir = rtrim($destDir, '/');
@@ -407,9 +400,6 @@ function upload_retire_file(string $category, ?string $old, ?string $next): void
         return;
     }
     $cat = trim($category, '/');
-    if ($cat === 'admin/item') {
-        return;
-    }
     $path = rtrim(UPLOAD_ROOT, '/') . '/' . $cat . '/' . basename($old);
     if (is_file($path)) {
         @unlink($path);
@@ -443,9 +433,6 @@ function upload_web(string $category, ?string $filename): string
 function upload_to_base64(string $field, string $localDir = '', int $maxMB = 5): ?string
 {
     $category = $localDir !== '' ? upload_category_for_dir($localDir) : 'user/bookings';
-    if ($field === 'image') {
-        $category = 'admin/item';
-    }
     $norm = upload_normalize_upload($field, $category, $maxMB);
     if ($norm === null) {
         return null;
@@ -469,6 +456,20 @@ function upload_cropped_to_base64(mixed $cropped, string $category = 'admin/item
     return 'b64:' . base64_encode(upload_normalize_bytes($raw, $category));
 }
 
+function image_mime(string $raw): string
+{
+    if (str_starts_with($raw, "\x89PNG\r\n\x1a\n")) {
+        return 'image/png';
+    }
+    if (str_starts_with($raw, 'RIFF') && substr($raw, 8, 4) === 'WEBP') {
+        return 'image/webp';
+    }
+    if (str_starts_with($raw, 'GIF87a') || str_starts_with($raw, 'GIF89a')) {
+        return 'image/gif';
+    }
+    return 'image/jpeg';
+}
+
 /**
  * Return an <img>-ready src attribute from a stored image value.
  * Handles both legacy filenames and new "b64:..." base64 strings.
@@ -484,16 +485,7 @@ function image_display_src(?string $image, string $legacyDir = 'admin/item'): st
         if ($raw === false || strlen($raw) < 8) {
             return '/assets/img/placeholder.svg';
         }
-        $mime = 'image/jpeg';
-        if (str_starts_with($raw, "\x89PNG\r\n\x1a\n")) {
-            $mime = 'image/png';
-        } elseif (str_starts_with($raw, 'RIFF') && substr($raw, 8, 4) === 'WEBP') {
-            $mime = 'image/webp';
-        } elseif (str_starts_with($raw, "\xff\xd8\xff")) {
-            $mime = 'image/jpeg';
-        } elseif (str_starts_with($raw, 'GIF87a') || str_starts_with($raw, 'GIF89a')) {
-            $mime = 'image/gif';
-        }
+        $mime = image_mime($raw);
         return 'data:' . $mime . ';base64,' . substr($image, 4);
     }
     return upload_web($legacyDir, $image);

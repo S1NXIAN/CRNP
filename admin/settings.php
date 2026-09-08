@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $oldQr = trim((string) ($settings['gcash_qr'] ?? ''));
     // Optional QR image upload (replaces the stored value only when a new file is sent)
-    $qr = save_upload('gcash_qr', UPLOAD_ROOT . '/settings', ['jpg', 'jpeg', 'png', 'webp'], 2);
+    $qr = save_upload('gcash_qr', UPLOAD_ROOT . '/settings', 2);
     if ($qr !== null) {
         $updated['gcash_qr'] = $qr;
     } elseif (post('gcash_qr_remove') === '1') {

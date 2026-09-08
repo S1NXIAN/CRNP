@@ -131,10 +131,10 @@ upload_retire_file('user/profile', $third, $third);
 check('identical retry keeps file', is_file($root . '/user/profile/' . $third));
 
 test_fake_upload('gcash_qr', $large);
-$qrFirst = save_upload('gcash_qr', $root . '/settings', ['jpg', 'jpeg', 'png', 'webp'], 2);
+$qrFirst = save_upload('gcash_qr', $root . '/settings', 2);
 test_clear_upload('gcash_qr');
 test_fake_upload('gcash_qr', $small);
-$qrSecond = save_upload('gcash_qr', $root . '/settings', ['jpg', 'jpeg', 'png', 'webp'], 2);
+$qrSecond = save_upload('gcash_qr', $root . '/settings', 2);
 test_clear_upload('gcash_qr');
 upload_retire_file('settings', $qrFirst, $qrSecond);
 check('qr replace deletes predecessor', !is_file($root . '/settings/' . $qrFirst));
