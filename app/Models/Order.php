@@ -77,6 +77,49 @@ class Order extends Model
         return array_slice($fresh, 0, $cap, true);
     }
 
+    /**
+     * Split rows into the two kitchen columns, oldest first.
+     * Pure (no DB): feeds the board render + ?check poll.
+     * Cooking merges preparing + ready so stranded ready rows stay visible.
+     *
+     * @param array<string,mixed> $orders
+     * @return array{accepted:array<string,array<string,mixed>>,cooking:array<string,array<string,mixed>>}
+     */
+    public static function kitchenBoard(array $orders): array
+    {
+        $accepted = [];
+        $cooking = [];
+        foreach ($orders as $oid => $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $st = (string) ($row['status'] ?? '');
+            if ($st === 'accepted') {
+                $accepted[(string) $oid] = $row;
+            } elseif ($st === 'preparing' || $st === 'ready') {
+                $cooking[(string) $oid] = $row;
+            }
+        }
+        $byOldest = function ($a, $b) {
+            $ta = strtotime((string) ($a['created_at'] ?? $a['placed_at'] ?? ''));
+            $tb = strtotime((string) ($b['created_at'] ?? $b['placed_at'] ?? ''));
+            if ($ta === false && $tb === false) {
+                return 0;
+            }
+            if ($ta === false) {
+                return 1;
+            }
+            if ($tb === false) {
+                return -1;
+            }
+            return $ta - $tb;
+        };
+        uasort($accepted, $byOldest);
+        uasort($cooking, $byOldest);
+        return ['accepted' => $accepted, 'cooking' => $cooking];
+    }
+
+
     /** Unpaid count (excludes cancelled). */
     public static function unpaidCount(): int
     {
