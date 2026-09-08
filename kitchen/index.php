@@ -275,7 +275,12 @@ require_once __DIR__ . '/../includes/header.php';
   }
 
   var lastAuthReload = 0;
-  var AUTH_RETRY_KEY = 'kAuthRetry';
+  // 401/403 fire before any order write, so one reload is safe: the action never ran.
+  function claimAuthReload(status) {
+    if ((status !== 401 && status !== 403) || Date.now() - lastAuthReload <= 10000) return false;
+    lastAuthReload = Date.now();
+    return true;
+  }
   function stashAuthRetry(id, action, to) {
     try { sessionStorage.setItem(AUTH_RETRY_KEY, JSON.stringify({ id: id, action: action, to: to || null, at: Date.now() })); } catch (e) {}
   }
@@ -301,9 +306,7 @@ require_once __DIR__ . '/../includes/header.php';
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, d: d }; }, function () { return { ok: false, status: r.status, d: null }; }); })
       .then(function (res) {
         if (res.ok && res.d && res.d.success) { onOk(res.d); return; }
-        // 401/403 fire before any order write, so one retry after a reload is safe: the action never ran.
-        if ((res.status === 401 || res.status === 403) && !noRetry && Date.now() - lastAuthReload > 10000) {
-          lastAuthReload = Date.now();
+        if (!noRetry && claimAuthReload(res.status)) {
           stashAuthRetry(id, action, to);
           window.location.reload();
           return;
@@ -504,13 +507,8 @@ require_once __DIR__ . '/../includes/header.php';
     if (dragging) return;
     fetch('/kitchen/?check=1', { cache: 'no-store', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
       .then(function (r) {
-        if (r.status === 401 || r.status === 403) {
-          if (Date.now() - lastAuthReload > 10000) {
-            lastAuthReload = Date.now();
-            window.location.reload();
-          }
-          return Promise.reject();
-        }
+        if (claimAuthReload(r.status)) window.location.reload();
+        if (r.status === 401 || r.status === 403) return Promise.reject();
         return r.ok ? r.json() : Promise.reject();
       })
       .then(function (d) {
