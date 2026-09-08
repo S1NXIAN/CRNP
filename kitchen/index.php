@@ -288,13 +288,51 @@ require_once __DIR__ . '/../includes/header.php';
     if (to) fd.append('to', to);
     if (token) fd.append(token.name, token.value);
     fetch('/kitchen/', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
-      .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
-      .then(function (d) { if (d.success) { onOk(d); } else { onFail(); } })
-      .catch(onFail);
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }, function () { return { ok: false, d: null }; }); })
+      .then(function (res) { if (res.ok && res.d && res.d.success) { onOk(res.d); } else { onFail(res.d && res.d.message); } })
+      .catch(function () { onFail(); });
   }
 
   function cardById(id) {
     return board.querySelector('[data-order-id="' + CSS.escape(id) + '"]');
+  }
+
+  function syncActions(card, toCol) {
+    var actions = card.querySelector('.k-ticket__actions');
+    if (!actions) return;
+    var claim = actions.querySelector('form.k-claim');
+    if (toCol === 'accepted' && !claim) {
+      var token = document.querySelector('input[name="csrf_token"]');
+      var f = document.createElement('form');
+      f.method = 'post';
+      f.action = '/kitchen/';
+      f.className = 'k-claim';
+      if (token) {
+        var t = document.createElement('input');
+        t.type = 'hidden';
+        t.name = 'csrf_token';
+        t.value = token.value;
+        f.appendChild(t);
+      }
+      var a = document.createElement('input');
+      a.type = 'hidden';
+      a.name = 'action';
+      a.value = 'start';
+      f.appendChild(a);
+      var o = document.createElement('input');
+      o.type = 'hidden';
+      o.name = 'order_id';
+      o.value = card.getAttribute('data-order-id');
+      f.appendChild(o);
+      var b = document.createElement('button');
+      b.type = 'submit';
+      b.className = 'btn btn--gold btn--sm';
+      b.textContent = 'Claim';
+      f.appendChild(b);
+      actions.insertBefore(f, actions.firstChild);
+    } else if (toCol === 'cooking' && claim) {
+      claim.remove();
+    }
   }
 
   function moveCard(id, toCol) {
@@ -307,6 +345,7 @@ require_once __DIR__ . '/../includes/header.php';
     var empty = dest.querySelector('[data-empty]');
     if (empty) empty.remove();
     dest.append(card);
+    syncActions(card, toCol);
     if (fromList.children.length === 0) {
       var e = document.createElement('div');
       e.className = 'empty';
@@ -332,9 +371,9 @@ require_once __DIR__ . '/../includes/header.php';
         moveCard(id, 'accepted');
         postAction(id, 'undo', 'accepted', function () {}, function () { window.location.reload(); });
       });
-    }, function () {
+    }, function (msg) {
       moveCard(id, from);
-      toast('Claim failed. Try again.');
+      toast('Claim failed. Try again.' + (msg ? ' ' + msg : ''));
     });
   }
 
@@ -353,10 +392,10 @@ require_once __DIR__ . '/../includes/header.php';
         delete justDone[id];
         postAction(id, 'undo', prev, function () { refresh(true); }, function () { window.location.reload(); });
       });
-    }, function () {
+    }, function (msg) {
       (from === 'accepted' ? acceptedList : cookingList).append(card);
       updateCounts();
-      toast('Done failed. Card restored.');
+      toast('Done failed. Card restored.' + (msg ? ' ' + msg : ''));
     });
   }
 
@@ -431,10 +470,12 @@ require_once __DIR__ . '/../includes/header.php';
     else if (inAcc && cur === 'cooking') {
       var from = moveCard(d.id, 'accepted');
       postAction(d.id, 'undo', 'accepted', function () {
+        var moved = cardById(d.id);
+        if (moved) moved.setAttribute('data-status', 'accepted');
         toast('Moved back to Accepted.', function () {
           claim(d.id);
         });
-      }, function () { moveCard(d.id, from); toast('Move failed.'); });
+      }, function (msg) { moveCard(d.id, from); toast('Move failed.' + (msg ? ' ' + msg : '')); });
     }
   });
 
