@@ -13,6 +13,8 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
+- **Issue source**: `S1NXIAN/CRNP` (fork). Always scope reads/writes with `--repo S1NXIAN/CRNP` / `issue://S1NXIAN/CRNP/<N>`; bare `issue://<N>` resolves to upstream `CRNP-PROJECT/CRNP`, which holds no issues.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
