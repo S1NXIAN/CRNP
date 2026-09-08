@@ -307,8 +307,8 @@ require_once __DIR__ . '/../includes/header.php';
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, d: d }; }, function () { return { ok: false, status: r.status, d: null }; }); })
       .then(function (res) {
         if (res.ok && res.d && res.d.success) { onOk(res.d); return; }
-        // 401/419 fire before any order write, so one retry after a reload is safe: the action never ran.
-        if ((res.status === 401 || res.status === 419) && !noRetry && Date.now() - lastAuthReload > 10000) {
+        // 401/403 fire before any order write, so one retry after a reload is safe: the action never ran.
+        if ((res.status === 401 || res.status === 403) && !noRetry && Date.now() - lastAuthReload > 10000) {
           lastAuthReload = Date.now();
           stashAuthRetry(id, action, to);
           window.location.reload();

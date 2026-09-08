@@ -48,7 +48,8 @@ function csrf_verify(): void
     $t = $_POST['csrf_token'] ?? '';
     if (empty($t) || !hash_equals($_SESSION['csrf_token'] ?? '', $t)) {
         if (is_ajax_request()) {
-            http_response_code(419);
+            // 403, not 419: Apache rewrites unknown 419 to 500.
+            http_response_code(403);
             header('Content-Type: application/json');
             echo json_encode(['success' => false, 'message' => 'Session expired. Reload the page and try again.']);
             exit;
