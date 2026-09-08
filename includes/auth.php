@@ -22,6 +22,12 @@ function require_cashier(): void
 function require_kitchen(): void
 {
     if (empty($_SESSION['kitchen_email'])) {
+        if (is_ajax_request()) {
+            http_response_code(401);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Signed out. Reload and sign in again.']);
+            exit;
+        }
         flash('Kitchen sign-in required.', 'warn');
         redirect('/kitchen/login.php');
     }

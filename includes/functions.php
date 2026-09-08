@@ -47,6 +47,12 @@ function csrf_verify(): void
 {
     $t = $_POST['csrf_token'] ?? '';
     if (empty($t) || !hash_equals($_SESSION['csrf_token'] ?? '', $t)) {
+        if (is_ajax_request()) {
+            http_response_code(419);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Session expired. Reload the page and try again.']);
+            exit;
+        }
         http_response_code(419);
         flash('Security token expired. Please try again.', 'danger');
         redirect($_SERVER['HTTP_REFERER'] ?? '/');
