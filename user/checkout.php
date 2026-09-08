@@ -81,10 +81,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $contact   = trim(post('contact'));
     $pickup    = trim(post('pickup_time', ''));
     $notes     = trim(post('notes', ''));
-    $method    = post('payment_method', 'counter');
-    if (!in_array($method, ['gcash', 'counter'], true)) {
-        $method = 'counter';
-    }
 
     $errors = [];
     if ($full_name === '') {
@@ -139,9 +135,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $total += $sub;
     }
 
-    /* Receipt upload (only when everything else validates). */
+    /* Receipt upload (only when everything else validates). GCash only. */
     $receipt = null;
-    if (!$errors && $method === 'gcash') {
+    if (!$errors) {
         if (!isset($_FILES['receipt']) || $_FILES['receipt']['error'] === UPLOAD_ERR_NO_FILE) {
             $errors[] = 'Please upload your GCash receipt.';
         } else {
@@ -157,7 +153,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$errors) {
-        $payment_status = $method === 'gcash' ? 'pending_verification' : 'no_payment_required';
         $order = [
             'user_id'          => $_SESSION['user_id'] ?? '',
             'user_email'       => user_email(),
@@ -169,8 +164,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'contact'          => $contact,
             'reservation_date' => $reservationDate,
             'pickup_time'      => $pickup,
-            'payment_method'   => $method,
-            'payment_status'   => $payment_status,
+            'payment_method'   => 'gcash',
+            'payment_status'   => 'pending_verification',
             'payment_verified' => false,
             'receipt'          => $receipt,
             'status'           => 'pending',
@@ -314,16 +309,13 @@ foreach ($cart as $it) {
 
       <div class="field">
         <label>Payment method</label>
-        <div class="row">
-          <label class="checkbox-row"><input type="radio" name="payment_method" value="counter" <?= post('payment_method', 'counter') === 'counter' ? 'checked' : '' ?> data-pay="counter"> Pay at counter</label>
-          <label class="checkbox-row"><input type="radio" name="payment_method" value="gcash"   <?= post('payment_method')          === 'gcash' ? 'checked' : '' ?> data-pay="gcash"> GCash</label>
-        </div>
+        <p class="muted" style="margin:0">GCash only — cashier verifies receipt before acceptance.</p>
         <?= gcash_payment_info_html() ?>
       </div>
 
-      <div class="field" id="receipt-field" style="display:none">
+      <div class="field" id="receipt-field">
         <label for="receipt">GCash receipt</label>
-        <input class="input" type="file" id="receipt" name="receipt" accept="image/png,image/jpeg,image/webp">
+        <input class="input" type="file" id="receipt" name="receipt" accept="image/png,image/jpeg,image/webp" required>
         <span class="hint">Upload a screenshot of your GCash transfer. JPG, PNG, or WebP (max 5MB).</span>
       </div>
     </div>
@@ -334,23 +326,5 @@ foreach ($cart as $it) {
     </div>
   </div>
 </form>
-
-<script>
-(function () {
-  var counter = document.querySelector('[data-pay="counter"]');
-  var gcash   = document.querySelector('[data-pay="gcash"]');
-  var field   = document.getElementById('receipt-field');
-  var receipt = document.getElementById('receipt');
-  if (!counter || !gcash || !field || !receipt) return;
-  function sync() {
-    var isGcash = gcash.checked;
-    field.style.display   = isGcash ? '' : 'none';
-    receipt.required      = isGcash;
-  }
-  counter.addEventListener('change', sync);
-  gcash.addEventListener('change', sync);
-  sync();
-})();
-</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
