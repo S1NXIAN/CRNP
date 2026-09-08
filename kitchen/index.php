@@ -161,6 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 /* ---------- GET: ?check poll (counts + fragments, never a bare array) ---------- */
 if (isset($_GET['check'])) {
     header('Content-Type: application/json');
+    session_write_close();
     $fetched = Order::whereAny('status', ['accepted', 'preparing', 'ready']);
     $board = Order::kitchenBoard($fetched);
     $cards = [];
