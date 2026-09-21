@@ -36,10 +36,10 @@
 
   // ---------- confirm destructive actions ----------
   document.addEventListener('click', function (e) {
-    var el = e.target.closest('[data-confirm]');
-    if (el) {
+    var confirmTrigger = e.target.closest('[data-confirm]');
+    if (confirmTrigger) {
       e.preventDefault();
-      var msg = el.getAttribute('data-confirm');
+      var msg = confirmTrigger.getAttribute('data-confirm');
       var old = document.querySelector('.confirm-toast');
       if (old) old.remove();
       var toast = document.createElement('div');
@@ -58,13 +58,16 @@
         toast.classList.remove('is-visible');
         setTimeout(function () { toast.remove(); }, 300);
       });
+      var confirmAccepted = false;
       toast.querySelector('.confirm-toast__btn--ok').addEventListener('click', function () {
-        toast.classList.remove('is-visible');
-        setTimeout(function () { toast.remove(); }, 300);
-        if (el.tagName === 'FORM') {
-          el.submit();
-        } else {
-          el.click();
+        if (confirmAccepted) return;
+        confirmAccepted = true;
+        toast.remove();
+        var owningForm = confirmTrigger.closest('form');
+        if (owningForm) {
+          owningForm.submit();
+        } else if (confirmTrigger.tagName === 'A' && confirmTrigger.getAttribute('href')) {
+          window.location.href = confirmTrigger.getAttribute('href');
         }
       });
     }
