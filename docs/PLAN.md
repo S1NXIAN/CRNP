@@ -219,6 +219,17 @@ preference sync require Sign in with Google.**
 
 ## 3. Design system
 
+### Brand
+
+- **One official logo** — `public/images/logo.png` (498 × 501
+  transparent PNG, carried over from `main`'s
+  `assets/img/logo.png`): landing header, receipts, staff sign-in,
+  favicon + social-preview seed. Served as-is — never re-rendered,
+  never re-exported, the same rule the GCash QR gets. The artwork is
+  white-on-transparent: in light mode it sits on a dark chip (surface
+  token), never straight on the light background where it would
+  disappear.
+
 ### Interaction
 
 - Mobile-first breakpoints; cashier touch targets ≥44 px.
