@@ -18,7 +18,7 @@ internet, demonstrated end-to-end, not localhost-only.
 | Area | URL prefix | Purpose | Runs |
 |---|---|---|---|
 | Customer | `/` | **Browse only:** menu, product pages, about/branches — open/closed status, announcement banner, item tags. No login, no cart | Online (showcase) |
-| Cashier/POS | `/cashier` | Walk-in orders, **reservation scheduling** (dine-in, function room, catering), receipts | In-store via Docker, online reachable |
+| Cashier/POS | `/cashier` | Walk-in orders, **split payment (GCash + cash)**, **reservation scheduling** (dine-in, function room, catering), receipts | In-store via Docker, online reachable |
 | Kitchen | `/kitchen` | **Read-only** ticket display: new-order count, age timers, all-day counts — no login, no cook interaction | In-store via Docker |
 | Admin | `/admin` | Dashboard (sales analytics), products + inventory, staff, settings, reports | Both |
 
@@ -132,7 +132,9 @@ Per surface:
 - **Public site** — the customer supplies *nothing*: no accounts, no
   forms; hours, status, tags, top-3 all computed for them.
 - **Cashier/POS** — tap tiles build the order; promo price, totals, and
-  change compute themselves; receipt = one button; reservation =
+  change compute themselves; payment is two tenders (GCash + cash,
+  split allowed — cashier types one number, the other and the change
+  compute themselves); receipt = one button; reservation =
   the guided screen below.
 - **Kitchen** — total by design: zero input, zero login, zero editing.
 - **Admin** — buttons over forms: one **Add promo** button per product
@@ -250,7 +252,10 @@ Free-tier known limits (accepted for demo):
      - **house favorite** — admin toggle.
      - **top 3 · last 7 days** — auto from sales data; shows nothing
        until a week of sales exists.
-5. **Cashier + kitchen + reservations** — POS console; read-only
+5. **Cashier + kitchen + reservations** — POS console with **split
+   tender** (GCash + cash on one order: one number typed, the other and
+   the change compute themselves; order stores `payments:
+   [{method, amount}]`, receipt prints the breakdown); read-only
    `/kitchen`: new-order count (flashing), per-ticket age timers (red at
    12 min), all-day counts, 5–10 s auto-refresh, cleared by cashier's
    "mark served"; **reservation scheduling
