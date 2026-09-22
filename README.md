@@ -235,7 +235,7 @@ Universal patterns:
 
 ### Density — the "3 + 1" cozy rule (screen-by-screen)
 
-Research backing: `research/screen-density-2026.md` (13 primary sources:
+Research backing: `docs/research/screen-density-2026.md` (13 primary sources:
 NN/g progressive disclosure / Hick / content-to-chrome, Lewis & Sauro
 2024 clutter study, WCAG 2.2, Material + Carbon density models).
 
@@ -341,7 +341,7 @@ Free-tier known limits (accepted for demo):
      and on the kitchen ticket) + **payment method**: Pay at Counter,
      or GCash → QR shown only when GCash is selected, the official QR
      image inside a branded frame, never re-rendered
-     (`research/gcash-qr-2026.md`); order number returned.
+     (`docs/research/gcash-qr-2026.md`); order number returned.
    - **Open/closed badge** — computed from admin-configured hours per
      weekday, evaluated in `Asia/Manila` (Render runs UTC), with an admin
      **force-close override** (holiday / temporary closure).
