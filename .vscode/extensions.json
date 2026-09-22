@@ -1,7 +1,0 @@
-{
-  "recommendations": [
-    "junstyle.php-cs-fixer",
-    "phpactor.phpactor",
-    "neilbrayfield.php-docblocker"
-  ]
-}

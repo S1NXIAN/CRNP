@@ -1,246 +1,285 @@
-<p align="center">
-  <img src="assets/img/logo.png" alt="CRATES N' PLATES logo" width="140">
-</p>
+# Crates N' Plates Online Management System
 
-<h1 align="center">CRATES N' PLATES — Online Management System</h1>
+> Living plan for the project, published as README for the team.
+> Updated as decisions firm up.
+> Last updated: 2026-09-22.
 
-<p align="center">
-  <img src="https://img.shields.io/badge/PHP-8.2-777BB4?logo=php&logoColor=white" alt="PHP 8.2">
-  <img src="https://img.shields.io/badge/Database-Firebase%20RTDB-FFCA28?logo=firebase&logoColor=black" alt="Firebase RTDB">
-  <img src="https://img.shields.io/badge/Hosting-Render-46E3B7" alt="Render">
-</p>
+## 1. Vision
 
-<p align="center">
-  <a href="https://render.com/deploy?repo=https://github.com/S1NXIAN/CRNP">
-    <img src="https://render.com/images/deploy-to-render-button.svg" alt="Deploy to Render" height="32">
-  </a>
-</p>
+One web app that runs **Crates N' Plates Diner** online and in-store:
+customers browse the menu and shop information online (no accounts, no
+checkout), staff schedule dine-in, function
+room, and catering reservations, cashiers run the counter POS, the kitchen
+watches a read-only ticket display, the owner
+manages menu, inventory, staff, settings, sales analytics, and reports.
+Capstone title says **"Online Management System"** — it must run on the
+internet, demonstrated end-to-end, not localhost-only.
 
-One web application that runs **Crates N' Plates Diner** online and in-store: customers order food ahead or book rental items from their phones, cashiers run the counter and verify GCash payments, kitchen staff work from a live order display, and the owner manages the menu, inventory, staff accounts, business settings, and sales reports — all from a browser, on any device.
+| Area | URL prefix | Purpose | Runs |
+|---|---|---|---|
+| Customer | `/` | **Browse only:** menu, product pages, about/branches — open/closed status, announcement banner, item tags. No login, no cart | Online (showcase) |
+| Cashier/POS | `/cashier` | Walk-in orders, **reservation scheduling** (dine-in, function room, catering), receipts | In-store via Docker, online reachable |
+| Kitchen | `/kitchen` | **Read-only** ticket display: new-order count, age timers, all-day counts — no login, no cook interaction | In-store via Docker |
+| Admin | `/admin` | Dashboard (sales analytics), products + inventory, staff, settings, reports | Both |
 
-There is nothing to install for end users. Everyone uses the same responsive web app through a link.
+Domain vocabulary: **orders** are recorded at the counter, cooked, and
+delivered — no status workflow; they exist for receipts, sales records, and
+analytics. The kitchen display mirrors **open (unserved) orders** read-only
+and clears when the cashier marks an order served.
+**Reservations** (dine-in, function room, catering) are
+staff-entered on a centralized calendar — conflict and duplicate checks
+before confirm.
 
----
+### System flow
 
-## Table of Contents
+```mermaid
+flowchart TD
+  DB[("Firebase RTDB — sole datastore")]
 
-1. [Features](#features)
-2. [Technology](#technology)
-3. [Deploying to Render](#deploying-to-render)
-4. [First-Run Setup](#first-run-setup)
-5. [Configuration Reference](#configuration-reference)
-6. [Local Development](#local-development)
-7. [Maintenance & Security](#maintenance--security)
-8. [Troubleshooting](#troubleshooting)
-9. [Project Structure](#project-structure)
+  subgraph CU["Customer · / (browse only · no login)"]
+    C1["Menu · product pages · open status<br/>announcement · promo (auto-calc) / favorite / top-3 tags<br/>about / branches"]
+  end
 
-## Features
+  subgraph CA["Cashier · /cashier (POS)"]
+    P1["Ring up walk-in order"] --> P2["Receipt"] --> P3["Mark served"]
+    R1["New reservation<br/>dine-in / function room / catering"] --> R2{"Date-time conflict?"}
+    R2 -->|"no"| R3["Confirmed → calendar"]
+    R2 -->|"yes"| R4["Rejected: duplicate / conflict"]
+  end
 
-**For customers**
-- Browse the menu with photos and search; add items to a cart and check out
-- Pay via GCash or at the counter; receive email receipts
-- Reserve rental equipment with date/time bookings
-- Track order status live (pending → preparing → ready → completed) and review history
+  subgraph KI["Kitchen · /kitchen (read-only · secret URL · no login)"]
+    K1["Ticket + age timer<br/>NEW count · all-day counts<br/>5–10 s refresh"]
+  end
 
-**For cashiers**
-- Point-of-sale console for walk-in orders
-- Approve/reject rental bookings, verify GCash proof-of-payment photos, mark items returned
-- Printable receipts and an archive of completed/cancelled orders
+  subgraph AD["Admin · /admin"]
+    A1["Sales analytics dashboard"]
+    A2["Inventory: stock & low-stock"]
+    A3["Reports: sales + reservations"]
+  end
 
-**For kitchen staff**
-- Live kitchen display showing incoming orders
-- Forward-only status workflow (accept → preparing → ready) so orders can't skip steps
-
-**For the administrator**
-- Dashboard with KPIs, 7-day sales trend, peak-hour chart, top products
-- Menu (product) and rental inventory management
-- Staff account management for cashier and kitchen roles
-- Editable business settings: hours, GCash number & QR code, hero content, About page
-- Sales reports with calendar date filtering, plus full order/booking archives
-
-### Permissions Matrix
-
-| Feature | Customer | Cashier | Kitchen | Admin |
-|---|:---:|:---:|:---:|:---:|
-| Browse menu / order ahead / rent equipment | ✅ | — | — | — |
-| Cart + checkout (GCash or pay at counter) | ✅ | — | — | — |
-| Book rental items & cancel pending bookings | ✅ | — | — | — |
-| Track own orders / view receipts | ✅ | — | — | — |
-| Edit own profile + upload avatar | ✅ | — | — | — |
-| Order console (accept → preparing → ready) | — | ✅ | ✅ | — |
-| Walk-in POS orders | — | ✅ | — | — |
-| Approve/reject bookings, verify GCash, mark returned | — | ✅ | — | — |
-| Manual walk-in rental bookings | — | ✅ | — | — |
-| Print / reprint receipts | — | ✅ | — | — |
-| Kitchen display + status workflow | — | — | ✅ | — |
-| Product & rental inventory CRUD | — | — | — | ✅ |
-| Dashboard analytics + sales reports | — | — | — | ✅ |
-| Order & booking history (search / date filter) | — | ✅¹ | ✅¹ | ✅ |
-| Staff account management | — | — | — | ✅ |
-| Business settings (CMS) | — | — | — | ✅ |
-
-¹ Cashier/Kitchen history pages are read-only archives of their own workflow.
-
-Access is enforced per page by role guards (`includes/auth.php`). Each role uses its own session cookie (`SESS_USER`, `SESS_CASHIER`, `SESS_KITCHEN`, `SESS_ADMIN`), so different roles can be signed in side-by-side in one browser.
-
-## Technology
-
-| Layer | Technology |
-|---|---|
-| Frontend | Server-rendered PHP pages, vanilla HTML/CSS/JS, mobile-first |
-| Backend | PHP 8.2 (procedural pages + lightweight OOP models) |
-| Database | Firebase Realtime Database via its REST API (`firebaseRDB.php`) |
-| Auth | Email + password with OTP verification, bcrypt hashing |
-| Email | Gmail API over HTTPS |
-| Hosting | Render (Docker runtime, `php:8.2-apache`) |
-
-No build step, no separate API server: PHP serves both the UI and the data layer, which talks to Firebase over REST. A file-based cache keeps dashboard reads fast.
-
-## Deploying to Render
-
-The repository ships with two files that make deployment nearly automatic:
-
-- **`render.yaml`** — Render Blueprint describing the web service (free plan, health checks, environment variables)
-- **`Dockerfile`** — packages the PHP app with Apache
-
-> **Note (free plan).** The free instance sleeps after ~15 minutes idle; a cron keepalive inside the container pings `/health.php` every 14 minutes to hold it warm, costing ~730 of the 750 monthly free hours. Uploaded images (avatars, GCash proofs) are stored on the instance's ephemeral disk and are lost on every redeploy/restart. Upgrade the service plan and attach a disk mounted at `/var/www/html/uploads` when the restaurant goes live for real.
-
-### Step-by-step
-
-1. **Push this repository to GitHub.**
-
-2. **Create the Blueprint.** Render Dashboard → **New → Blueprint** → select the repo → **Apply**. Render reads `render.yaml` and prompts for the secret variables marked `sync: false`.
-
-3. **Fill in the environment variables** when prompted (see table below):
-   - `FIREBASE_DATABASE_URL` — copy **verbatim** from Firebase Console → Realtime Database (regional `*.firebasedatabase.app` URL)
-   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GMAIL_REFRESH_TOKEN` — Gmail API mail over HTTPS (section below; required on free plan, where outbound SMTP is blocked)
-   - `GMAIL_ADDRESS` — Gmail account sending the mail
-   - `MAIL_FROM` — optional; defaults to `GMAIL_ADDRESS`
-   - `FIREBASE_SERVICE_ACCOUNT_JSON` — full service-account key (step 4)
-
-4. **Create the Firebase service-account key** (one time):
-   - Firebase Console → ⚙️ **Project settings** → **Service accounts**
-   - **Generate new private key** → a JSON file downloads
-   - Open it, copy *everything* (including the outer `{ }`), paste into Render's `FIREBASE_SERVICE_ACCOUNT_JSON`
-
-5. **Lock down the database.** Firebase Console → **Realtime Database → Rules** → merge the `.indexOn` entries from `database.rules.json` into the Console rules (auth-locked rules plus the indexes every list page queries with `orderBy`).
-
-   Publish **after** step 4 is complete, otherwise the server loses database access. Keep the file and the Console copy in sync — adding a new `Model::where()` field means adding its `.indexOn` here too.
-   Never paste the file wholesale: always keep the existing `.read` / `.write` lines and append only the per-node `.indexOn` blocks, changing access lines only as a deliberate separate step. Replacing open rules with `auth != null` before the server authenticates cuts off all database access, and every indexed query (`Model::where`) silently returns empty — list pages render as if there were no rows. Time-boxed rules also stop the app dead on expiry; extend or lock down before the date.
-   Pre-lockdown: paste `database.rules.json` with `.read` / `.write` set to `"now < 1791302400000"` (keep your own lines if they differ).
-
-> **Regional URL warning.** Databases created outside US-central live on a `*.firebasedatabase.app` domain. Always copy the URL shown above your data tree in Firebase Console — pointing at a `.firebaseio.com` address makes every request fail with *"Database lives in a different region."*
-
-### Gmail API mail (required on Render free)
-Outbound SMTP (ports 25/465/587) is blocked on the free plan, so mail goes through the Gmail API over HTTPS. One-time setup:
-
-1. **Enable the API.** Google Cloud Console → new or existing project → **APIs & Services → Library** → enable **Gmail API**.
-2. **OAuth consent screen.** **APIs & Services → OAuth consent screen** → **External** → app name + your Gmail as support/developer contact → add your Gmail as a **test user**. Keep the `gmail.send` scope (narrowest that sends).
-3. **OAuth client.** **Credentials → Create Credentials → OAuth client ID** → **Desktop app** → note the client ID and secret → set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in Render env.
-4. **Consent once.** Open (replace `<CLIENT_ID>`), approve as your Gmail, copy the `code=` from the redirect URL:
-   `https://accounts.google.com/o/oauth2/v2/auth?client_id=<CLIENT_ID>&redirect_uri=http://localhost&response_type=code&scope=https://www.googleapis.com/auth/gmail.send&access_type=offline&prompt=consent`
-5. **Exchange the code** for a refresh token (run locally, replace the three placeholders `<CODE>`, `<CLIENT_ID>`, `<SECRET>`):
-   `curl -s -X POST https://oauth2.googleapis.com/token -d code=<CODE> -d client_id=<CLIENT_ID> -d client_secret=<SECRET> -d redirect_uri=http://localhost -d grant_type=authorization_code`
-   → set `GMAIL_REFRESH_TOKEN` from the response. The app mints access tokens itself from here on.
-
-> Test-mode refresh tokens expire after 7 days; publish the consent screen to **Production** (unverified-app warning on first consent is normal for personal use) or re-consent weekly.
-
-## First-Run Setup
-
-After the first successful deploy:
-
-1. Open `https://YOUR-SERVICE.onrender.com/admin/signup.php` and create the first administrator.
-   The page disables itself once an admin exists — then **delete `admin/signup.php` from the server/repo** as good practice.
-2. Sign in as admin → **Staff** → create cashier and kitchen accounts.
-3. **Settings** → fill in business info, opening hours, GCash number and QR image.
-4. **Products / Rent Items** → populate the menu and rental inventory.
-5. Customer self-service: `/user/signup.php` (email + OTP verification).
-
-## Configuration Reference
-
-All configuration is environment-based — nothing sensitive is stored in code.
-
-| Variable | Required | Description |
-|---|:---:|---|
-| `FIREBASE_DATABASE_URL` | yes | RTDB URL, verbatim from Firebase Console |
-| `GMAIL_ADDRESS` | yes | Gmail account sending OTP/receipt mail |
-| `GOOGLE_CLIENT_ID` | prod | OAuth client ID; enables Gmail API mail over HTTPS (SMTP is blocked on Render free) |
-| `GOOGLE_CLIENT_SECRET` | prod | OAuth client secret |
-| `GMAIL_REFRESH_TOKEN` | prod | `gmail.send` consent exchanged once; mints access tokens automatically |
-| `MAIL_FROM` | no | From: override; defaults to `GMAIL_ADDRESS` |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | prod | Full service-account JSON; required once rules need `auth != null` |
-| `DEV_SHOW_OTP` | no | `1` prints OTPs on screen when mail fails; dev only |
-
-On Render these live in the service's **Environment** tab; locally in `.env` (git-ignored). Keep the JSON on one line in `.env`.
-
-## Local Development
-
-Requirements: PHP 8.2 with `curl` and `fileinfo` extensions, Apache (e.g. XAMPP), a Firebase project, a Gmail account.
-
-1. Point Apache's DocumentRoot **at this folder** — internal links assume the app is served from `/`.
-2. Create `.env` from the template (`cp .env.example .env`) and fill in real values:
-   ```ini
-   FIREBASE_DATABASE_URL="https://your-db-default-rtdb.asia-southeast1.firebasedatabase.app"
-   GMAIL_ADDRESS="your@gmail.com"
-   MAIL_FROM="your@gmail.com"
-   DEV_SHOW_OTP="0"
-   ```
-3. Start Apache and open the site. No build step, no migrations.
-
-## Maintenance & Security
-
-| Cadence | Task | How |
-|---|---|---|
-| Immediately if leaked | Rotate any exposed credential | Google Account → Security → Third-party access → revoke, re-consent (§ Gmail API mail), update `GMAIL_REFRESH_TOKEN`; or Firebase Console → Service accounts → Keys → delete old, create new, update Render env var |
-| Quarterly | Rotate service-account key | Delete old key in Firebase Console → generate new → update `FIREBASE_SERVICE_ACCOUNT_JSON` on Render |
-| Weekly | Back up data | Firebase Console → Realtime Database → ⋮ → **Export JSON**; store off-site |
-| After each deploy | Refresh any open tabs | Deployments reset sessions; stale pages show *"Security token expired"* until reloaded |
-
-Security posture already built in: bcrypt password hashing, per-session CSRF tokens on every form, rate-limited logins, hardened session cookies (secure flags auto-enable under HTTPS), security headers on every response, database access locked behind service-account authentication, and uploads directory hardened against script execution.
-
-Known limitation of the free plan: uploaded files are ephemeral (see note under [Deploying to Render](#deploying-to-render)).
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
-|---|---|---|
-| *"Database lives in a different region"* in logs; logins fail | `FIREBASE_DATABASE_URL` uses `.firebaseio.com` but DB is regional | Copy exact URL from Firebase Console → Realtime Database |
-| *"Security token expired"* after submitting a form | Page was open across a redeploy; session reset | Reload the page and retry |
-| Site slow on first visit after a quiet period | Keepalive pinger failing, or free hours exhausted | Hit `/health.php` to warm it; check deploy logs for cron errors; upgrade plan to remove spin-down entirely |
-| OTP email not arriving | SMTP blocked on Render free, or missing/invalid Gmail API creds | Set the `GOOGLE_*` trio (§ Gmail API mail); confirm via `[mailer]` lines in Render logs; check spam folder |
-
-For anything else, check **Render → Logs** first: database errors are logged with a `[firebaseRDB]` prefix describing the exact cause.
-
-## Project Structure
-
-```
-CRNP/
-├── admin/                  # Admin console (dashboard, products, bookings,
-│                           #   reports, staff, settings, history)
-├── cashier/                # POS console (walk-in orders, booking queue,
-│                           #   GCash verification, receipts, manual bookings)
-├── kitchen/                # Kitchen display + forward-only status workflow
-├── user/                   # Customer app (shop, cart, checkout, bookings,
-│                           #   orders, profile, auth incl. OTP)
-├── app/
-│   ├── Core/Model.php      # ActiveRecord-style base model
-│   └── Models/             # Order, Booking, Product, RentItem, Staff
-├── includes/               # Auth guards, helpers, layout shell
-│   ├── auth.php            #   require_user/cashier/kitchen/admin
-│   ├── functions.php       #   e/redirect/money/csrf/rate_limit/upload/cache
-│   └── header.php          #   role-aware nav + theme toggle
-├── assets/                 # CSS (light/dark themes), JS, images, logo
-├── uploads/                # User uploads (avatars, GCash proofs)
-├── firebaseRDB.php         # Authenticated cURL wrapper over Firebase REST
-├── database.rules.json     # RTDB rules + .indexOn for every orderBy field
-├── config.php              # .env loader, session hardening, constants
-├── init.php                # Bootstrap + PSR-4 autoloader
-├── mailer.php              # OTP, order & booking receipt emails
-├── render.yaml             # Render Blueprint (service definition)
-├── Dockerfile              # php:8.2-apache + cron keepalive, entrypoint, pinger
-└── tests/                  # Offline checks (smoke_token, indexed_rules, cashier_poll, otp_resend, mailer_api)
+  C1 -.->|"reads menu · hours · promos · top-3"| DB
+  P1 --> DB
+  R2 -.->|"conflict check"| DB
+  DB --> K1
+  K1 -.->|"auto-clears when served"| P3
+  DB --> A1
+  DB --> A2
+  DB --> A3
 ```
 
----
+`flow.html` (same directory) renders this block and re-renders it every
+5 s while README.md changes — serve the folder over HTTP and the diagram
+tracks this plan live.
 
-*Developed as a capstone project for Crates N' Plates Diner.*
+## 2. Stack — decided
+
+| Layer | Choice | Why |
+|---|---|---|
+| Framework | **Laravel 12 (PHP 8.2+)** | Routing, session auth, validation, queues, Blade — the boring default. |
+| Views | **Blade + plain CSS (design tokens + component classes)** | Server-rendered, no SPA, no Inertia — and **zero build step**: no npm, no Vite, no Node anywhere. One `public/css/app.css`. |
+| Motion | **CSS transitions + Web Animations API** | No animation library. Transitions for hover/toggle/focus, keyframes for toasts, native WAAPI for the rare choreography (badge bump, card stagger). Framer Motion (React-only) and `motion` both rejected — add a lib only if choreography proves painful. |
+| Database | **Firebase Realtime Database, sole datastore** | One source of truth; no migrations while the schema churns; matches the declared capstone stack. Laravel does *not* use Eloquent/SQL — persistence goes through a thin RTDB service. |
+| Kitchen display | **Auto-refreshing read-only page (5–10 s fetch)** | One endpoint returning open orders. No websocket, no cook session — the route is gated by a shared-secret URL instead of a login. |
+| Local runtime | **Docker** (single `php:8.2-apache` app container, no DB container — the DB is Firebase) | Same image locally and on Render; stations on the LAN browse to it. |
+| Hosting | **Render free** (`render.yaml` Blueprint) + existing 14-min keepalive | Sleep acceptable; `Projects/ping` + in-container cron hold it warm. Health route `/health`. |
+| Quality | Pint (Laravel's php-cs-fixer preset), PHPStan (larastan), Pest smoke tests | Lint, static analysis, offline smoke tests — one command each. |
+
+**Explicitly rejected** (record so they don't creep back in):
+
+- React / Inertia / Next.js — nothing needs them without a React animation lib.
+- Tailwind / Vite / any build toolchain — the app needs one stylesheet, not a
+  Node toolchain. Plain CSS with tokens + component classes; revisit only if
+  hand-CSS becomes the bottleneck.
+- Framer Motion / `motion` / any animation library — CSS + WAAPI covers it; revisit only with a concrete choreography requirement.
+- SQL/Eloquent alongside Firebase — two sources of truth = sync bugs.
+- Firebase Auth — second auth system beside Laravel's; Laravel session auth
+  covers all three roles. Revisit only if Google sign-in becomes a requirement.
+- Customer accounts / OTP / cart / checkout — client says the current
+  user-side flow won't be used; the public site is browse-only.
+- Customer self-serve reservation portal — reservations are staff-entered;
+  a portal would race the staff calendar for no promised requirement.
+- Contact/chat/ask-questions — needs an inbox, moderation, and spam
+  filtering or it rots; declined at the probe gate.
+- Gmail API email — lost its last consumer (no OTP, no email receipts;
+  receipts print at the counter). Re-add only when something must be emailed.
+- Order status workflow / drag-and-drop ticket boards — cooked food is
+  carried to the table; making the cook maintain columns/statuses is
+  information tax (harsh-cook review: 2/10). The kitchen screen is
+  read-only; cook interaction: none.
+- WebSockets/Reverb — the kitchen page just fetches every 5–10 s; no push
+  infrastructure.
+
+## 3. Design system
+
+### Interaction
+
+- Mobile-first breakpoints; cashier touch targets ≥44 px.
+- Kitchen screen: **zero cook interaction** — no login, touch, or editing;
+  shared-secret URL, auto-clears when the cashier marks served.
+- Every destructive action gets a confirm (one reusable pattern, not three).
+- Empty states designed, not default: "No orders waiting — line is clear."
+
+### Click-first UX — everywhere (client, cashiers, cooks: non-technical)
+
+Hard rule: **the system computes, the human only supplies values or
+presses buttons.** No screen anywhere asks a person to do math, write a
+label, or enter a code — promo prices, "% off" labels, stock totals,
+booking conflicts, change due, open status, top-3, receipts, report
+totals: all derived.
+
+Per surface:
+
+- **Public site** — the customer supplies *nothing*: no accounts, no
+  forms; hours, status, tags, top-3 all computed for them.
+- **Cashier/POS** — tap tiles build the order; promo price, totals, and
+  change compute themselves; receipt = one button; reservation =
+  the guided screen below.
+- **Kitchen** — total by design: zero input, zero login, zero editing.
+- **Admin** — buttons over forms: one **Add promo** button per product
+  row → segmented `% / ₱` control + one number + live preview ("customer
+  sees ~~₱250~~ **₱200**") → Save; remove = one click. Product form stays
+  promo-free.
+- **Reports** — one-click date ranges; totals and charts build
+  themselves; no configuration.
+
+Universal patterns:
+
+- **≤3 inputs per screen.** Anything longer becomes a single-purpose
+  guided screen (reservation: name, phone, date/time, heads, type →
+  confirm → conflict check runs itself).
+- **Smart defaults pre-filled** (opening hours, receipt header,
+  low-stock threshold): the human edits only what differs.
+- **Inline steppers over edit forms** — stock adjust is `− / +` on the
+  row, not a modal.
+- **Every click confirms itself**: toast + row updates in place
+  (destructive keeps the confirm rule above).
+
+### Density — the "3 + 1" cozy rule (screen-by-screen)
+
+Research backing: `research/screen-density-2026.md` (13 primary sources:
+NN/g progressive disclosure / Hick / content-to-chrome, Lewis & Sauro
+2024 clutter study, WCAG 2.2, Material + Carbon density models).
+
+**The rule: ≤3 primary actions + 1 labeled overflow ("More…") per view.
+Everything else lives exactly one disclosed step away — max 2 levels,
+label carries clear information scent.**
+
+Per-screen checklist (apply to every screen built):
+
+1. **Earn its place** — on first paint, a control stays visible only if
+   the current task needs it or staff use it daily. Else → overflow.
+2. **Count commands, not content** — the budget counts actionable
+   commands (save, cancel, add, edit, delete, nav). Content items that
+   happen to be tappable (menu tiles, table rows) don't count, but must
+   be grouped into sections/categories.
+3. **≤9 visible commands per viewport** before grouping/overflow takes
+   the rest. Every extra visible choice slows every decision (Hick).
+4. **Squint test** — no two same-weight, same-style buttons in one
+   visual group; hierarchy via size/contrast/grouping, not more buttons.
+5. **Chrome never hides** — nav always visible and labeled; never an
+   unlabeled icon (discover → recall → interaction-cost, NN/g).
+6. **Floors** — targets ≥24×24 CSS px (WCAG 2.5.8); reflow at 320 px;
+   overflow uses "Show more", never silent truncation (WCAG 1.4.10).
+7. **Declutter order** — discard task-irrelevant content first, then
+   reorganize the rest (grouping + whitespace); only then judge the
+   screen dense (Lewis & Sauro 2024: clutter = content → discard,
+   design → reorganize).
+
+**Density by surface:** *comfortable* default (public site, cashier
+POS); *compact* permitted only on read-only glanceable surfaces (kitchen
+display, admin tables) and only after grouping/whitespace — mirroring
+Material's three tiers and Carbon's per-screen model. "Dense" never
+means sub-minimum tap targets.
+
+## 4. Deployment topology
+
+```
+                ┌────────────────────────────────┐
+                │ Firebase RTDB — sole datastore │
+                │ indexed queries, rules locked  │
+                └──────▲────────────────▲────────┘
+                       │ REST (OAuth)   │
+        LAN (Docker)   │                │   Online (Render free)
+  ┌────────────────────┴───┐      ┌─────┴──────────────────────┐
+  │ one container, same    │      │ same image, crnp-web       │
+  │ image: /cashier        │      │ / user site + /admin       │
+  │ /admin                 │      │ keepalive cron 14 min      │
+  └────────────────────────┘      └────────────────────────────┘
+```
+
+One codebase, one image, one database — the "online vs in-store" split is
+just **who opens which URL**, not two systems.
+
+Free-tier known limits (accepted for demo):
+- Instance sleeps after ~15 min idle → keepalive cron inside the container.
+- Ephemeral `uploads/` → images lost on redeploy. Acceptable for demo;
+  production = mounted disk or move images to Firebase Storage (open #1).
+
+## 5. Roadmap
+
+1. **Scaffold** — `composer create-project`, git, `public/css/app.css`
+   tokens, Dockerfile + docker-compose boots `php artisan serve`/apache at
+   `/public`, `/health` route, empty `render.yaml` deploys green. Start the
+   root `CONVENTIONS.md` (indexed RTDB queries, stock
+   decrement-after-insert, role guards, Asia/Manila
+   timezone, `route()` URL generation).
+2. **RTDB data layer** — `RtdbClient` (service-account OAuth token cache),
+   thin models (Order, Reservation, Product + stock, Staff, Settings),
+   `database.rules.json` with `.indexOn` for every query;
+   Pest smoke test against a rules fixture.
+3. **Auth & roles** — Laravel session auth, role guards for cashier and
+   admin (middleware per prefix); seeded staff accounts (no public signup,
+   no OTP); rate-limited logins. `/kitchen` is a separate
+   read-only route gated by a shared-secret URL — no session, kiosk-level
+   access (satisfies the thesis's "kitchen personnel" RBAC slot without a
+   line-cook login).
+4. **Public site** — landing: menu grid → product page, plus about /
+   branches page. Read-only RTDB reads; no accounts, no cart, no forms.
+   - **Open/closed badge** — computed from admin-configured hours per
+     weekday, evaluated in `Asia/Manila` (Render runs UTC), with an admin
+     **force-close override** (holiday / temporary closure).
+   - **Announcement banner** — admin-written promo text + show/hide toggle
+     in settings.
+   - **Item tags** (chips on product cards):
+     - **promo** — admin enters *either* a discount percent *or* an exact
+       promo price; the sibling value and the "% off" label are computed,
+       never typed (stored as `promoMode` + `promoValue`, re-derived on any
+       base-price edit, validated `0 < promoPrice < price`). Same fields
+       drive the POS total — site and receipt can't disagree; original
+       shown struck through.
+     - **house favorite** — admin toggle.
+     - **top 3 · last 7 days** — auto from sales data; shows nothing
+       until a week of sales exists.
+5. **Cashier + kitchen + reservations** — POS console; read-only
+   `/kitchen`: new-order count (flashing), per-ticket age timers (red at
+   12 min), all-day counts, 5–10 s auto-refresh, cleared by cashier's
+   "mark served"; **reservation scheduling
+   module**: new booking (type: dine-in / function room / catering, date,
+   time, party), calendar/list view, date-time conflict + duplicate check,
+   confirm/cancel statuses; smoke test: order rings up → appears on kitchen
+   screen → mark served clears it, and a conflicting reservation is
+   rejected.
+6. **Admin** — sales analytics dashboard: KPIs + 7-day trend (RTDB range
+   queries), best-sellers, peak hours; products CRUD with content-addressed
+   image uploads, **one-click Add-promo** (percent or exact price —
+   sibling value and label auto-computed, per §3 click-first UX) +
+   **house-favorite toggle** (feeds the
+   public site tags; top-3 tag is computed from this phase's sales data) +
+   **inventory monitoring** (stock movement, low-stock flags, inventory
+   reports); staff accounts, business settings (**hours per weekday,
+   force-close toggle, announcement banner**); sales and
+   reservation reports with date filters.
+7. **Design pass** — apply §3 everywhere: dark mode audit, motion
+   choreography on the public site only, empty states, receipts.
+8. **Demo path + hardening** — scripted capstone happy path (browse menu →
+   cashier rings up an order → kitchen screen flashes the ticket with a
+   running timer → mark served clears it → receipt; plus reservation:
+   enter → conflict
+   blocked → confirm →
+   shows on calendar; plus report: sale appears in
+   analytics dashboard); RTDB rules lockdown;
+   weekly export-backup documented.
+
+## 6. Open decisions
+
+- [ ] **#1 Uploads** — base64-in-RTDB (fine for menu-photo/QR scale) vs Firebase Storage (photos).
