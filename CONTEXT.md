@@ -63,6 +63,12 @@ _Avoid_: preparation time, lead time buffer, cook window
 When an order should be cooked and waiting — pickup time for scheduled pickups, verify + cook lead for ASAP, POS entry + cook lead for walk-ins.
 _Avoid_: due time, target time, prep deadline
 
+### Reservations
+
+**Occupancy view**:
+The public read-only count of seats taken vs capacity per slot — confirmed bookings only, aggregate, no names. It answers availability questions; it never books.
+_Avoid_: availability calendar, booking calendar, live calendar
+
 ### Sales ranking
 
 **Top 3**:

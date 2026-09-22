@@ -8,7 +8,7 @@ flowchart TD
     A["Sign in — staff account<br/>/cashier (role-guarded)"] --> B{"Task?"}
     B --> C["Online pickup queue<br/>order code · screenshot auto-verified<br/>flagged 'unconfirmed' 5 min<br/>awaiting-proof row: in-window, no screenshot"]
     B --> D["Walk-in ring-up: tap tiles<br/>promo price + totals compute<br/>split tender: type one number"]
-    B --> E["New reservation: dine-in /<br/>function room / catering"]
+    B --> E["New reservation — type phone<br/>typeahead prefills name/party/type<br/>new customer: 2 steps (≤3 + ≤2)<br/>dine-in / function room / catering"]
     C -->|"bogus proof"| R["Reject — confirm<br/>order dismissed, tracker flips<br/>proof image deleted immediately"]
     C --> F["Settle / collect: split tender<br/>other tender + change compute"]
     D --> F

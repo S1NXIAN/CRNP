@@ -12,7 +12,7 @@ flowchart TD
     D1 --> D2["Categories + per-product add-ons<br/>one-click promo: % or ₱ → computed label"]
     D2 --> D3["Inventory: − / + steppers<br/>low-stock flags · stock reports"]
     E --> E1["Hours per weekday + force-close<br/>→ public open/closed badge"]
-    E1 --> E2["Announcement banner<br/>GCash number + official QR upload"]
+    E1 --> E2["Announcement banner · GCash QR upload<br/>· reservation capacities (smart default)"]
     F --> F1["Sales + reservations reports<br/>date filters · weekly export-backup"]
     C --> G["Reads the one RTDB stream<br/>(online + counter orders)"]
 ```

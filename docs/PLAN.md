@@ -50,9 +50,10 @@ Domain vocabulary (glossary: [CONTEXT.md](../CONTEXT.md)):
   served or, server-owned, at ready-for + 15 min (→ the counter's
   ready-awaiting-handover row). Cook interaction: none — the server
   owns lane promotion and expiry (§4 kitchen board spec).
-- **Reservations** — dine-in, function room, catering; staff-entered on
-  a centralized calendar with conflict and duplicate checks before
-  confirm.
+- **Reservations** — dine-in, function room, catering; staff-entered
+  (a phone lookup prefills returning customers) on a centralized
+  calendar with conflict and duplicate checks before confirm;
+  customers get a read-only occupancy view, never a booking form.
 
 Per-role flowcharts: [customer](flow-charts/customer.md) ·
 [cashier](flow-charts/cashier.md) ·
@@ -76,7 +77,8 @@ preference sync require Sign in with Google.**
 5. **Open/closed badge** — computed from admin hours per weekday +
    force-close toggle; place-order disabled while closed.
 6. **Announcement banner** — admin-written, site-wide.
-7. **About / branches** page.
+7. **About / branches** + reservation **occupancy view** (read-only)
+   pages.
 8. **Cart** — inline steppers, add-on picks, computed totals (the
    system does the math; the human types nothing).
 
@@ -172,6 +174,8 @@ preference sync require Sign in with Google.**
   as **Socialite inside Laravel**, not Firebase Auth — stays rejected.
 - Customer self-serve reservation portal — reservations are staff-entered;
   a portal would race the staff calendar for no promised requirement.
+  Still rejected; the §4 public availability view is read-only and
+  books nothing (it reverses nothing).
 - Contact/chat/ask-questions — needs an inbox, moderation, and spam
   filtering or it rots; declined at the probe gate.
 - Gmail API email — lost its last consumer (no OTP, no email receipts;
@@ -240,8 +244,9 @@ Per surface:
 Universal patterns:
 
 - **≤3 inputs per screen.** Anything longer becomes a single-purpose
-  guided screen (reservation: name, phone, date/time, heads, type →
-  confirm → conflict check runs itself).
+  guided screen (reservation: phone lookup prefills name/party/type →
+  adjust date/time → confirm; brand-new customer gets the same task
+  split ≤3 + ≤2 across two steps → conflict check runs itself).
 - **Smart defaults pre-filled** (opening hours, receipt header,
   low-stock threshold): the human edits only what differs.
 - **Default-yes, exception-only taps** — the system acts first and the
@@ -461,7 +466,22 @@ Spec: the server owns everything, the cook owns nothing.
 
 - Booking fields: type (dine-in / function room / catering), date,
   time, party; calendar/list view; date-time **conflict + duplicate
-  check** before confirm; confirm / cancel statuses.
+  check** before confirm (server-run); confirm / cancel statuses.
+- **Entry is lookup-first** — staff type the **phone**; a typeahead
+  over past reservations prefills name, party, and preferred type
+  (`.indexOn phone` on the existing `Reservation` shape — no
+  parallel customer table); staff adjust date/time → confirm.
+  Returning customer = **≤3 inputs**.
+- **New customers** — guided two steps: (1) name · phone · type
+  (tap-only chips) ≤3 inputs; (2) date/time pickers + party stepper
+  ≤2 → confirm → the conflict check runs itself. Call-script parsing
+  and self-serve booking stay out (portal remains rejected).
+- **Public availability view** — read-only page on `/`: seats taken
+  vs capacity per day/time slot for the week ahead — **confirmed
+  bookings only, server-aggregated**, capacities set by admin as
+  smart defaults. **Aggregate only**: no names, no phones, no booking
+  ability. It answers "is date X free?" without a call and reverses
+  nothing.
 
 ### Admin
 
@@ -477,7 +497,8 @@ Spec: the server owns everything, the cook owns nothing.
 - **Staff & settings** — staff accounts; business settings: **hours
   per weekday, force-close toggle, announcement banner, GCash number
   + official QR image** (shown untouched inside the branded frame at
-  checkout).
+  checkout), **reservation capacities** per area (smart defaults
+  feeding the public occupancy view).
 - **Reports** — sales and reservation reports with date filters.
 
 ### Design

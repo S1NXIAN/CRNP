@@ -8,6 +8,7 @@ flowchart TD
     A["Arrive at / — menu visible,<br/>no login wall"] --> B{"Open per admin hours?"}
     B -->|"closed"| C["Read-only: menu + announcement<br/>place-order disabled"]
     B -->|"open"| D["Menu grouped by category<br/>promo / Top 3 tags · computed prices"]
+    D -.->|"Reservations"| V["Public occupancy view — read-only<br/>seats taken vs capacity per slot<br/>no names · books nothing"]
     D --> E["Filter: tap category chip"]
     E --> D
     D --> F["Product page → Add to cart<br/>steppers · add-ons · computed totals"]

@@ -1,6 +1,6 @@
 # 004 — Reservations are 100% manual retyping
 
-**Status:** open
+**Status:** fixed
 **Severity:** high (lost bookings + violates the plan's own UX rule)
 **Personas affected:** admin (top friction), cashier, customer
 
@@ -38,7 +38,39 @@ no self-serve portal (portal was explicitly rejected).
 
 ## Acceptance criteria
 
-- [ ] Staff enter a reservation in **≤3 inputs** for returning customers,
+- [x] Staff enter a reservation in **≤3 inputs** for returning customers,
       or bookings arrive without staff at all.
-- [ ] Conflict/duplicate check stays server-run as today.
-- [ ] If the portal is reopened, record the decision in `docs/adr/`.
+- [x] Conflict/duplicate check stays server-run as today.
+- [x] If the portal is reopened, record the decision in `docs/adr/`.
+
+## Resolution (2026-09-22)
+
+Directions 2 + 3 adopted; 1 and 4 declined; the owner added a fifth
+direction, folded in here:
+
+- **3 — returning-customer lookup (primary).** Staff type the phone;
+  typeahead over past reservations prefills name/party/type
+  (`.indexOn phone` on the existing shape — no parallel customer
+  table); adjust date/time → confirm = ≤3 inputs.
+- **2 — guided two steps (first-timers).** name · phone · type
+  (tap-only chips) ≤3 → date/time + party stepper ≤2 → confirm →
+  server conflict check.
+- **1 — portal declined.** Stays rejected: the new evidence was
+  retyping friction, which 2+3 remove at the source; bookings still
+  arrive as phone calls, so a portal assumes a behavior change
+  nobody promised. Criterion 3 not triggered — **no ADR**.
+- **4 — script parsing declined.** Gated on "trustworthy" parsing; a
+  silently wrong booking is worse than retyping, and the plan has no
+  parsing stack.
+- **New: public availability view** (owner's direction) — read-only
+  aggregate occupancy on `/`: seats taken vs capacity per slot,
+  confirmed bookings only, admin-set capacities (smart defaults),
+  server-aggregated, no names, no booking ability. Reverses nothing
+  — the portal rejection gets a clarifying note in §2.
+
+- `docs/PLAN.md` — §1 vocabulary + item 7, §2 rejected-list
+  clarifier, §3 ≤3-input example, §4 Reservations + Admin settings.
+- `docs/flow-charts/cashier.md` (lookup-first entry),
+  `docs/flow-charts/customer.md` (occupancy view),
+  `docs/flow-charts/admin.md` (capacities in settings).
+- `CONTEXT.md` — new **Occupancy view** term.
