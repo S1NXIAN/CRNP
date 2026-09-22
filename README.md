@@ -237,7 +237,8 @@ Free-tier known limits (accepted for demo):
 1. **Scaffold** — `composer create-project`, git, `public/css/app.css`
    tokens, Dockerfile + docker-compose boots `php artisan serve`/apache at
    `/public`, `/health` route, empty `render.yaml` deploys green. Start the
-   root `CONVENTIONS.md` (role guards, Asia/Manila
+   root `CONVENTIONS.md` (indexed RTDB queries, stock
+   decrement-after-insert, role guards, Asia/Manila
    timezone, `route()` URL generation).
 2. **RTDB data layer** — `RtdbClient` (service-account OAuth token cache),
    thin models (Order, Reservation, Product + stock, Staff, Settings),
