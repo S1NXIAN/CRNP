@@ -217,8 +217,9 @@ just **who opens which URL**, not two systems.
 
 Free-tier known limits (accepted for demo):
 - Instance sleeps after ~15 min idle → keepalive cron inside the container.
-- Ephemeral `uploads/` → images lost on redeploy. Acceptable for demo;
-  production = mounted disk or move images to Firebase Storage (open #1).
+- Ephemeral `uploads/` → images lost on redeploy — **solved for demo**:
+  images live in RTDB as base64 (decision #1), not on disk. Production
+  = mounted disk or Firebase Storage (decision #1).
 
 ## 5. Roadmap
 
@@ -286,8 +287,9 @@ Free-tier known limits (accepted for demo):
    screen → mark served clears it, and a conflicting reservation is
    rejected.
 6. **Admin** — sales analytics dashboard: KPIs + 7-day trend (RTDB range
-   queries), best-sellers, peak hours; products CRUD with content-addressed
-   image uploads, **categories** + per-product **add-ons**,
+   queries), best-sellers, peak hours; products CRUD with **image
+   uploads** (server-side resize/compress → base64 into RTDB, decision
+   #1), **categories** + per-product **add-ons**,
    **one-click Add-promo** (percent or exact price —
    sibling value and label auto-computed, per §3 click-first UX) +
    **house-favorite toggle** (feeds the
@@ -313,7 +315,13 @@ Free-tier known limits (accepted for demo):
 
 ## 6. Open decisions
 
-- [ ] **#1 Uploads** — base64-in-RTDB (fine for menu-photo/QR scale) vs Firebase Storage (photos).
+- [x] **#1 Uploads — decided:** **base64-in-RTDB for the demo**
+  (Laravel resizes/compresses server-side — max ~800 px — then encodes
+  onto the product/settings node; survives Render redeploys, zero new
+  services; ceiling = RTDB's 1 GB / 10 GB-download quota, plenty for
+  menu-photo + QR scale). **Firebase Storage when going real** (§4
+  production path: bucket + its own rules + second credential scope —
+  revisit only with real traffic or a mounted disk).
 - [ ] **#2 Customer auth** — guest checkout (3 taps, no account wall,
   no email stack) vs phone/OTP accounts (would re-add Gmail API email,
   currently rejected; prototype had signup + OTP + my-orders). Client
