@@ -17,7 +17,7 @@ internet, demonstrated end-to-end, not localhost-only.
 
 | Area | URL prefix | Purpose | Runs |
 |---|---|---|---|
-| Customer | `/` | **Online ordering:** category menu → cart → checkout (table name + Pay at Counter / GCash QR); product pages, about/branches, open/closed status, announcement banner, item tags | Online (showcase) |
+| Customer | `/` | **Online ordering:** category menu → cart → checkout (table name + Pay at Counter / GCash QR); product pages, about/branches, open/closed status, announcement banner, item tags, favorites; **Sign in with Google** required to order | Online (showcase) |
 | Cashier/POS | `/cashier` | Walk-in orders, **split payment (GCash + cash)**, **reservation scheduling** (dine-in, function room, catering), receipts | In-store via Docker, online reachable |
 | Kitchen | `/kitchen` | **Read-only** ticket display: new-order count, age timers, all-day counts — no login, no cook interaction | In-store via Docker |
 | Admin | `/admin` | Dashboard (sales analytics), products + inventory, staff, settings, reports | Both |
@@ -40,7 +40,7 @@ flowchart TD
   DB[("Firebase RTDB — sole datastore")]
 
   subgraph CU["Customer · / (order online)"]
-    C1["Menu grouped by category · filter<br/>open status · announcement<br/>promo / top-3 tags"] --> C2["Cart → checkout<br/>table name + payment:<br/>Pay at Counter / GCash → QR frame"]
+    C1["Menu grouped by category · filter<br/>open status · announcement<br/>promo / top-3 tags"] --> C2["Cart → checkout<br/>Sign in with Google → table name + payment:<br/>Pay at Counter / GCash → QR frame"]
   end
 
   subgraph CA["Cashier · /cashier (POS)"]
@@ -81,6 +81,7 @@ flowchart TD
 | Views | **Blade + plain CSS (design tokens + component classes)** | Server-rendered, no SPA, no Inertia — and **zero build step**: no npm, no Vite, no Node anywhere. One `public/css/app.css`. |
 | Motion | **CSS transitions + Web Animations API** | No animation library. Transitions for hover/toggle/focus, keyframes for toasts, native WAAPI for the rare choreography (badge bump, card stagger). Framer Motion (React-only) and `motion` both rejected — add a lib only if choreography proves painful. |
 | Database | **Firebase Realtime Database, sole datastore** | One source of truth; no migrations while the schema churns; matches the declared capstone stack. Laravel does *not* use Eloquent/SQL — persistence goes through a thin RTDB service. |
+| Customer auth | **Laravel session + Socialite — "Sign in with Google"** | One button, zero signup/reset/verify screens; `users/{uid}` in RTDB. Basic scopes → Google's 100-user cap and app verification don't apply ([source](https://support.google.com/cloud/answer/15549945)). New dep: `laravel/socialite` (approved). |
 | Kitchen display | **Auto-refreshing read-only page (5–10 s fetch)** | One endpoint returning open orders. No websocket, no cook session — the route is gated by a shared-secret URL instead of a login. |
 | Local runtime | **Docker** (single `php:8.2-apache` app container, no DB container — the DB is Firebase) | Same image locally and on Render; stations on the LAN browse to it. |
 | Hosting | **Render free** (`render.yaml` Blueprint) + existing 14-min keepalive | Sleep acceptable; `Projects/ping` + in-container cron hold it warm. Health route `/health`. |
@@ -95,7 +96,8 @@ flowchart TD
 - Framer Motion / `motion` / any animation library — CSS + WAAPI covers it; revisit only with a concrete choreography requirement.
 - SQL/Eloquent alongside Firebase — two sources of truth = sync bugs.
 - Firebase Auth — second auth system beside Laravel's; Laravel session auth
-  covers all three roles. Revisit only if Google sign-in becomes a requirement.
+  covers all roles. Google sign-in *is* now a requirement (client) and ships
+  as **Socialite inside Laravel**, not Firebase Auth — stays rejected.
 - Customer self-serve reservation portal — reservations are staff-entered;
   a portal would race the staff calendar for no promised requirement.
 - Contact/chat/ask-questions — needs an inbox, moderation, and spam
@@ -129,11 +131,13 @@ totals: all derived.
 
 Per surface:
 
-- **Public site** — online ordering is a 3-tap flow: cart picks →
-  **table name** → **payment method** (Pay at Counter, or GCash → the
+- **Public site** — **browse is open**; **ordering requires sign-in**:
+  one **Sign in with Google** button (Socialite — no form, no OTP,
+  remembered session), then the 3-tap flow: cart picks → **table
+  name** → **payment method** (Pay at Counter, or GCash → the
   QR appears in its branded frame, only when GCash is selected). Hours,
-  status, tags, top-3, totals all computed; customer auth model =
-  open decision #2.
+  status, tags, top-3, totals computed; favorites + saved add-on prefs
+  sync per account; checkout route `throttle`d (anti-spam) — decision #2.
 - **Cashier/POS** — tap tiles build the order; promo price, totals, and
   change compute themselves; payment is two tenders (GCash + cash,
   split allowed — cashier types one number, the other and the change
@@ -233,16 +237,19 @@ Free-tier known limits (accepted for demo):
    thin models (Order, Reservation, Product + stock, Staff, Settings),
    `database.rules.json` with `.indexOn` for every query;
    Pest smoke test against a rules fixture.
-3. **Auth & roles** — Laravel session auth, role guards for cashier and
-   admin (middleware per prefix); seeded staff accounts (no public signup,
-   no OTP); rate-limited logins. `/kitchen` is a separate
+3. **Auth & roles** — Laravel session auth + role guards for cashier
+   and admin (middleware per prefix); staff accounts seeded (no public
+   *staff* signup, no OTP); customers sign in with **Google via
+   Socialite** (auto-provisions `users/{uid}` in RTDB); rate-limited
+   logins. `/kitchen` is a separate
    read-only route gated by a shared-secret URL — no session, kiosk-level
    access (satisfies the thesis's "kitchen personnel" RBAC slot without a
    line-cook login).
 4. **Public site + online ordering** — landing: menu → product page,
-   plus about / branches page. Reads via Laravel; the only customer
-   write is the order itself, POSTed to Laravel (validated,
-   stock-checked) which writes RTDB — no direct customer writes.
+   plus about / branches page. Reads via Laravel; customer writes are
+   the order (POSTed to Laravel, validated, stock-checked) and their
+   own `users/{uid}` prefs (favorites, add-on selections) — all
+   server-mediated, no direct customer writes.
    - **Categories + filter** — products carry an admin-managed category
      (Mains, Milktea Series, Budget Meal, …); "All Products" groups
      items under their category titles; tapping a category shows only
@@ -250,7 +257,13 @@ Free-tier known limits (accepted for demo):
    - **Add-ons** — admin configures per-product add-ons (name + price);
      the customer picks them in the cart; the selection rides on the
      order line item through to kitchen and receipt.
-   - **Cart → checkout** — auth model = open decision #2. Fields:
+   - **Favorites + saved prefs** — heart on product cards toggles a
+     per-account favorite; each product's last add-on selection is
+     re-checked next visit — stored at `users/{uid}`, cross-device;
+     these actions prompt sign-in, browsing never does.
+   - **Cart → checkout** — placing the order requires **Sign in with
+     Google** (browse stays open; session must be live at POST).
+     Fields:
      **table name** (required, saved on the order, visible to cashier
      and on the kitchen ticket) + **payment method**: Pay at Counter,
      or GCash → QR shown only when GCash is selected, the official QR
@@ -300,7 +313,8 @@ Free-tier known limits (accepted for demo):
 7. **Design pass** — apply §3 everywhere: dark mode audit, motion
    choreography on the public site only, empty states, receipts.
 8. **Demo path + hardening** — scripted capstone happy path (browse menu
-   by category → cart → checkout: table name + GCash → QR appears →
+   by category → cart → **Sign in with Google** → checkout: table name
+   + GCash → QR appears →
    order lands on the kitchen ticket with table name and running timer →
    mark served → shows in analytics; plus a walk-in ring-up with split
    tender → receipt; plus reservation:
@@ -310,7 +324,7 @@ Free-tier known limits (accepted for demo):
    analytics dashboard); RTDB rules lockdown;
    weekly export-backup documented.
 
-## 6. Open decisions
+## 6. Decisions log
 
 - [x] **#1 Uploads — decided:** **base64-in-RTDB for the demo**
   (Laravel resizes/compresses server-side — max ~800 px — then encodes
@@ -319,13 +333,16 @@ Free-tier known limits (accepted for demo):
   menu-photo + QR scale). **Firebase Storage when going real** (§4
   production path: bucket + its own rules + second credential scope —
   revisit only with real traffic or a mounted disk).
-- [ ] **#2 Customer auth — reopened:** client now **expects an
-  account-based customer side** (feedback after last week's demo —
-  supersedes the "spec never asks for login" premise). Standing
-  counters on the OTP variant hold: it would re-add the rejected
-  stack (Gmail API, OTP, Firebase Auth) and violate the click-first
-  law ("enter a code") — lean **Laravel session auth + `users` node
-  in RTDB**, per-user favorites / saved add-on prefs stored
-  server-side (cross-device). Pending: exact gate boundary, and
-  which part of last week's demo the client found clunky.
-  `throttle` on checkout stays regardless — accounts ≠ spam fix.
+- [x] **#2 Customer auth — decided: "Sign in with Google" via
+  Socialite.** Client expects an account-based customer side
+  (post-demo feedback, supersedes "spec never asks for login");
+  boundary = **browse open, ordering requires sign-in**. Laravel
+  session + `laravel/socialite` (new dep, approved); `users/{uid}` in
+  RTDB holds profile + **favorites** + **saved add-on prefs**
+  (cross-device). Basic scopes only → the Google 100-user cap and app
+  verification don't apply to Sign in with Google (published-status
+  carve-out); publish the app anyway. OTP / passwords / Firebase Auth
+  / Gmail API stay rejected — no signup, reset, or verification
+  screens. `throttle` on checkout stays regardless (accounts ≠ spam
+  fix). Standing probe dropped as moot: the credential form is a
+  single Google button.
