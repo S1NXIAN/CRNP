@@ -67,10 +67,6 @@ flowchart TD
   DB --> A3
 ```
 
-`flow.html` (same directory) renders this block and re-renders it every
-5 s while README.md changes — serve the folder over HTTP and the diagram
-tracks this plan live.
-
 ## 2. Stack — decided
 
 | Layer | Choice | Why |
