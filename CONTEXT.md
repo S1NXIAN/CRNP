@@ -42,7 +42,7 @@ An online order whose payment window expired unpaid. Auto-clears the active queu
 _Avoid_: cancelled, expired, rejected order
 
 **Unclaimed**:
-A paid, cooked order the customer never collected. Payment is kept.
+A paid, cooked order the customer never collected. Payment is kept — decided at the close sweep, never by the board's timer.
 _Avoid_: no-show order, abandoned order, expired order
 
 ### Kitchen board
@@ -58,6 +58,10 @@ _Avoid_: pending column, upcoming list, backlog
 **Cook lead**:
 The head start a scheduled pickup gets before its pickup time — the gap that lets the kitchen start it fresh.
 _Avoid_: preparation time, lead time buffer, cook window
+
+**Ready-for**:
+When an order should be cooked and waiting — pickup time for scheduled pickups, verify + cook lead for ASAP, POS entry + cook lead for walk-ins.
+_Avoid_: due time, target time, prep deadline
 
 ### Sales ranking
 

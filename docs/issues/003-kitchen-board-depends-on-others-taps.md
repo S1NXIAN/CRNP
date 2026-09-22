@@ -1,6 +1,6 @@
 # 003 — Kitchen board only as honest as other people's thumbs
 
-**Status:** open
+**Status:** fixed
 **Severity:** high (cook trust in the display)
 **Personas affected:** kitchen (Seamlessness 6/10), cashier
 
@@ -50,10 +50,42 @@ Plus two display-timing gripes:
 
 ## Acceptance criteria
 
-- [ ] A stale ticket never sits in NOW indefinitely just because the
+- [x] A stale ticket never sits in NOW indefinitely just because the
       cashier is busy.
-- [ ] Paid-but-unverified customers are at least *visible* somewhere on
+- [x] Paid-but-unverified customers are at least *visible* somewhere on
       the board or the counter screen.
-- [ ] A cook who blinks during the NEW flash never misses a ticket.
-- [ ] A slept/restarted instance recovers on the board without human
+- [x] A cook who blinks during the NEW flash never misses a ticket.
+- [x] A slept/restarted instance recovers on the board without human
       intervention.
+
+## Resolution (2026-09-22)
+
+All four directions decided:
+
+- **1 — auto-clear, adopted with a neutral destination.** The server
+  clears any NOW ticket at **ready-for + 15 min (or close)** with zero
+  taps → counter **ready — awaiting handover** row; **Unclaimed** is
+  decided at the **close sweep**, never by the clock. `ready-for` now
+  defined for every origin: scheduled = pickup time, ASAP online =
+  verify + 15, walk-in = POS entry + 15 (cook lead, hardcoded v1).
+- **2 — declined.** Already solved by 001's **awaiting-proof counter
+  row** (the criterion allows board *or* counter). The board keeps the
+  verified-unserved-only invariant; and "paid but not attached" is
+  unknowable server-side without a GCash transaction API (002
+  direction 3, declined).
+- **3 — adopted.** Flash ~5 s, then a **steady NEW badge until age
+  3 min** — stateless, survives reloads; the age timer takes over
+  after.
+- **4 — adopted.** **Fixed 5 s fetch**; past ~15 s stale the board
+  shows **"Reconnecting…"** and **auto-reloads** with backoff — a
+  slept kiosk instance recovers with no cook action.
+
+- `docs/PLAN.md` — §2 stack row, §1 kitchen/Unclaimed/item 16, §4 NOW
+  lane + ready-for definition + Hygiene.
+- `docs/flow-charts/kitchen.md` (badge, reconnect, clear node),
+  `docs/flow-charts/cashier.md` (ready-awaiting-handover row; Unclaimed
+  moves to the close sweep). Customer chart untouched.
+- `CONTEXT.md` — new **Ready-for** term; **Unclaimed** records the
+  close-sweep rule.
+- No ADR — direction 1's own caveat answered: server-owned clearing is
+  not a cook status, zero cook input preserved.

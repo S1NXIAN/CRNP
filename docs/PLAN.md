@@ -43,11 +43,13 @@ Domain vocabulary (glossary: [CONTEXT.md](../CONTEXT.md)):
 - **Dismissed** — payment window missed: active queue auto-clears, the
   order lands in a Dismissed list (Restore / Void), the customer's
   **order tracker** flips in-session.
-- **Unclaimed** — paid but never collected: money kept, manual note.
+- **Unclaimed** — paid but never collected by close: money kept,
+  manual note (a close-sweep decision, never the clock's).
 - **Kitchen display** — mirrors **verified, unserved** tickets
   read-only (order code on the ticket); clears when the cashier marks
-  served. Cook interaction: none — the server owns lane promotion and
-  expiry (§4 kitchen board spec).
+  served or, server-owned, at ready-for + 15 min (→ the counter's
+  ready-awaiting-handover row). Cook interaction: none — the server
+  owns lane promotion and expiry (§4 kitchen board spec).
 - **Reservations** — dine-in, function room, catering; staff-entered on
   a centralized calendar with conflict and duplicate checks before
   confirm.
@@ -121,7 +123,8 @@ preference sync require Sign in with Google.**
 16. **Collect** — cooked → cashier **Mark served** (the single happy-
     path tap) → the tracker flips **cooking → READY** the same instant
     → customer collects with the **order code** → order feeds sales &
-    analytics. Paid but never collected → **Unclaimed** (money kept).
+    analytics. Paid but never collected by close → **Unclaimed**
+    (money kept — a close-sweep decision, never the board's timer).
     The tracker covers the active order only — no order history in v1.
 
 ### Customer flow
@@ -152,7 +155,7 @@ preference sync require Sign in with Google.**
 | Motion | **CSS transitions + Web Animations API** | No animation library. Transitions for hover/toggle/focus, keyframes for toasts, native WAAPI for the rare choreography (badge bump, card stagger). Framer Motion (React-only) and `motion` both rejected — add a lib only if choreography proves painful. |
 | Database | **Firebase Realtime Database, sole datastore** | One source of truth; no migrations while the schema churns; matches the declared capstone stack. Laravel does *not* use Eloquent/SQL — persistence goes through a thin RTDB service. |
 | Customer auth | **Laravel session + Socialite — "Sign in with Google"** | One button, zero signup/reset/verify screens; `users/{uid}` in RTDB. Basic scopes → Google's 100-user cap and app verification don't apply ([source](https://support.google.com/cloud/answer/15549945)) — publish the app anyway. New dep: `laravel/socialite` (approved). |
-| Kitchen display | **Auto-refreshing read-only page (5–10 s fetch)** | One endpoint returning open orders. No websocket, no cook session — the route is gated by a shared-secret URL instead of a login. |
+| Kitchen display | **Auto-refreshing read-only page (5 s fetch)** | One endpoint returning open orders. No websocket, no cook session — the route is gated by a shared-secret URL instead of a login. |
 | Quality | Pint (Laravel's php-cs-fixer preset), PHPStan (larastan), Pest smoke tests | Lint, static analysis, offline smoke tests — one command each. |
 
 <details>
@@ -180,7 +183,7 @@ preference sync require Sign in with Google.**
   handed over at the counter; making the cook maintain columns/statuses is
   information tax (harsh-cook review: 2/10). The kitchen screen is
   read-only; cook interaction: none.
-- WebSockets/Reverb — the kitchen page just fetches every 5–10 s; no push
+- WebSockets/Reverb — the kitchen page just fetches every 5 s; no push
   infrastructure.
 - Cashier Approve-before-QR gate — a human tap between "I ordered" and
   "I can pay" with no purpose once payment is the gate; QR goes out at
@@ -431,10 +434,10 @@ All at `/`.
 Spec: the server owns everything, the cook owns nothing.
 
 - **NOW lane** — oldest first: walk-ins + ASAP pickups. Per-ticket
-  **age timers (red at 12 min)**, **NEW count** (flashing, genuine
-  new tickets only, stops after ~5 s), **all-day counts = NOW only**
-  (never LATER — a cook must never be told to make food he's not
-  allowed to make yet).
+  **age timers (red at 12 min)**, **NEW badge** (genuine new tickets
+  only: flashes ~5 s, then a steady badge until the ticket ages past
+  3 min), **all-day counts = NOW only** (never LATER — a cook must
+  never be told to make food he's not allowed to make yet).
 - **LATER** — scheduled pickups as full-size dimmed rows, sorted by
   ready-for time, live countdown. The server **promotes** at
   `pickup − 15 min` (cook-lead, hardcoded for v1) **or** at
@@ -443,11 +446,16 @@ Spec: the server owns everything, the cook owns nothing.
   clocks (age timer + ready-for), and reads **LATE immediately** if
   overdue — never a fresh 0:00 that hides lateness. Promotion
   highlights the card; the NEW flash is not reused.
-- **Hygiene** — 5–10 s fetch + **heartbeat**: the board greys out
-  past ~15 s stale ("signal lost") so a dead screen never looks live;
-  unclaimed pickups **auto-expire** at ready-for + 15 min (or at
-  close) → the cashier's no-show list; tickets clear on **Mark
-  served**.
+- **ready-for** — when an order should be cooked and waiting:
+  scheduled = pickup time; ASAP online = verify + 15 min; walk-in =
+  POS entry + 15 min (cook lead, hardcoded for v1).
+- **Hygiene** — fixed **5 s fetch** + **heartbeat**: past ~15 s stale
+  the board shows a plain **"Reconnecting…"** banner and **auto-
+  reloads** with backoff, so a slept kiosk instance recovers with no
+  human and a dead screen never looks live. Tickets clear on **Mark
+  served** or, server-owned, at **ready-for + 15 min (or close)** →
+  the counter's **ready — awaiting handover** row. **Unclaimed** is
+  decided at the close sweep, never by the clock.
 
 ### Reservations
 
