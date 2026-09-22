@@ -75,7 +75,8 @@ preference sync require Sign in with Google.**
    heart (tapping while signed out prompts the Google button).
 4. **Product page** — image, price/promo, details.
 5. **Open/closed badge** — computed from admin hours per weekday +
-   force-close toggle; place-order disabled while closed.
+   force-close toggle + scheduled date-range closures; place-order
+   disabled while closed.
 6. **Announcement banner** — admin-written, site-wide.
 7. **About / branches** + reservation **occupancy view** (read-only)
    pages.
@@ -101,9 +102,9 @@ preference sync require Sign in with Google.**
     instantly in its **branded frame** (official image, never
     re-rendered) and the **15-min payment window** starts — no cashier
     approval in front of it.
-14. **Place order** — POST to Laravel → validated, stock-checked,
-    `throttle`d per-IP → **order code** returned (the code identifies
-    the pickup; no table field).
+14. **Place order** — POST to Laravel → validated, `throttle`d
+    per-IP → **order code** returned (the code identifies the
+    pickup; no table field).
 
 **D. After ordering**
 
@@ -302,15 +303,14 @@ order of work.
 ### Data layer
 
 - **Firebase RTDB** is the sole datastore (§2). Thin models —
-  **Order**, **Reservation**, **Product + stock**, **Staff**,
-  **Settings** — behind `RtdbClient` (service-account OAuth token
-  cache); Laravel never touches Eloquent/SQL.
+  **Order**, **Reservation**, **Product**, **Rental stock**,
+  **Staff**, **Settings** — behind `RtdbClient` (service-account
+  OAuth token cache); Laravel never touches Eloquent/SQL.
 - Every query is declared in `database.rules.json` with `.indexOn`;
-  stock decrements **after** insert; a restore (the Restore / Void
-  path) reverts by the **Firebase key stored in the order's items
-  array** — never by name — and checks order status first to avoid a
-  double-restore; URLs come from `route()`; all times evaluate in
-  `Asia/Manila` (server clock is UTC).
+  a restore (the Restore / Void path) only re-activates the order and
+  checks status first to avoid a double-restore — there is no stock
+  to revert, menu items carry none; URLs come from `route()`; all
+  times evaluate in `Asia/Manila` (server clock is UTC).
 - **Proof lifecycle** — screenshots land compressed at
   `orders/{id}/proof`: client-side canvas on selection (adaptive
   JPEG — ≤300 KB target, ≥720 px legibility floor so receipt text
@@ -362,7 +362,7 @@ All at `/`.
   - **pickup time** — optional picker; default = ASAP, earliest =
     now + 15 min; the picker refuses too-soon inputs, so no error can
     follow payment.
-  - **place order** — validated, stock-checked, `throttle`d →
+  - **place order** — validated, `throttle`d →
     **order code** returned (it identifies the pickup; no table
     field) and **GCash QR auto-sent** — the official QR image inside
     a branded frame, never re-rendered
@@ -391,8 +391,9 @@ All at `/`.
     auto-clears the cashier queue, and the Dismissed list keeps
     Restore / Void.
 - **Open/closed badge** — computed from admin-configured hours per
-  weekday, plus an admin **force-close override** (holiday /
-  temporary closure); place-order is disabled while closed.
+  weekday, an admin **force-close override** (emergencies), and
+  **scheduled date-range closures** that flip themselves on and off
+  (holidays, configured once); place-order is disabled while closed.
 - **Announcement banner** — admin-written promo text with a show/hide
   toggle in settings.
 - **Item tags** (chips on product cards):
@@ -486,20 +487,30 @@ Spec: the server owns everything, the cook owns nothing.
 ### Admin
 
 - **Dashboard** — KPIs + 7-day trend (RTDB range queries),
-  best-sellers, peak hours.
+  best-sellers, peak hours, **last-backup badge** + download.
 - **Products** — CRUD with **image uploads** (server-side resize /
   compress to ~800 px → base64 into RTDB; no file uploads);
   **categories** + per-product
   **add-ons**; **one-click Add promo** (percent or exact price — the
-  sibling value and label auto-compute, §3).
-- **Inventory** — stock movement, low-stock flags, inventory reports;
-  stock adjust is an inline `− / +` stepper (§3).
+  sibling value and label auto-compute, §3); one-tap **hide** toggle
+  — the 86 board (menu items carry no stock, see Inventory).
+- **Inventory — rental units only.** Menu items carry no stock: food
+  is made to order, and a counter that only ever falls manufactures
+  false sold-outs and owner babysitting — sold-out is the **hide**
+  toggle instead, and the rentals catalog lands with issue 007. Stock
+  rises via **Add stock** (supplier · qty · date = 3 inputs; qty is
+  a stepper, date defaults today) and falls via rental handovers; the
+  **low-stock list carries the restock button**. Flags, reports, and
+  the inline `− / +` stepper (§3) stay.
 - **Staff & settings** — staff accounts; business settings: **hours
-  per weekday, force-close toggle, announcement banner, GCash number
+  per weekday, force-close toggle, scheduled closure ranges,
+  announcement banner, GCash number
   + official QR image** (shown untouched inside the branded frame at
   checkout), **reservation capacities** per area (smart defaults
   feeding the public occupancy view).
-- **Reports** — sales and reservation reports with date filters.
+- **Reports** — sales and reservation reports with date filters; the
+  weekly export-backup runs itself on the Laravel scheduler (same
+  mechanism as the proof sweep; manual fallback documented).
 
 ### Design
 
@@ -520,5 +531,6 @@ Spec: the server owns everything, the cook owns nothing.
 - **Staff paths** — a walk-in ring-up with split tender → receipt; a
   reservation entered → conflict blocked → confirm → shows on the
   calendar; a sale appears in the analytics dashboard.
-- **State** — RTDB rules locked down; the weekly export-backup is
-  documented.
+- **State** — RTDB rules locked down; the weekly export-backup runs
+  on a schedule (last-backup badge in admin; manual fallback
+  documented).

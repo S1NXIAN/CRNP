@@ -69,6 +69,16 @@ _Avoid_: due time, target time, prep deadline
 The public read-only count of seats taken vs capacity per slot — confirmed bookings only, aggregate, no names. It answers availability questions; it never books.
 _Avoid_: availability calendar, booking calendar, live calendar
 
+### Back office
+
+**Restock**:
+A receiving entry that raises stock — supplier, quantity, date. The only path that adds rental units.
+_Avoid_: purchase order, replenishment, stock-in
+
+**Scheduled closure**:
+A date-range closure configured once that flips the site closed by itself; the force-close toggle stays for emergencies.
+_Avoid_: holiday mode, blackout, temporary shutdown
+
 ### Sales ranking
 
 **Top 3**:

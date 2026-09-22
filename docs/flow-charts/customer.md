@@ -5,7 +5,7 @@ Online orders are pickup-only, GCash-only, identified by order code.
 
 ```mermaid
 flowchart TD
-    A["Arrive at / — menu visible,<br/>no login wall"] --> B{"Open per admin hours?"}
+    A["Arrive at / — menu visible,<br/>no login wall"] --> B{"Open — hours + force-close<br/>+ scheduled closures?"}
     B -->|"closed"| C["Read-only: menu + announcement<br/>place-order disabled"]
     B -->|"open"| D["Menu grouped by category<br/>promo / Top 3 tags · computed prices"]
     D -.->|"Reservations"| V["Public occupancy view — read-only<br/>seats taken vs capacity per slot<br/>no names · books nothing"]
@@ -17,7 +17,7 @@ flowchart TD
     H -->|"no"| G["Sign in with Google<br/>one tap · session remembered"]
     G --> I["Pickup time — default ASAP<br/>earliest = now + 15 min"]
     H -->|"yes"| I
-    I --> J["Place order — POST to Laravel<br/>validated · stock-checked · throttled<br/>→ order code + GCash QR auto-sent<br/>15-min payment window starts"]
+    I --> J["Place order — POST to Laravel<br/>validated · throttled<br/>→ order code + GCash QR auto-sent<br/>15-min payment window starts"]
     J --> T["Order tracker — live status screen<br/>session/account-bound · order code shown, never typed<br/>5–10 s poll: awaiting payment → verifying → cooking → READY"]
     T --> K{"Proof attached by 15:00?"}
     K -->|"zero proof"| L["Dismissed (zero proof at 15:00) — tracker flips:<br/>'Order dismissed — no payment received'<br/>queue auto-clears · Dismissed list"]
