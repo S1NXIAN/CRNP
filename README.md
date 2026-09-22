@@ -7,8 +7,8 @@
 ## 1. Vision
 
 One web app that runs **Crates N' Plates Diner** online and in-store:
-customers browse the menu and shop information online (no accounts, no
-checkout), staff schedule dine-in, function
+customers order online from their table (browse menu → cart → table
+name + payment: Pay at Counter or GCash QR), staff schedule dine-in, function
 room, and catering reservations, cashiers run the counter POS, the kitchen
 watches a read-only ticket display, the owner
 manages menu, inventory, staff, settings, sales analytics, and reports.
@@ -17,15 +17,18 @@ internet, demonstrated end-to-end, not localhost-only.
 
 | Area | URL prefix | Purpose | Runs |
 |---|---|---|---|
-| Customer | `/` | **Browse only:** menu, product pages, about/branches — open/closed status, announcement banner, item tags. No login, no cart | Online (showcase) |
+| Customer | `/` | **Online ordering:** category menu → cart → checkout (table name + Pay at Counter / GCash QR); product pages, about/branches, open/closed status, announcement banner, item tags | Online (showcase) |
 | Cashier/POS | `/cashier` | Walk-in orders, **split payment (GCash + cash)**, **reservation scheduling** (dine-in, function room, catering), receipts | In-store via Docker, online reachable |
 | Kitchen | `/kitchen` | **Read-only** ticket display: new-order count, age timers, all-day counts — no login, no cook interaction | In-store via Docker |
 | Admin | `/admin` | Dashboard (sales analytics), products + inventory, staff, settings, reports | Both |
 
-Domain vocabulary: **orders** are recorded at the counter, cooked, and
-delivered — no status workflow; they exist for receipts, sales records, and
-analytics. The kitchen display mirrors **open (unserved) orders** read-only
-and clears when the cashier marks an order served.
+Domain vocabulary: **orders** come from two origins — online (customer
+checkout: cart, table name, payment method) and the counter (cashier
+walk-in, split tender) — into one shared stream, cooked and delivered
+with no status workflow; they exist for receipts, sales records, and
+analytics. The kitchen display mirrors **open (unserved) orders**
+read-only — table name on the ticket — and clears when the cashier
+marks an order served.
 **Reservations** (dine-in, function room, catering) are
 staff-entered on a centralized calendar — conflict and duplicate checks
 before confirm.
@@ -36,11 +39,12 @@ before confirm.
 flowchart TD
   DB[("Firebase RTDB — sole datastore")]
 
-  subgraph CU["Customer · / (browse only · no login)"]
-    C1["Menu · product pages · open status<br/>announcement · promo (auto-calc) / favorite / top-3 tags<br/>about / branches"]
+  subgraph CU["Customer · / (order online)"]
+    C1["Menu grouped by category · filter<br/>open status · announcement<br/>promo / favorite / top-3 tags"] --> C2["Cart → checkout<br/>table name + payment:<br/>Pay at Counter / GCash → QR frame"]
   end
 
   subgraph CA["Cashier · /cashier (POS)"]
+    O1["Online orders<br/>table name · payment method"]
     P1["Ring up walk-in order"] --> P2["Receipt"] --> P3["Mark served"]
     R1["New reservation<br/>dine-in / function room / catering"] --> R2{"Date-time conflict?"}
     R2 -->|"no"| R3["Confirmed → calendar"]
@@ -48,7 +52,7 @@ flowchart TD
   end
 
   subgraph KI["Kitchen · /kitchen (read-only · secret URL · no login)"]
-    K1["Ticket + age timer<br/>NEW count · all-day counts<br/>5–10 s refresh"]
+    K1["Ticket + table name + age timer<br/>NEW count · all-day counts<br/>5–10 s refresh"]
   end
 
   subgraph AD["Admin · /admin"]
@@ -58,6 +62,8 @@ flowchart TD
   end
 
   C1 -.->|"reads menu · hours · promos · top-3"| DB
+  C2 -->|"places order"| DB
+  DB -.->|"online orders + table name"| O1
   P1 --> DB
   R2 -.->|"conflict check"| DB
   DB --> K1
@@ -90,8 +96,6 @@ flowchart TD
 - SQL/Eloquent alongside Firebase — two sources of truth = sync bugs.
 - Firebase Auth — second auth system beside Laravel's; Laravel session auth
   covers all three roles. Revisit only if Google sign-in becomes a requirement.
-- Customer accounts / OTP / cart / checkout — client says the current
-  user-side flow won't be used; the public site is browse-only.
 - Customer self-serve reservation portal — reservations are staff-entered;
   a portal would race the staff calendar for no promised requirement.
 - Contact/chat/ask-questions — needs an inbox, moderation, and spam
@@ -125,8 +129,11 @@ totals: all derived.
 
 Per surface:
 
-- **Public site** — the customer supplies *nothing*: no accounts, no
-  forms; hours, status, tags, top-3 all computed for them.
+- **Public site** — online ordering is a 3-tap flow: cart picks →
+  **table name** → **payment method** (Pay at Counter, or GCash → the
+  QR appears in its branded frame, only when GCash is selected). Hours,
+  status, tags, top-3, totals all computed; customer auth model =
+  open decision #2.
 - **Cashier/POS** — tap tiles build the order; promo price, totals, and
   change compute themselves; payment is two tenders (GCash + cash,
   split allowed — cashier types one number, the other and the change
@@ -231,8 +238,23 @@ Free-tier known limits (accepted for demo):
    read-only route gated by a shared-secret URL — no session, kiosk-level
    access (satisfies the thesis's "kitchen personnel" RBAC slot without a
    line-cook login).
-4. **Public site** — landing: menu grid → product page, plus about /
-   branches page. Read-only RTDB reads; no accounts, no cart, no forms.
+4. **Public site + online ordering** — landing: menu → product page,
+   plus about / branches page. Reads via Laravel; the only customer
+   write is the order itself, POSTed to Laravel (validated,
+   stock-checked) which writes RTDB — no direct customer writes.
+   - **Categories + filter** — products carry an admin-managed category
+     (Mains, Milktea Series, Budget Meal, …); "All Products" groups
+     items under their category titles; tapping a category shows only
+     that category.
+   - **Add-ons** — admin configures per-product add-ons (name + price);
+     the customer picks them in the cart; the selection rides on the
+     order line item through to kitchen and receipt.
+   - **Cart → checkout** — auth model = open decision #2. Fields:
+     **table name** (required, saved on the order, visible to cashier
+     and on the kitchen ticket) + **payment method**: Pay at Counter,
+     or GCash → QR shown only when GCash is selected, the official QR
+     image inside a branded frame, never re-rendered
+     (`research/gcash-qr-2026.md`); order number returned.
    - **Open/closed badge** — computed from admin-configured hours per
      weekday, evaluated in `Asia/Manila` (Render runs UTC), with an admin
      **force-close override** (holiday / temporary closure).
@@ -251,10 +273,13 @@ Free-tier known limits (accepted for demo):
 5. **Cashier + kitchen + reservations** — POS console with **split
    tender** (GCash + cash on one order: one number typed, the other and
    the change compute themselves; order stores `payments:
-   [{method, amount}]`, receipt prints the breakdown); read-only
-   `/kitchen`: new-order count (flashing), per-ticket age timers (red at
-   12 min), all-day counts, 5–10 s auto-refresh, cleared by cashier's
-   "mark served"; **reservation scheduling
+   [{method, amount}]`, receipt prints the breakdown) plus the
+   **online orders queue** (customer orders arrive with table name +
+   payment method; cashier may also add a table name to staff-entered
+   dine-in orders); read-only
+   `/kitchen`: ticket shows **table name**, new-order count (flashing),
+   per-ticket age timers (red at 12 min), all-day counts, 5–10 s
+   auto-refresh, cleared by cashier's "mark served"; **reservation scheduling
    module**: new booking (type: dine-in / function room / catering, date,
    time, party), calendar/list view, date-time conflict + duplicate check,
    confirm/cancel statuses; smoke test: order rings up → appears on kitchen
@@ -262,19 +287,24 @@ Free-tier known limits (accepted for demo):
    rejected.
 6. **Admin** — sales analytics dashboard: KPIs + 7-day trend (RTDB range
    queries), best-sellers, peak hours; products CRUD with content-addressed
-   image uploads, **one-click Add-promo** (percent or exact price —
+   image uploads, **categories** + per-product **add-ons**,
+   **one-click Add-promo** (percent or exact price —
    sibling value and label auto-computed, per §3 click-first UX) +
    **house-favorite toggle** (feeds the
    public site tags; top-3 tag is computed from this phase's sales data) +
    **inventory monitoring** (stock movement, low-stock flags, inventory
    reports); staff accounts, business settings (**hours per weekday,
-   force-close toggle, announcement banner**); sales and
+   force-close toggle, announcement banner, GCash number + official QR
+   image** — shown untouched inside the branded frame at checkout);
+   sales and
    reservation reports with date filters.
 7. **Design pass** — apply §3 everywhere: dark mode audit, motion
    choreography on the public site only, empty states, receipts.
-8. **Demo path + hardening** — scripted capstone happy path (browse menu →
-   cashier rings up an order → kitchen screen flashes the ticket with a
-   running timer → mark served clears it → receipt; plus reservation:
+8. **Demo path + hardening** — scripted capstone happy path (browse menu
+   by category → cart → checkout: table name + GCash → QR appears →
+   order lands on the kitchen ticket with table name and running timer →
+   mark served → shows in analytics; plus a walk-in ring-up with split
+   tender → receipt; plus reservation:
    enter → conflict
    blocked → confirm →
    shows on calendar; plus report: sale appears in
@@ -284,3 +314,8 @@ Free-tier known limits (accepted for demo):
 ## 6. Open decisions
 
 - [ ] **#1 Uploads** — base64-in-RTDB (fine for menu-photo/QR scale) vs Firebase Storage (photos).
+- [ ] **#2 Customer auth** — guest checkout (3 taps, no account wall,
+  no email stack) vs phone/OTP accounts (would re-add Gmail API email,
+  currently rejected; prototype had signup + OTP + my-orders). Client
+  spec never asks for login — **on hold by request**; either choice
+  fits the order schema as designed.
