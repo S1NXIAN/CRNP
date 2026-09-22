@@ -7,7 +7,7 @@ stale or duplicate tap is a friendly no-op.
 
 ```mermaid
 flowchart TD
-    A["Sign in — staff account<br/>/cashier (role-guarded)<br/>role read per request"] --> B{"Task?"}
+    A["Sign in with Google — own staff account<br/>/cashier (role-guarded) · role read per request<br/>header names the cashier on duty<br/>Switch account = sign out → sign in<br/>every tap stamped handledBy"] --> B{"Task?"}
     B --> C["Online pickup queue — prepaid, no tender to settle<br/>order code · screenshot auto-verified<br/>flag = amount/ref mismatch → Approve / Reject<br/>recently-verified list: at-leisure spot-check<br/>awaiting-proof row: in-window, no screenshot"]
     B --> D["Walk-in ring-up: tap tiles<br/>promo price + totals compute<br/>order code drawn at ring-up (on receipt)"]
     B --> E["New reservation — type phone<br/>typeahead prefills name/party/type<br/>new customer: 2 steps (≤3 + ≤2)<br/>dine-in / function room / catering"]

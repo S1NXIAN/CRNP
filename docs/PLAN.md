@@ -172,7 +172,7 @@ preference sync require Sign in with Google.**
 | Motion | **CSS transitions + Web Animations API** | No animation library. Transitions for hover/toggle/focus, keyframes for toasts, native WAAPI for the rare choreography (badge bump, card stagger). Framer Motion (React-only) and `motion` both rejected — add a lib only if choreography proves painful. |
 | Database | **Firebase Realtime Database, sole datastore** | One source of truth; no migrations while the schema churns; matches the declared capstone stack. Laravel does *not* use Eloquent/SQL — persistence goes through a thin RTDB service. |
 | Firebase plan | **Spark (free) — 1 GB stored · 10 GB/mo downloaded (~360 MB/day) · 100 connections** | Capstone scale fits the free ceiling only under the read discipline in [§4 Data layer](#data-layer). On Spark an over-quota month **shuts RTDB off** — no throttling — so bandwidth is budgeted as a hard resource. Access is server-side REST (service account), and REST is excluded from the connection count, so the 100 cap never binds. |
-| Customer auth | **Laravel session + Socialite — "Sign in with Google"** | One button, zero signup/reset/verify screens; `users/{uid}` in RTDB. Basic scopes → Google's 100-user cap and app verification don't apply ([source](https://support.google.com/cloud/answer/15549945)) — publish the app anyway. New dep: `laravel/socialite` (approved). |
+| Auth — everyone | **Laravel session + Socialite — "Sign in with Google"** | Staff and customers share one provider: one button, zero signup/reset/verify screens, **no passwords anywhere**; `users/{uid}` for customers, `staff/{uid}` + role guards for staff (§4 *Auth & roles*). Basic scopes → Google's 100-user cap and app verification don't apply ([source](https://support.google.com/cloud/answer/15549945)) — publish the app anyway. New dep: `laravel/socialite` (approved). |
 | Kitchen display | **Auto-refreshing read-only page (5 s fetch)** | One endpoint returning open orders. No websocket, no cook session — the route is gated by a shared-secret URL instead of a login. |
 | Quality | Pint (Laravel's php-cs-fixer preset), PHPStan (larastan), Pest smoke tests | Lint, static analysis, offline smoke tests — one command each. |
 
@@ -424,7 +424,11 @@ order of work.
 
 ### Auth & roles
 
-- Staff accounts are **seeded** — no public staff signup, no OTP. The
+- **Every cashier has their own account** — created by the admin
+  (name + Google email), no public staff signup, no OTP, **no
+  passwords at all**: sign-in is **Google-only** for staff and
+  customers alike, so there is nothing to issue, reset, or leak, and
+  a Google account absent from the staff list is refused. The
   **first admin comes from a one-shot seeder**: `php artisan
   staff:seed --admin` reads name + Google email from environment
   variables, runs only while no staff row exists, and refuses to run
@@ -441,8 +445,10 @@ order of work.
   trusted proxy ranges are configured, or nginx/Cloudflare collapses
   every customer into a single bucket and one bad login loop locks
   the whole counter out mid-shift.
-- Customers sign in with **Google via Socialite** (one button), which
-  auto-provisions `users/{uid}` in RTDB.
+- **Everyone signs in with Google via Socialite** (one button) —
+  customers auto-provision `users/{uid}` in RTDB; the same button on
+  `/cashier` and `/admin` resolves against `staff/{uid}` instead,
+  which is what the role guards read.
 - `/kitchen` is a **separate read-only route** gated by a
   shared-secret URL — no session, kiosk-level access (the thesis's
   "kitchen personnel" RBAC slot without a line-cook login). The secret
@@ -560,6 +566,14 @@ All at `/`.
 
 ### Cashier POS
 
+- **One register, known hands** — the header permanently names the
+  **cashier on duty**; **Switch account** is sign-out → sign-in
+  (Google, §4 *Auth & roles*): a shared register with an honest
+  trail. Every write below is stamped **`handledBy`** (uid + name) —
+  walk-in creation, **Mark served**, **Collect late**, and the sale
+  row itself; the rejection record and the Restore audit entry
+  already carry *who*. No money tap exists without a name behind it,
+  and admin **Activity** reads them back (§4 *Admin*).
 - Walk-in ring-up: tap tiles build the order; promo price, totals,
   and change compute themselves. The walk-in draws an **order code at
   ring-up** — the same code space as online orders, printed on the
@@ -735,7 +749,11 @@ and Top 3 never see them.
 - **Reports** — sales, reservation, and rental-booking reports with
   date filters; a **refunds-owed column** with the **Mark refunded**
   action (admin-only — the cashier's money taps are Approve and Mark
-  served, nothing else); and the
+  served, nothing else); an **Activity** feed — *time · who · action ·
+  order code*, latest N and bounded, built from the audit records and
+  the `handledBy` stamps, plus **per-cashier daily totals** (sales
+  grouped by `handledBy` — the field rides on the sale, so no extra
+  reads); and the
   weekly export-backup runs itself on the Laravel scheduler (same
   mechanism as the sweeps; manual fallback documented) and is
   **incremental by `updatedAt`** (§4 *Quota discipline*, rule 4), so
@@ -770,6 +788,11 @@ and Top 3 never see them.
 - **Throttle** — exceeding the checkout or login limit returns 429
   and recovers inside its window; two customers behind one proxy are
   counted separately (trusted proxies configured).
+- **Attribution** — the POS header always names the cashier on duty
+  and **Switch account** flips it; a Google account absent from the
+  staff list is refused; every sale, walk-in, Mark served, and
+  Collect late records `handledBy`, and admin **Activity** reads
+  those names back per order code.
 - **Rentals** — browse availability → book (date range + qty,
   ≤3 inputs) → QR auto-sent → auto-verified → **Hand over** (stock
   falls) → **Confirm return** (stock rises); an overlapping range

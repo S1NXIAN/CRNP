@@ -109,6 +109,18 @@ _Avoid_: late fee, delinquent, expired rental
 
 ### Back office
 
+**Cashier on duty**:
+The staff account currently signed into the POS, named in the register header; Switch account is sign-out, then sign in. Each cashier has their own Google account — no passwords.
+_Avoid_: current user, active session, operator
+
+**Handled by**:
+The name stamped on every cashier-caused write — walk-in ring-up, Mark served, Collect late, and the sale row — that admin's Activity reads back per order code.
+_Avoid_: operator ID, processed by, assigned to
+
+**Activity**:
+The admin's bounded feed of who did what — time · who · action · order code — built from audit records and Handled-by stamps, plus per-cashier daily totals.
+_Avoid_: audit log, action history, event stream
+
 **Restock**:
 A receiving entry that raises stock — supplier, quantity, date. The only path that adds rental units.
 _Avoid_: purchase order, replenishment, stock-in
