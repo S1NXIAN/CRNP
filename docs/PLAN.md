@@ -40,7 +40,7 @@ flowchart TD
   DB[("Firebase RTDB — sole datastore")]
 
   subgraph CU["Customer · / (order online)"]
-    C1["Menu grouped by category · filter<br/>open status · announcement<br/>promo / top-3 tags"] --> C2["Cart → checkout<br/>Sign in with Google → table name + payment:<br/>Pay at Counter / GCash → QR frame"]
+    C1["Menu grouped by category · filter<br/>open status · announcement<br/>promo / Top 3 tags"] --> C2["Cart → checkout<br/>Sign in with Google → table name + payment:<br/>Pay at Counter / GCash → QR frame"]
   end
 
   subgraph CA["Cashier · /cashier (POS)"]
@@ -61,7 +61,7 @@ flowchart TD
     A3["Reports: sales + reservations"]
   end
 
-  C1 -.->|"reads menu · hours · promos · top-3"| DB
+  C1 -.->|"reads menu · hours · promos · Top 3"| DB
   C2 -->|"places order"| DB
   DB -.->|"online orders + table name"| O1
   P1 --> DB
@@ -88,9 +88,8 @@ preference sync require Sign in with Google.**
 1. **Menu (landing)** — products grouped under category titles
    ("All Products"); promo prices struck through with computed "% off".
 2. **Category filter** — tap a category chip → only that category.
-3. **Product cards** — image, price, **promo** and **top-3 · last
-   7 days** tags (ranked live over the FIFO window, tag revealed only
-   once 7 days of sales exist), favorite
+3. **Product cards** — image, price, **promo** and **Top 3** tags
+   (ranked live over the FIFO window), favorite
    heart (tapping while signed out prompts the Google button).
 4. **Product page** — image, price/promo, details.
 5. **Open/closed badge** — computed from admin hours per weekday +
@@ -196,7 +195,7 @@ preference sync require Sign in with Google.**
 Hard rule: **the system computes, the human only supplies values or
 presses buttons.** No screen anywhere asks a person to do math, write a
 label, or enter a code — promo prices, "% off" labels, stock totals,
-booking conflicts, change due, open status, top-3, receipts, report
+booking conflicts, change due, open status, Top 3, receipts, report
 totals: all derived.
 
 Per surface:
@@ -206,7 +205,7 @@ Per surface:
   remembered session), then the 3-tap flow: cart picks → **table
   name** → **payment method** (Pay at Counter, or GCash → the
   QR appears in its branded frame, only when GCash is selected). Hours,
-  status, tags, top-3, totals computed; favorites + saved add-on prefs
+  status, tags, Top 3, totals computed; favorites + saved add-on prefs
   sync per account; checkout route `throttle`d (anti-spam — accounts
   alone don't stop scripted sign-ups).
 - **Cashier/POS** — tap tiles build the order; promo price, totals, and
@@ -355,18 +354,17 @@ Free-tier known limits (accepted for demo):
        base-price edit, validated `0 < promoPrice < price`). Same fields
        drive the POS total — site and receipt can't disagree; original
        shown struck through.
-     - **top 3 · last 7 days** — **computed eagerly**: re-ranked
+     - **Top 3** — **computed eagerly**: re-ranked
        server-side on every sale write over a **rolling 7-day FIFO
        window** — anything older than 7 days drops out of the ranking
        (raw sales rows are never deleted; analytics, reports, and the
        weekly export keep full history). The ranking is generated as
        soon as **3 distinct products have a recorded sale** in the
-       window — no waiting for a full week of history. **Display
-       gate:** the tag stays hidden until **7 days of sales data
-       exist** (earliest sale on record ≥ 7 days old); from then on it
-       always shows the current top ≤ 3 — ranked by units sold, ties
-       broken by revenue, then name; empty window → no tag. Ranking
-       cached at `stats/top3`, read by the product-card render.
+       window — no waiting for a full week of history, no display
+       gate. It always shows the current top ≤ 3 — ranked by units
+       sold, ties broken by revenue, then name; empty window → no
+       tag. Ranking cached at `stats/top3`, read by the product-card
+       render.
 5. **Cashier + kitchen + reservations** — POS console with **split
    tender** (GCash + cash on one order: one number typed, the other and
    the change compute themselves; order stores `payments:
