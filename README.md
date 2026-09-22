@@ -81,7 +81,7 @@ flowchart TD
 | Views | **Blade + plain CSS (design tokens + component classes)** | Server-rendered, no SPA, no Inertia — and **zero build step**: no npm, no Vite, no Node anywhere. One `public/css/app.css`. |
 | Motion | **CSS transitions + Web Animations API** | No animation library. Transitions for hover/toggle/focus, keyframes for toasts, native WAAPI for the rare choreography (badge bump, card stagger). Framer Motion (React-only) and `motion` both rejected — add a lib only if choreography proves painful. |
 | Database | **Firebase Realtime Database, sole datastore** | One source of truth; no migrations while the schema churns; matches the declared capstone stack. Laravel does *not* use Eloquent/SQL — persistence goes through a thin RTDB service. |
-| Customer auth | **Laravel session + Socialite — "Sign in with Google"** | One button, zero signup/reset/verify screens; `users/{uid}` in RTDB. Basic scopes → Google's 100-user cap and app verification don't apply ([source](https://support.google.com/cloud/answer/15549945)). New dep: `laravel/socialite` (approved). |
+| Customer auth | **Laravel session + Socialite — "Sign in with Google"** | One button, zero signup/reset/verify screens; `users/{uid}` in RTDB. Basic scopes → Google's 100-user cap and app verification don't apply ([source](https://support.google.com/cloud/answer/15549945)) — publish the app anyway. New dep: `laravel/socialite` (approved). |
 | Kitchen display | **Auto-refreshing read-only page (5–10 s fetch)** | One endpoint returning open orders. No websocket, no cook session — the route is gated by a shared-secret URL instead of a login. |
 | Local runtime | **Docker** (single `php:8.2-apache` app container, no DB container — the DB is Firebase) | Same image locally and on Render; stations on the LAN browse to it. |
 | Hosting | **Render free** (`render.yaml` Blueprint) + existing 14-min keepalive | Sleep acceptable; `Projects/ping` + in-container cron hold it warm. Health route `/health`. |
@@ -104,6 +104,9 @@ flowchart TD
   filtering or it rots; declined at the probe gate.
 - Gmail API email — lost its last consumer (no OTP, no email receipts;
   receipts print at the counter). Re-add only when something must be emailed.
+- Email/password customer accounts — no email stack → no password resets
+  (dead-end accounts) and no verification; Google owns identity via
+  Socialite instead. One button beats a form.
 - Order status workflow / drag-and-drop ticket boards — cooked food is
   carried to the table; making the cook maintain columns/statuses is
   information tax (harsh-cook review: 2/10). The kitchen screen is
@@ -137,7 +140,8 @@ Per surface:
   name** → **payment method** (Pay at Counter, or GCash → the
   QR appears in its branded frame, only when GCash is selected). Hours,
   status, tags, top-3, totals computed; favorites + saved add-on prefs
-  sync per account; checkout route `throttle`d (anti-spam) — decision #2.
+  sync per account; checkout route `throttle`d (anti-spam — accounts
+  alone don't stop scripted sign-ups).
 - **Cashier/POS** — tap tiles build the order; promo price, totals, and
   change compute themselves; payment is two tenders (GCash + cash,
   split allowed — cashier types one number, the other and the change
@@ -222,8 +226,11 @@ just **who opens which URL**, not two systems.
 Free-tier known limits (accepted for demo):
 - Instance sleeps after ~15 min idle → keepalive cron inside the container.
 - Ephemeral `uploads/` → images lost on redeploy — **solved for demo**:
-  images live in RTDB as base64 (decision #1), not on disk. Production
-  = mounted disk or Firebase Storage (decision #1).
+  images live in RTDB as base64 (Laravel resizes/compresses server-side
+  to ~800 px first; RTDB's 1 GB / 10 GB-download free quota dwarfs
+  menu-photo + QR scale), not on disk. Production = mounted disk or
+  Firebase Storage (own bucket + rules + second credential scope —
+  revisit only with real traffic).
 
 ## 5. Roadmap
 
@@ -299,8 +306,8 @@ Free-tier known limits (accepted for demo):
    rejected.
 6. **Admin** — sales analytics dashboard: KPIs + 7-day trend (RTDB range
    queries), best-sellers, peak hours; products CRUD with **image
-   uploads** (server-side resize/compress → base64 into RTDB, decision
-   #1), **categories** + per-product **add-ons**,
+   uploads** (server-side resize/compress → base64 into RTDB, §4),
+   **categories** + per-product **add-ons**,
    **one-click Add-promo** (percent or exact price —
    sibling value and label auto-computed, per §3 click-first UX) +
    **inventory monitoring** (stock movement, low-stock flags, inventory
@@ -322,26 +329,3 @@ Free-tier known limits (accepted for demo):
    shows on calendar; plus report: sale appears in
    analytics dashboard); RTDB rules lockdown;
    weekly export-backup documented.
-
-## 6. Decisions log
-
-- [x] **#1 Uploads — decided:** **base64-in-RTDB for the demo**
-  (Laravel resizes/compresses server-side — max ~800 px — then encodes
-  onto the product/settings node; survives Render redeploys, zero new
-  services; ceiling = RTDB's 1 GB / 10 GB-download quota, plenty for
-  menu-photo + QR scale). **Firebase Storage when going real** (§4
-  production path: bucket + its own rules + second credential scope —
-  revisit only with real traffic or a mounted disk).
-- [x] **#2 Customer auth — decided: "Sign in with Google" via
-  Socialite.** Client expects an account-based customer side
-  (post-demo feedback, supersedes "spec never asks for login");
-  boundary = **browse open, ordering requires sign-in**. Laravel
-  session + `laravel/socialite` (new dep, approved); `users/{uid}` in
-  RTDB holds profile + **favorites** + **saved add-on prefs**
-  (cross-device). Basic scopes only → the Google 100-user cap and app
-  verification don't apply to Sign in with Google (published-status
-  carve-out); publish the app anyway. OTP / passwords / Firebase Auth
-  / Gmail API stay rejected — no signup, reset, or verification
-  screens. `throttle` on checkout stays regardless (accounts ≠ spam
-  fix). Standing probe dropped as moot: the credential form is a
-  single Google button.
