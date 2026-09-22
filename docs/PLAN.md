@@ -89,7 +89,8 @@ preference sync require Sign in with Google.**
    ("All Products"); promo prices struck through with computed "% off".
 2. **Category filter** — tap a category chip → only that category.
 3. **Product cards** — image, price, **promo** and **top-3 · last
-   7 days** tags (top-3 hidden until a week of sales exists), favorite
+   7 days** tags (ranked live over the FIFO window, tag revealed only
+   once 7 days of sales exist), favorite
    heart (tapping while signed out prompts the Google button).
 4. **Product page** — image, price/promo, details.
 5. **Open/closed badge** — computed from admin hours per weekday +
@@ -354,8 +355,18 @@ Free-tier known limits (accepted for demo):
        base-price edit, validated `0 < promoPrice < price`). Same fields
        drive the POS total — site and receipt can't disagree; original
        shown struck through.
-     - **top 3 · last 7 days** — auto from sales data; shows nothing
-       until a week of sales exists.
+     - **top 3 · last 7 days** — **computed eagerly**: re-ranked
+       server-side on every sale write over a **rolling 7-day FIFO
+       window** — anything older than 7 days drops out of the ranking
+       (raw sales rows are never deleted; analytics, reports, and the
+       weekly export keep full history). The ranking is generated as
+       soon as **3 distinct products have a recorded sale** in the
+       window — no waiting for a full week of history. **Display
+       gate:** the tag stays hidden until **7 days of sales data
+       exist** (earliest sale on record ≥ 7 days old); from then on it
+       always shows the current top ≤ 3 — ranked by units sold, ties
+       broken by revenue, then name; empty window → no tag. Ranking
+       cached at `stats/top3`, read by the product-card render.
 5. **Cashier + kitchen + reservations** — POS console with **split
    tender** (GCash + cash on one order: one number typed, the other and
    the change compute themselves; order stores `payments:
