@@ -18,3 +18,8 @@ Spec edits that change a role's flow **update that role's chart before
 committing** — same commit, no exceptions; a stale chart is a bug. Charts:
 `docs/flow-charts/` → customer · cashier · kitchen · admin. Chart text stays
 declarative (what the system does), never build order.
+
+### Data layer
+
+Before writing any RTDB read/write, open the existing data layer and extend
+it — never invent a parallel shape.
