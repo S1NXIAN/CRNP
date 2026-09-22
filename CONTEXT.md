@@ -12,11 +12,11 @@ A pickup order placed on the public site. GCash-only, identified by order code.
 _Avoid_: delivery order, web order, e-commerce order
 
 **Walk-in order**:
-An onsite customer's order entered by the cashier at the POS. May carry a table name; settles by cash/GCash split tender.
+An onsite customer's order entered by the cashier at the POS. May carry a table name; draws an order code at ring-up and settles by cash/GCash split tender.
 _Avoid_: counter order, manual order, POS order
 
 **Order code**:
-The short code that identifies an online order at the counter. Replaces table names for online orders.
+The short code identifying an order at the counter — drawn by online orders at placement and by walk-ins at ring-up (printed on the receipt). Replaces table names for online orders.
 _Avoid_: order number, reference number, tracking ID
 
 **Pickup time**:
@@ -24,13 +24,13 @@ When a customer asked to collect an online order; ASAP when they didn't.
 _Avoid_: scheduled time, delivery slot, ETA
 
 **Order tracker**:
-The customer's live screen for their active online order — awaiting payment → verifying → cooking → READY. Bound to the session and account; the order code is shown, never typed.
+The customer's live screen for their active online order — awaiting payment → verifying → cooking → READY, plus dismissed at the window and payment rejected when a proof is refused. Bound to the session and account; the order code is shown, never typed.
 _Avoid_: order status page, order history, tracking ID
 
 ### Payment lifecycle
 
 **Payment window**:
-The 15 minutes an online order has to be paid, starting when the GCash QR goes out. Ends in dismissal only when no proof was sent — an upload started inside the window holds.
+The 15 minutes an online order has to be paid, starting when the GCash QR goes out. Ends in dismissal only when no proof was sent and none is mid-upload — an upload started inside the window holds, and a Restore re-arms a fresh one.
 _Avoid_: timeout, expiry period, order timer
 
 **Payment verified**:
@@ -46,11 +46,23 @@ Auto-verified orders kept for at-leisure spot-checking — no quota, no timer; R
 _Avoid_: audit queue, sampling queue, review queue
 
 **Dismissed**:
-An online order whose payment window expired unpaid. Auto-clears the active queues; retained for restore or void.
+An online order whose payment window expired unpaid. Auto-clears the active queues; retained for Restore (which re-arms a fresh window) or Void.
 _Avoid_: cancelled, expired, rejected order
 
+**Rejected**:
+An order whose payment proof was refused by the cashier — its own state, not a Dismissed variant. Drops off the kitchen board immediately and books a refund obligation; reachable only by Approve (the undo) or Void, never Restore, and left untouched by the close sweep.
+_Avoid_: declined payment, failed payment, disputed order
+
+**Restore**:
+Re-activating a dismissed order by re-arming a fresh 15-minute payment window, so the customer re-attaches the same screenshot. Never available on a Rejected order; each one writes an audit entry.
+_Avoid_: reopen, reactivate, un-cancel
+
+**Refund owed**:
+The obligation booked when a proof is rejected — the customer's entered amount, labelled as claimed rather than verified. Cleared only by the admin's Mark refunded.
+_Avoid_: refund issued, chargeback, money back
+
 **Unclaimed**:
-A paid, cooked order the customer never collected. Payment is kept — decided at the close sweep, never by the board's timer.
+A paid, cooked order the customer never collected. Payment is kept — decided at the close sweep, never by the board's timer — and counted as revenue; a later appearance is served with Collect late.
 _Avoid_: no-show order, abandoned order, expired order
 
 ### Kitchen board
@@ -108,5 +120,5 @@ _Avoid_: holiday mode, blackout, temporary shutdown
 ### Sales ranking
 
 **Top 3**:
-The best-selling products over the rolling 7-day window, shown as a chip on product cards.
+The best-selling products over the rolling 7-day window, ranked on the revenue set (served + Unclaimed) so the chip and the dashboard can never disagree, shown as a chip on product cards.
 _Avoid_: best sellers tag, top products badge, trending

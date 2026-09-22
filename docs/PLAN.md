@@ -2,7 +2,7 @@
 
 > Living plan for the project, published as README for the team.
 > Updated as decisions firm up.
-> Last updated: 2026-09-22.
+> Last updated: 2026-09-23.
 
 One web app that runs **Crates N' Plates Diner**: customers order
 online for **pickup**, staff ring up walk-ins at the counter POS and
@@ -121,22 +121,27 @@ preference sync require Sign in with Google.**
     account, the **order code** shown, never typed. Customer pays
     GCash → takes the OS screenshot → taps **Attach payment
     screenshot**: the native picker opens on the newest image and
-    selection auto-uploads (no Submit) → **amount paid** (prefilled =
+    selection auto-uploads (no Submit — a failure shows **"Upload
+    failed — tap to retry"**) → **amount paid** (prefilled =
     order total) + **GCash ref#** typed → **auto-verified on
     arrival** when both match → kitchen ticket appears the same
     instant; a mismatch (or blank ref#) lands a **flagged hold**
     instead — both numbers side by side, cashier taps **Approve or
-    Reject**, kitchen waits for the tap. At 15:00 → **Dismissed only when no proof
+    Reject**, kitchen waits for the tap, and **Reject** flips the
+    tracker to *"Payment needs checking — see the counter"* (Approve
+    puts the ticket back by age). At 15:00 → **Dismissed only when no proof
     exists** — an upload started before the window closes wins the
     race and holds the order; only the zero-proof case flips the
     tracker to "Order dismissed — no payment received", auto-clears
     the cashier's queue, and lands the order in the **Dismissed list**
-    (Restore / Void).
+    (**Restore** re-arms the window and flips the tracker back /
+    **Void**).
 16. **Collect** — cooked → cashier **Mark served** (the single happy-
     path tap) → the tracker flips **cooking → READY** the same instant
     → customer collects with the **order code** → order feeds sales &
     analytics. Paid but never collected by close → **Unclaimed**
-    (money kept — a close-sweep decision, never the board's timer).
+    (money kept — a close-sweep decision, never the board's timer),
+    collectible later with **Collect late**.
     The tracker covers the active order only — no order history in v1.
 
 ### Customer flow
@@ -322,22 +327,45 @@ order of work.
   **Order**, **Reservation**, **Rental booking**, **Product**,
   **Rental stock**, **Staff**, **Settings** — behind `RtdbClient` (service-account
   OAuth token cache); Laravel never touches Eloquent/SQL.
+- **Three trees per order** — `orders/{id}` (status, money,
+  timestamps — **never image bytes**), `proofs/{id}` (the screenshot
+  only), and `sales/{id}` (**1:1 with the order**, written at *Mark
+  served* and synthesized by the close sweep for *Unclaimed*; the
+  shared key makes a double-write structurally impossible).
+  `RtdbClient` stamps **`updatedAt`** on every write — RTDB has no
+  native one, and both the sweeps and the export depend on it.
 - Every query is declared in `database.rules.json` with `.indexOn`;
-  a restore (the Restore / Void path) only re-activates the order and
-  checks status first to avoid a double-restore — there is no stock
-  to revert, menu items carry none; URLs come from `route()`; all
-  times evaluate in `Asia/Manila` (server clock is UTC).
-- **Proof lifecycle** — screenshots land compressed at
-  `orders/{id}/proof`: client-side canvas on selection (adaptive
-  JPEG — ≤300 KB target, ≥720 px legibility floor so receipt text
-  stays readable), server re-encodes to the same ceiling (never
-  trust the client). Held **out-of-band** — queue, tracker, and
-  board list reads never carry image bytes. A daily end-of-day
-  sweep (`Asia/Manila`) nulls `proof` on terminal orders (served /
-  voided) **7 days** after `settledAt`; a **rejected** proof is kept
-  **7 days after Reject** as watchdog evidence, then the same sweep
-  nulls it. Order row and sales history are untouched — only the
-  image goes.
+  all four cashier taps — **Approve, Reject, Mark served, Restore** —
+  are status-guarded the same way (a stale or duplicate tap is a
+  friendly no-op, never a last-write-wins flip); there is no stock to
+  revert, menu items carry none; URLs come from `route()`; all times
+  evaluate in `Asia/Manila` (server clock is UTC).
+- **Proof lifecycle** — screenshots land compressed (client-side
+  canvas on selection: adaptive JPEG, ≤300 KB target, ≥720 px
+  legibility floor so receipt text stays readable; the server
+  re-encodes to the same ceiling, never trusting the client) at
+  **`proofs/{id}`**, a sibling of the order. List, queue, tracker,
+  and board queries match `orders/{id}` only, so those reads are
+  scalar **by construction** — RTDB has no field projection, so this
+  is the only way the claim is true. The **daily end-of-day sweep**
+  (`Asia/Manila`) **deletes** the node: on terminal orders (served /
+  voided) **7 days** after `settledAt`, and on a **rejected** proof
+  **7 days** after `rejectedAt` as watchdog evidence. The order row,
+  the rejection record, and the sale are untouched — only the image
+  goes.
+- **The other two sweeps, named** (the plan refers to them; here is
+  where they run):
+  - **Expiry** — `everyMinute()` against a stored
+    **`deadlineAt = placedAt + 15 min`** (`Asia/Manila`). Dismisses
+    only orders that are **zero-proof *and* not mid-upload**. A
+    **Restore re-arms `deadlineAt`** to a fresh 15 minutes, so a
+    re-dismiss means a second real lapse, not a bug. Unlimited
+    restores, each writing an audit entry (order id, who, when)
+    shaped like the rejection record.
+  - **Close** — at the weekday closing hour from settings (and on
+    force-close): decides **Unclaimed**, **synthesizes the Unclaimed
+    sale** into `sales/{id}`, and clears what is server-owned —
+    never the board's timer.
 - **Quota discipline** — the free ceiling (§2) allows ~**360 MB
   downloaded per day**, and *every* read Laravel makes counts toward
   it — TLS overhead and rules-denied requests included. Four standing
@@ -349,42 +377,78 @@ order of work.
      Freshness is unchanged — the entry is never older than the
      cadence the client already accepts. `file` cache driver, no new
      dependency.
-  2. **Cache the catalog, invalidate on write** — `/` menu, product
-     pages, and the `stats/top3` chip read through a **60–300 s
-     cache**. Product images are base64-in-RTDB and change only on an
-     admin edit, so a page view must never re-read their bytes. Every
-     write that can change what those screens render — price, promo,
-     visibility, category, add-ons, image, and each sale that
-     rewrites `stats/top3` — **evicts the catalog keys in the same
-     request** (`Cache::forget`), so the TTL is a backstop for the
-     nobody-edited case, never the propagation path. Site and register
-     cannot disagree on a price (§4 *Customer site*): a customer is
-     never shown a figure the POS won't charge.
-  3. **Shallow, projected, bounded reads** — list, board, and queue
-     payloads carry scalar fields only and are field-projected;
-     proofs stay out-of-band (above). No code path may read a whole
-     tree: every query is declared with `.indexOn` (above) and is
-     range-, key-, or pagination-bounded.
-  4. **Incremental export** — the weekly backup reads `orders` by
-     `settledAt` range **since the previous run**, plus full reads of
-     only the small config trees (products, staff, settings,
-     rentals). A whole-database read is a restore path, never a
-     scheduled job: at 800 MB it alone costs ~3.5 GB/month — a third
-     of the monthly quota, every week it ran.
+  2. **Three cache entries, each evicted by its own writes** —
+     - **catalog** (`/` menu + product pages, **60–300 s**) evicted
+       only by admin **product *and settings*** writes — price, promo,
+       visibility, category, add-ons, image, **and hours, force-close,
+       scheduled closures, banner**. Product images are
+       base64-in-RTDB and change only on an admin edit, so a page view
+       never re-reads their bytes, and an emergency force-close
+       propagates on the next request rather than after a TTL.
+     - **`stats/top3`** its own small entry, evicted only when that
+       node changes. **A sale never busts the menu** — otherwise every
+       order during the rush would force a full base64 catalog
+       re-read, and rule 2 would become the thing that breaks the
+       quota.
+     - **availability** — the public occupancy and per-date rental
+       views at **60 s**, evicted by booking / rental / capacity /
+       stock writes. Safe to be briefly stale because confirm
+       re-checks the conflict server-side; the TTL only governs how
+       long a customer may chase a slot that filled.
+     TTLs are backstops for the nobody-edited case, never the
+     propagation path. Site and register cannot disagree on a price
+     (§4 *Customer site*): a customer is never shown a figure the POS
+     won't charge.
+  3. **Shallow, bounded reads** — list, board, and queue payloads are
+     scalar because the images live in `proofs/` (above), never
+     because a response was filtered after the fact: that download is
+     already billed. Outside the export, no code path reads a whole
+     node — every query is declared with `.indexOn` (above) and is
+     range-, key-, or pagination-bounded. The export is the sole
+     named exception, and only for the small config trees.
+  4. **Incremental export** — the weekly backup reads every durable
+     tree **by `updatedAt > lastRun`**, watermark and checkpoint held
+     at `export/state`: `orders`, `sales`, `products`, `reservations`,
+     and `rental bookings` (watermarked), plus the small config trees
+     read whole (`staff`, `settings`, `rentals`, `stats`). The
+     **first run bootstraps in bounded pages of 500 rows**,
+     checkpointed — never one whole-database read, which rule 3 bans
+     and which at 800 MB alone costs ~3.5 GB/month: a third of the
+     quota, every week it ran. **`proofs` is excluded** — a backup is
+     a durable record, not an evidence archive: the rejection record
+     already carries entered-vs-total, ref#, who, and when in text,
+     and the images expire in 7 days regardless.
 - Customer writes are **server-mediated through Laravel** (order POST,
   `users/{uid}` prefs) — never direct client writes.
 - A rules fixture backs a Pest smoke test of the layer.
 
 ### Auth & roles
 
-- Staff accounts are **seeded** — no public staff signup, no OTP;
-  role guards are middleware per URL prefix (`/cashier`, `/admin`);
-  logins are rate-limited.
+- Staff accounts are **seeded** — no public staff signup, no OTP. The
+  **first admin comes from a one-shot seeder**: `php artisan
+  staff:seed --admin` reads name + Google email from environment
+  variables, runs only while no staff row exists, and refuses to run
+  again — no credentials in the repo, no installer route left to lock
+  down later.
+- **Role guards** are middleware per URL prefix (`/cashier`,
+  `/admin`), and the role itself is **read per request** from
+  `staff/{uid}` behind a short cache: deleting or demoting an account
+  **evicts that entry immediately**, so access ends on the next
+  request instead of at logout.
+- **Rate limits — numbers, not vibes.** Checkout **10/min per
+  signed-in user**, **30/min per real IP** for anonymous traffic,
+  login **5 per 5 min per IP + email**. The IP is the *forwarded* one:
+  trusted proxy ranges are configured, or nginx/Cloudflare collapses
+  every customer into a single bucket and one bad login loop locks
+  the whole counter out mid-shift.
 - Customers sign in with **Google via Socialite** (one button), which
   auto-provisions `users/{uid}` in RTDB.
 - `/kitchen` is a **separate read-only route** gated by a
   shared-secret URL — no session, kiosk-level access (the thesis's
-  "kitchen personnel" RBAC slot without a line-cook login).
+  "kitchen personnel" RBAC slot without a line-cook login). The secret
+  lives in settings behind an admin **Rotate secret** button: the old
+  URL dies on the press, so leaking it to a group chat is a same-day
+  fix rather than a redeploy; the kiosk reloads with the new link.
 
 ### Customer site & ordering
 
@@ -412,23 +476,38 @@ All at `/`.
   - **pickup time** — optional picker; default = ASAP, earliest =
     now + 15 min; the picker refuses too-soon inputs, so no error can
     follow payment.
-  - **place order** — validated, `throttle`d →
-    **order code** returned (it identifies the pickup; no table
-    field) and **GCash QR auto-sent** — the official QR image inside
-    a branded frame, never re-rendered
+  - **place order** — validated, `throttle`d (§4 *Auth & roles*) and
+    carries a **client-generated idempotency key** minted per checkout
+    attempt: the server records `idem/{key} → orderId` and returns
+    the **original order code** on replay, so a timeout-then-retry or
+    a refresh cannot open a second 15-minute window (the button also
+    disables after the first tap). **Order code** returned (it
+    identifies the pickup; no table field) and the payment block is
+    auto-sent — **both the GCash number and the official QR image**
+    inside a branded frame, never re-rendered
     (`docs/research/gcash-qr-2026.md`) — starting the **15-min
-    payment window**. No cashier approval sits in front of it.
+    payment window** (`deadlineAt`). No cashier approval sits in front of it.
   - **order tracker** — the post-placement screen is a live status
     screen (5–10 s fetch, no websockets): *awaiting payment* →
     *verifying* → *cooking* → **READY** (flips the instant the cashier
-    taps Mark served), plus *Dismissed* when the window lapses. Bound
+    taps Mark served), plus *Dismissed* when the window lapses and
+    **Payment rejected** when a proof is refused — *"Payment needs
+    checking — see the counter"*, with the entered amount and the
+    order total shown side by side beneath it: enough for the customer
+    to self-correct, no blame and no reason codes. A **Restore**
+    flips it back to *awaiting payment*. Bound
     to the session and `users/{uid}`: reopenable from the signed-in
     account with zero typing — the order code is displayed, never
     entered. Active order only; no order history.
   - **proof of payment** — GCash confirmation screenshot **attached
     from the tracker**: one **Attach payment screenshot** button →
     native picker opens on the **newest image** → selection
-    **auto-uploads, no Submit** → two fields: **amount paid**
+    **auto-uploads, no Submit** — with a visible failure state:
+    spinner → **"Upload failed — tap to retry"** plus one automatic
+    retry, and a request that is *sent with no terminal response*
+    counts as **in flight** (so it holds the order across 15:00, per
+    the expiry rule below — a customer is never dismissed for a
+    connection they couldn't see failing) → two fields: **amount paid**
     (prefilled = order total; edit only what differs) + **GCash
     ref#** → **auto-verified on arrival** when amount = order total
     and ref# is present; anything else lands a **flagged hold**
@@ -439,15 +518,22 @@ All at `/`.
     adds one). Selection is **compressed client-side** first
     (adaptive JPEG: ≤300 KB, ≥720 px floor) and re-encoded to the
     same ceiling server-side — a 3 MB screenshot never reaches RTDB.
-  - **expiry** — 15:00 → **Dismissed only when no proof exists**: an
-    upload started before the window closes wins the race and holds
-    the order for verify. Zero proof flips the tracker in-session,
-    auto-clears the cashier queue, and the Dismissed list keeps
-    Restore / Void.
+  - **expiry** — `deadlineAt` reached → **Dismissed only when no
+    proof exists and none is in flight**: an upload started before
+    the window closes wins the race and holds the order for verify.
+    Zero proof flips the tracker in-session, auto-clears the cashier
+    queue, and the Dismissed list keeps **Restore / Void**. **Restore
+    re-arms `deadlineAt`** to a fresh 15 minutes and flips the tracker
+    back to *awaiting payment*, so the customer simply re-attaches the
+    same screenshot; a re-dismiss then means a second real lapse.
 - **Open/closed badge** — computed from admin-configured hours per
   weekday, an admin **force-close override** (emergencies), and
   **scheduled date-range closures** that flip themselves on and off
-  (holidays, configured once); place-order is disabled while closed.
+  (holidays, configured once); place-order is disabled while closed —
+  **and until the GCash number *and* the QR image are both
+  configured**, the same disabled button carrying a plain reason and
+  an admin **Complete setup** banner. You cannot send a payment block
+  that doesn't exist yet; prepaid rentals sit behind the same gate.
 - **Announcement banner** — admin-written promo text with a show/hide
   toggle in settings.
 - **Item tags** (chips on product cards):
@@ -459,9 +545,12 @@ All at `/`.
     site and receipt can't disagree; the original shows struck
     through.
   - **Top 3** — **computed eagerly**: re-ranked server-side on every
-    sale write over a rolling **7-day FIFO window** (raw sales rows
-    are never deleted; analytics, reports, and the weekly export keep
-    full history). The ranking appears once **3 distinct products
+    sale write (`sales/{id}`) over a rolling **7-day FIFO window**
+    (raw sales rows are never deleted; analytics, reports, and the
+    weekly export keep
+    full history). **The ranking set is the revenue set — served +
+    Unclaimed** — so the chip and the dashboard can never disagree.
+    The ranking appears once **3 distinct products
     have a recorded sale** in the window — no waiting for a full week
     of history, no display gate. It always shows the current top ≤ 3,
     ranked by units sold with ties broken by revenue then name; empty
@@ -472,10 +561,20 @@ All at `/`.
 ### Cashier POS
 
 - Walk-in ring-up: tap tiles build the order; promo price, totals,
-  and change compute themselves.
-- **Split tender** — GCash + cash on one order: one number typed, the
-  other and the change compute; the order stores
-  `payments: [{method, amount}]`; the receipt prints the breakdown.
+  and change compute themselves. The walk-in draws an **order code at
+  ring-up** — the same code space as online orders, printed on the
+  receipt — and the **kitchen ticket appears at settle**, not at the
+  first tile tap: payment stays the gate, so no food is ever cooked
+  for a walk-in who leaves the counter.
+- **Split tender** — GCash + cash on one order. The cashier types
+  **exactly one number: the cash handed over**; everything else
+  derives — `cash ≥ total` → all-cash, `change = cash − total`, no
+  GCash leg; `cash < total` → `GCash = total − cash`, change `0`, and
+  a **GCash ref# is required whenever that leg is > 0** (walk-in GCash
+  gets the same verification online orders have). The order stores
+  `payments: [{method, amount}]` with **`Σ(payments) = total`
+  asserted on write** — true by construction, still validated; the
+  receipt prints the breakdown.
 - **Online pickup queue** — orders arrive ready-to-pay (no approval
   tap — the QR went out at placement); the screenshot **auto-verifies**
   and the cashier taps **Reject** only on exception — the exception
@@ -485,23 +584,46 @@ All at `/`.
   **≤ 2/shift** — verified orders are never a watching duty).
   Verified orders land in a **recently-verified list** for at-leisure
   spot-check: no quota, no timer, **Reject stays reachable until
-  Mark served**; Reject writes a **rejection record** (order id,
-  entered vs total, ref#, who, when) and keeps the image **7 days**
-  as evidence. In-window orders with **no screenshot yet** show as
+  Mark served**. In-window orders with **no screenshot yet** show as
   **awaiting proof**, so staff see a customer waiting at the counter
-  instead of a blank queue. A proof upload that started before 15:00
-  **holds** the order — the expiry sweep dismisses only **zero-proof**
-  orders. **Mark served** is the one happy-path tap — it flips the
-  customer's **order tracker** to **READY** the same instant.
-- **Retired orders** — **Dismissed list** (Restore / Void) and
-  **Unclaimed** note (paid but never collected: money kept, manual
-  note).
+  instead of a blank queue.
+- **Rejected is its own state**, not a variant of Dismissed. Reject
+  writes the **rejection record** (order id, entered vs total, ref#,
+  who, when), keeps the image **7 days** as evidence, and books
+  **`refundOwed`** — the **entered amount, labelled *"claimed"*** and
+  shown beside the order total, never a figure nobody verified (the
+  GCash app decides what is actually owed; **Mark refunded** in
+  admin settles it). The ticket **leaves the board the same
+  instant** — the board mirrors *verified, unserved*. The customer's
+  tracker reads *"Payment needs checking — see the counter"* with
+  both numbers beneath it. From **Rejected** the only actions are
+  **Approve** (the undo — the ticket **rejoins NOW by age**, timer
+  never restarted, NEW badge never reused) or **Void**: never
+  Restore, and the **close sweep leaves it alone**, so the owner
+  finds it in the morning instead of it vanishing overnight.
+- A proof upload that started before 15:00 **holds** the order — the
+  expiry sweep dismisses only **zero-proof, not-mid-upload** orders.
+  **Mark served** is the one happy-path tap: it flips the customer's
+  **order tracker** to **READY** the same instant and **writes the
+  sale** to `sales/{id}`.
+- **Retired orders** — **Dismissed list**: **Restore** re-arms a
+  fresh 15-minute window, flips the tracker back to *awaiting
+  payment*, and writes an audit entry (order id, who, when) —
+  unlimited restores, each an explicit human act; **Void** ends the
+  order and never clears `refundOwed`. And **Unclaimed** (paid but
+  never collected: money kept, manual note) gains **Collect late** —
+  the customer appears with the code, the cashier taps it, the order
+  flips to served; the sale was already synthesized at close, so the
+  tap **cannot write a second one**.
 
 ### Kitchen board — read-only
 
 Spec: the server owns everything, the cook owns nothing.
 
-- **NOW lane** — oldest first: walk-ins + ASAP pickups. Per-ticket
+- **NOW lane** — oldest first: walk-ins + ASAP pickups. Walk-ins carry
+  the **order code drawn at ring-up** (on the receipt), so one
+  identifier type is on the board and the ticket only appears at
+  settle. Per-ticket
   **age timers (red at 12 min)**, **NEW badge** (genuine new tickets
   only: flashes ~5 s, then a steady badge until the ticket ages past
   3 min), **all-day counts = NOW only** (never LATER — a cook must
@@ -524,7 +646,10 @@ Spec: the server owns everything, the cook owns nothing.
   reloads** with backoff, so a slept kiosk instance recovers with no
   human and a dead screen never looks live. Tickets clear on **Mark
   served** or, server-owned, at **ready-for + 15 min (or close)** →
-  the counter's **ready — awaiting handover** row. **Unclaimed** is
+  the counter's **ready — awaiting handover** row. **Reject** clears
+  the ticket the same instant (the board mirrors *verified,
+  unserved*), and **Approve** puts it back **by age** — never a fresh
+  0:00, never a reused NEW badge. **Unclaimed** is
   decided at the close sweep, never by the clock.
 
 ### Reservations
@@ -578,7 +703,9 @@ and Top 3 never see them.
 ### Admin
 
 - **Dashboard** — KPIs + 7-day trend (RTDB range queries),
-  best-sellers, peak hours, **last-backup badge** + download.
+  best-sellers, peak hours, **last-backup badge** + download, and a
+  **refunds-owed badge** (outstanding `refundOwed` count — money owed
+  shouldn't depend on someone remembering to open Reports).
 - **Products** — CRUD with **image uploads** (server-side resize /
   compress to ~800 px → base64 into RTDB; no file uploads);
   **categories** + per-product
@@ -594,19 +721,26 @@ and Top 3 never see them.
   a stepper, date defaults today) and falls via rental handovers; the
   **low-stock list carries the restock button**. Flags, reports, and
   the inline `− / +` stepper (§3) stay.
-- **Staff & settings** — staff accounts; business settings: **hours
+- **Staff & settings** — staff accounts (create, demote, delete —
+  each evicts that user's cached role, §4 *Auth & roles*); business
+  settings: **hours
   per weekday, force-close toggle, scheduled closure ranges,
   announcement banner, GCash number
-  + official QR image** (shown untouched inside the branded frame at
-  checkout), **reservation capacities** per area (smart defaults
-  feeding the public occupancy view).
+  + official QR image** (both required before ordering opens, §4
+  *Customer site*; shown untouched inside the branded frame at
+  checkout — the number alongside for copy/pay-by-number), **Rotate
+  kitchen secret**, **reservation capacities** per area (smart
+  defaults feeding the public occupancy view), and a **Complete
+  setup** banner until the payment block exists.
 - **Reports** — sales, reservation, and rental-booking reports with
-  date filters; the
+  date filters; a **refunds-owed column** with the **Mark refunded**
+  action (admin-only — the cashier's money taps are Approve and Mark
+  served, nothing else); and the
   weekly export-backup runs itself on the Laravel scheduler (same
-  mechanism as the proof sweep; manual fallback documented) and is
-  **incremental** — `orders` since the last run by `settledAt` range,
-  config trees read whole (§4 *Quota discipline*, rule 4), so the
-  backup never becomes the quota budget's largest reader.
+  mechanism as the sweeps; manual fallback documented) and is
+  **incremental by `updatedAt`** (§4 *Quota discipline*, rule 4), so
+  the backup never becomes the quota budget's largest reader and
+  never skips an order that never settled.
 
 ### Design
 
@@ -624,7 +758,18 @@ and Top 3 never see them.
   in LATER, then promotes) → **Mark served** → customer collects with
   the order code → the sale shows in analytics.
 - **Negative beats** — a proof-less order **dismisses** at 15:00
-  (tracker flips, queue clears); a conflicting reservation is rejected.
+  (tracker flips, queue clears); a **failed upload** shows retry and,
+  while in flight, **survives** 15:00; a **Restore** re-arms the
+  window and flips the tracker back; a **flagged hold → Reject**
+  drops the ticket, flips the tracker, and books `refundOwed`, while
+  **Approve** returns it by age; **Unclaimed → Collect late** writes
+  no second sale; a **duplicate Place order** returns the original
+  order code; ordering is **disabled while closed** and **until the
+  GCash number + QR are configured**; a conflicting reservation is
+  rejected.
+- **Throttle** — exceeding the checkout or login limit returns 429
+  and recovers inside its window; two customers behind one proxy are
+  counted separately (trusted proxies configured).
 - **Rentals** — browse availability → book (date range + qty,
   ≤3 inputs) → QR auto-sent → auto-verified → **Hand over** (stock
   falls) → **Confirm return** (stock rises); an overlapping range
@@ -632,8 +777,10 @@ and Top 3 never see them.
 - **Staff paths** — a walk-in ring-up with split tender → receipt; a
   reservation entered → conflict blocked → confirm → shows on the
   calendar; a sale appears in the analytics dashboard.
-- **State** — RTDB rules locked down; the weekly export-backup runs
-  on a schedule (last-backup badge in admin; manual fallback
+- **State** — RTDB rules locked down; **all three sweeps on a
+  schedule** (expiry `everyMinute`, close at the closing hour, proofs
+  daily end-of-day — §4 *Data layer*; last-backup badge in admin;
+  manual fallback
   documented); **Firebase quota watched** in the console's Usage tab
   (storage · downloads · connections) — Spark halts the database for
   the rest of the month at the ceiling (§2), so a creeping graph is

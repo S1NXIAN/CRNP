@@ -5,8 +5,8 @@ Online orders are pickup-only, GCash-only, identified by order code.
 
 ```mermaid
 flowchart TD
-    A["Arrive at / — menu visible,<br/>no login wall"] --> B{"Open — hours + force-close<br/>+ scheduled closures?"}
-    B -->|"closed"| C["Read-only: menu + announcement<br/>place-order disabled"]
+    A["Arrive at / — menu visible,<br/>no login wall"] --> B{"Open — hours + force-close<br/>+ scheduled closures<br/>+ GCash number & QR configured?"}
+    B -->|"closed / setup incomplete"| C["Read-only: menu + announcement<br/>place-order disabled<br/>(admin sees Complete setup)"]
     B -->|"open"| D["Menu grouped by category<br/>promo / Top 3 tags · computed prices"]
     D -.->|"Reservations"| V["Public occupancy view — read-only<br/>seats taken vs capacity per slot<br/>no names · books nothing"]
     D -.->|"Rentals"| RC["Rental catalog — read-only<br/>price/day · per-date availability"]
@@ -20,12 +20,20 @@ flowchart TD
     H -->|"no"| G["Sign in with Google<br/>one tap · session remembered"]
     G --> I["Pickup time — default ASAP<br/>earliest = now + 15 min"]
     H -->|"yes"| I
-    I --> J["Place order — POST to Laravel<br/>validated · throttled<br/>→ order code + GCash QR auto-sent<br/>15-min payment window starts"]
+    I --> J["Place order — POST to Laravel<br/>validated · throttled · idempotency key<br/>→ order code + GCash number + QR auto-sent<br/>15-min payment window (deadlineAt) starts"]
     J --> T["Order tracker — live status screen<br/>session/account-bound · order code shown, never typed<br/>5–10 s poll: awaiting payment → verifying → cooking → READY"]
-    T --> K{"Proof attached by 15:00?"}
-    K -->|"zero proof"| L["Dismissed (zero proof at 15:00) — tracker flips:<br/>'Order dismissed — no payment received'<br/>queue auto-clears · Dismissed list"]
-    K -->|"yes"| M["Pay GCash → OS screenshot → Attach<br/>newest thumbnail · auto-uploads<br/>+ amount (prefilled) + ref# → auto-verified<br/>mismatch → flagged: cashier one-tap Approve/Reject"]
-    M --> N["Same instant → kitchen ticket:<br/>order code + age timer<br/>scheduled pickup: dimmed in LATER,<br/>promoted at pickup − 15 min"]
+    T --> M["Pay GCash → OS screenshot → Attach<br/>newest thumbnail · auto-uploads<br/>failed → 'Upload failed — tap to retry'<br/>+ amount (prefilled) + ref#"]
+    M --> AV{"Auto-verified<br/>amount + ref match?"}
+    AV -->|"yes"| N["Same instant → kitchen ticket:<br/>order code + age timer<br/>scheduled pickup: dimmed in LATER,<br/>promoted at pickup − 15 min"]
+    AV -->|"mismatch / blank ref"| FH["Flagged hold — kitchen waits<br/>both numbers side by side<br/>cashier one-tap Approve / Reject"]
+    FH -->|"Approve"| N
+    FH -->|"Reject"| RJ["Payment rejected — tracker:<br/>'Payment needs checking — see the counter'<br/>entered amount + order total shown<br/>ticket off the board · refund owed (claimed)"]
+    RJ -.->|"cashier Approve (undo):<br/>ticket rejoins by age"| N
+    RJ -.->|"cashier Void"| VD["Voided — refund owed survives<br/>until admin Mark refunded"]
+    T -.->|"deadlineAt reached:<br/>zero proof & not mid-upload"| L["Dismissed (zero proof at 15:00) — tracker flips:<br/>'Order dismissed — no payment received'<br/>queue auto-clears · Dismissed list"]
+    L -.->|"cashier Restore: re-arms 15 min"| RS["Restored — tracker flips back to<br/>awaiting payment<br/>re-attach the same screenshot"] -.-> T
+    L -.->|"cashier Void"| VD
     N --> O["Cooked → cashier Mark served<br/>tracker flips cooking → READY same instant<br/>collect with order code · feeds analytics"]
-    O -.->|"paid, never collected"| P["Unclaimed — money kept"]
+    O -.->|"paid, never collected at close"| P["Unclaimed — money kept<br/>counts as revenue"]
+    P -.->|"returns with code: cashier Collect late"| O
 ```
