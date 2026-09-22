@@ -1,16 +1,24 @@
 # Cashier (POS) flowchart
 
+One tap per online order on the happy path: **Mark served**.
+Proof auto-verifies; the cashier taps **Reject** only on exception.
+
 ```mermaid
 flowchart TD
     A["Sign in — staff account<br/>/cashier (role-guarded)"] --> B{"Task?"}
-    B --> C["Online orders queue<br/>table name · payment method"]
-    B --> D["Walk-in ring-up: tap tiles<br/>promo price + totals compute"]
+    B --> C["Online pickup queue<br/>order code · screenshot auto-verified<br/>flagged 'unconfirmed' 5 min"]
+    B --> D["Walk-in ring-up: tap tiles<br/>promo price + totals compute<br/>split tender: type one number"]
     B --> E["New reservation: dine-in /<br/>function room / catering"]
-    C --> F["Settle: split tender — type one number<br/>other tender + change compute"]
+    C -->|"bogus proof"| R["Reject — confirm<br/>order dismissed, customer's screen flips"]
+    C --> F["Settle / collect: split tender<br/>other tender + change compute"]
     D --> F
     F --> G["Receipt = one button"]
-    G --> H["Mark served — kitchen ticket clears<br/>order feeds sales + analytics"]
-    E --> I{"Date-time conflict<br/>or duplicate?"}
-    I -->|"no"| J["Confirmed → shared calendar"]
-    I -->|"yes"| K["Rejected — blocked with reason"]
+    G --> H["Mark served — the one happy-path tap<br/>kitchen ticket clears · feeds sales + analytics"]
+    H --> I["Customer collects with order code"]
+    I -.->|"never collected"| U["Unclaimed note at<br/>ready-for + 15 min / close"]
+    C -.->|"unpaid at 15:00"| X["Dismissed list (auto)<br/>Restore / Void"]
+    X -.->|"Restore"| C
+    E --> J{"Date-time conflict<br/>or duplicate?"}
+    J -->|"no"| K["Confirmed → shared calendar"]
+    J -->|"yes"| L["Rejected — blocked with reason"]
 ```

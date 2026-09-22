@@ -1,6 +1,7 @@
 # Customer flowchart
 
 Browse is open to everyone; ordering requires Sign in with Google.
+Online orders are pickup-only, GCash-only, identified by order code.
 
 ```mermaid
 flowchart TD
@@ -13,13 +14,13 @@ flowchart TD
     F -.->|"heart while signed out"| G
     F --> H{"Place order — signed in?"}
     H -->|"no"| G["Sign in with Google<br/>one tap · session remembered"]
-    G --> I["Table name (required)"]
+    G --> I["Pickup time — default ASAP<br/>earliest = now + 15 min"]
     H -->|"yes"| I
-    I --> J{"Payment method"}
-    J -->|"Pay at Counter"| K["Place order — POST to Laravel<br/>validated · stock-checked · throttled"]
-    J -->|"GCash"| L["QR appears in its branded frame<br/>customer scans → pays"]
-    L --> K
-    K --> M["Order number on screen"]
-    M --> N["Same instant → one shared stream:<br/>kitchen ticket (table · timer)<br/>cashier queue (table · payment)"]
-    N --> O["Cooked → carried → cashier marks served<br/>receipt at counter · feeds analytics"]
+    I --> J["Place order — POST to Laravel<br/>validated · stock-checked · throttled<br/>→ order code + GCash QR auto-sent<br/>15-min payment window starts"]
+    J --> K{"Paid within 15 min?"}
+    K -->|"no"| L["Dismissed — screen flips:<br/>'Order dismissed — no payment received'<br/>queue auto-clears · Dismissed list"]
+    K -->|"yes"| M["Pay GCash → upload screenshot<br/>auto-verified (cashier Reject on exception)"]
+    M --> N["Same instant → kitchen ticket:<br/>order code + age timer<br/>scheduled pickup: dimmed in LATER,<br/>promoted at pickup − 15 min"]
+    N --> O["Cooked → cashier Mark served<br/>collect with order code · feeds analytics"]
+    O -.->|"paid, never collected"| P["Unclaimed — money kept"]
 ```
