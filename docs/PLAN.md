@@ -11,7 +11,7 @@ board, and the owner manages menu, inventory, staff, and reports.
 
 **Contents** (GitHub's Outline icon jumps to any section):
 
-- [1. Vision](#1-vision) — roles, surfaces, system flow, customer flow
+- [1. Vision](#1-vision) — roles, surfaces, customer flow
 - [2. Stack — decided](#2-stack--decided) — framework, database, hosting
 - [3. Design system](#3-design-system) — click-first UX, density rules
 - [4. Deployment topology](#4-deployment-topology) — one image, one DB
@@ -52,46 +52,6 @@ Domain vocabulary (glossary: [CONTEXT.md](../CONTEXT.md)):
 - **Reservations** — dine-in, function room, catering; staff-entered on
   a centralized calendar with conflict and duplicate checks before
   confirm.
-
-### System flow
-
-```mermaid
-flowchart TD
-  DB[("Firebase RTDB — sole datastore")]
-
-  subgraph CU["Customer · / (order online)"]
-    C1["Menu grouped by category · filter<br/>open status · announcement<br/>promo / Top 3 tags"] --> C2["Cart → place order<br/>Sign in with Google · pickup time (default ASAP)<br/>GCash QR auto-sent → 15-min window"]
-  end
-
-  subgraph CA["Cashier · /cashier (POS)"]
-    O1["Online pickup queue<br/>auto-verified · Reject on exception<br/>Dismissed list → Restore / Void"]
-    P1["Ring up walk-in order"] --> P2["Receipt"] --> P3["Mark served"]
-    R1["New reservation<br/>dine-in / function room / catering"] --> R2{"Date-time conflict?"}
-    R2 -->|"no"| R3["Confirmed → calendar"]
-    R2 -->|"yes"| R4["Rejected: duplicate / conflict"]
-  end
-
-  subgraph KI["Kitchen · /kitchen (read-only · secret URL · no login)"]
-    K1["NOW: order code + age timer (red 12 min)<br/>LATER: scheduled pickups → auto-promote<br/>NEW flash · all-day (NOW only) · heartbeat"]
-  end
-
-  subgraph AD["Admin · /admin"]
-    A1["Sales analytics dashboard"]
-    A2["Inventory: stock & low-stock"]
-    A3["Reports: sales + reservations"]
-  end
-
-  C1 -.->|"reads menu · hours · promos · Top 3"| DB
-  C2 -->|"places order"| DB
-  DB -.->|"online orders · verify flag"| O1
-  P1 --> DB
-  R2 -.->|"conflict check"| DB
-  DB -->|"verified · unserved"| K1
-  K1 -.->|"auto-clears when served"| P3
-  DB --> A1
-  DB --> A2
-  DB --> A3
-```
 
 Per-role flowcharts: [customer](flow-charts/customer.md) ·
 [cashier](flow-charts/cashier.md) ·
