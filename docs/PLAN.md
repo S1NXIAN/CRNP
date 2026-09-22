@@ -4,18 +4,25 @@
 > Updated as decisions firm up.
 > Last updated: 2026-09-22.
 
+One web app that runs **Crates N' Plates Diner**: customers order
+online for **pickup**, staff ring up walk-ins at the counter POS and
+schedule reservations, the kitchen cooks off a read-only ticket
+board, and the owner manages menu, inventory, staff, and reports.
+
+**Contents** (GitHub's Outline icon jumps to any section):
+
+- [1. Vision](#1-vision) — roles, surfaces, system flow, customer flow
+- [2. Stack — decided](#2-stack--decided) — framework, database, hosting
+- [3. Design system](#3-design-system) — click-first UX, density rules
+- [4. Deployment topology](#4-deployment-topology) — one image, one DB
+- [5. Roadmap](#5-roadmap) — build order, 1–8
+
 ## 1. Vision
 
-One web app that runs **Crates N' Plates Diner** online and in-store:
-customers order online for **pickup** (browse menu → cart → place
-order → GCash QR sent automatically → pay + upload proof → collect at
-the counter with their order code); onsite customers are rung up at
-the counter POS; staff schedule dine-in, function room, and catering
-reservations, cashiers run the counter POS, the kitchen
-watches a read-only ticket display, the owner
-manages menu, inventory, staff, settings, sales analytics, and reports.
-Capstone title says **"Online Management System"** — it must run on the
-internet, demonstrated end-to-end, not localhost-only.
+One web app that runs the diner online and in-store (full customer
+flow below under [Customer flow](#customer-flow)). Capstone title says
+**"Online Management System"** — it must run on the internet,
+demonstrated end-to-end, not localhost-only.
 
 | Area | URL prefix | Purpose | Runs |
 |---|---|---|---|
@@ -24,24 +31,27 @@ internet, demonstrated end-to-end, not localhost-only.
 | Kitchen | `/kitchen` | **Read-only** ticket display: **NOW** (oldest-first, age timers, all-day) + **LATER** (scheduled pickups, auto-promoted) — no login, no cook interaction | In-store via Docker |
 | Admin | `/admin` | Dashboard (sales analytics), products + inventory, staff, settings, reports | Both |
 
-Domain vocabulary: **orders** come from two origins — online
-(pickup-only, GCash-only, identified by **order code**, no table
-field) and the counter (cashier walk-in at the POS, split tender,
-table name added there) — into one shared stream. **Payment is the
-gate:** no cashier approval before the QR — placing the order
-auto-sends it (15-min payment window), and the customer's uploaded
-GCash screenshot **auto-verifies**; the cashier taps **Reject** only
-on exception (default-yes, human as exception — one tap per order on
-the happy path: **Mark served**). Miss the window → **Dismissed**
-(active queue auto-clears, kept in a Dismissed list for Restore/Void,
-customer's screen flips in-session). Paid but never collected →
-**Unclaimed** (money kept, manual note). The kitchen display mirrors
-**verified, unserved** tickets read-only — order code on the ticket —
-and clears when the cashier marks served. Cook interaction:
-none — the server owns lane promotion and expiry (roadmap 5 board
-spec). **Reservations** (dine-in, function room, catering) are
-staff-entered on a centralized calendar — conflict and duplicate checks
-before confirm.
+Domain vocabulary (glossary: [CONTEXT.md](../CONTEXT.md)):
+
+- **Orders** — two origins, one shared stream: **online** (pickup-only,
+  GCash-only, identified by **order code**, no table field) and
+  **walk-in** (cashier at the POS, split tender, table name added there).
+- **Payment is the gate** — no cashier approval before the QR: placing
+  the order auto-sends it (15-min payment window), and the uploaded
+  GCash screenshot **auto-verifies**. Default-yes: the cashier taps
+  **Reject** only on exception; one tap per order on the happy path
+  (**Mark served**).
+- **Dismissed** — payment window missed: active queue auto-clears, the
+  order lands in a Dismissed list (Restore / Void), the customer's
+  screen flips in-session.
+- **Unclaimed** — paid but never collected: money kept, manual note.
+- **Kitchen display** — mirrors **verified, unserved** tickets
+  read-only (order code on the ticket); clears when the cashier marks
+  served. Cook interaction: none — the server owns lane promotion and
+  expiry (roadmap 5 board spec).
+- **Reservations** — dine-in, function room, catering; staff-entered on
+  a centralized calendar with conflict and duplicate checks before
+  confirm.
 
 ### System flow
 
@@ -176,7 +186,8 @@ preference sync require Sign in with Google.**
 | Hosting | **Render free** (`render.yaml` Blueprint) + existing 14-min keepalive | Sleep acceptable; `Projects/ping` + in-container cron hold it warm. Health route `/health`. |
 | Quality | Pint (Laravel's php-cs-fixer preset), PHPStan (larastan), Pest smoke tests | Lint, static analysis, offline smoke tests — one command each. |
 
-**Explicitly rejected** (record so they don't creep back in):
+<details>
+<summary><b>Explicitly rejected</b> — recorded so they don't creep back in (expand)</summary>
 
 - React / Inertia / Next.js — nothing needs them without a React animation lib.
 - Tailwind / Vite / any build toolchain — the app needs one stylesheet, not a
@@ -207,6 +218,8 @@ preference sync require Sign in with Google.**
   placement (cook review: kill it).
 - Cook-side statuses / promotion toggles — lanes are promoted by the
   server (`pickup − 15 min` or verify), never by a cook tap.
+
+</details>
 
 ## 3. Design system
 
@@ -269,9 +282,9 @@ Universal patterns:
 
 ### Density — the "3 + 1" cozy rule (screen-by-screen)
 
-Research backing: `docs/research/screen-density-2026.md` (13 primary sources:
-NN/g progressive disclosure / Hick / content-to-chrome, Lewis & Sauro
-2024 clutter study, WCAG 2.2, Material + Carbon density models).
+Research backing: [docs/research/screen-density-2026.md](research/screen-density-2026.md)
+(13 primary sources: NN/g progressive disclosure / Hick / content-to-chrome,
+Lewis & Sauro 2024 clutter study, WCAG 2.2, Material + Carbon density models).
 
 **The rule: ≤3 primary actions + 1 labeled overflow ("More…") per view.
 Everything else lives exactly one disclosed step away — max 2 levels,
