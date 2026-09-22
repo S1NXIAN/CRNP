@@ -9,6 +9,9 @@ flowchart TD
     B -->|"closed"| C["Read-only: menu + announcement<br/>place-order disabled"]
     B -->|"open"| D["Menu grouped by category<br/>promo / Top 3 tags · computed prices"]
     D -.->|"Reservations"| V["Public occupancy view — read-only<br/>seats taken vs capacity per slot<br/>no names · books nothing"]
+    D -.->|"Rentals"| RC["Rental catalog — read-only<br/>price/day · per-date availability"]
+    RC --> RD["Book: date range + qty steppers<br/>total computes → sign in → QR auto-sent<br/>prepaid · 15-min window · unpaid lapses"]
+    RD --> RH["Counter handover — stock falls<br/>return by due date — stock rises"]
     D --> E["Filter: tap category chip"]
     E --> D
     D --> F["Product page → Add to cart<br/>steppers · add-ons · computed totals"]

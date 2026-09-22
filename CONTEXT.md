@@ -77,6 +77,24 @@ _Avoid_: due time, target time, prep deadline
 The public read-only count of seats taken vs capacity per slot — confirmed bookings only, aggregate, no names. It answers availability questions; it never books.
 _Avoid_: availability calendar, booking calendar, live calendar
 
+### Rentals
+
+**Rental booking**:
+A customer's reserved rental — date range + quantities, prepaid in full through the GCash gate. Availability computed against stock and overlapping bookings.
+_Avoid_: reservation (food), order, equipment hold
+
+**Handover**:
+The counter tap that releases a booked rental to the customer — the moment stock falls.
+_Avoid_: pickup, release, checkout
+
+**Return**:
+The counter tap confirming rented units came back — the moment stock rises. Add stock stays for purchases.
+_Avoid_: restock, drop-off, stock-in
+
+**Overdue**:
+A rental past its return-due date and not yet returned — a quiet staff row, never an auto-penalty in v1.
+_Avoid_: late fee, delinquent, expired rental
+
 ### Back office
 
 **Restock**:

@@ -25,10 +25,10 @@ demonstrated end-to-end, not localhost-only.
 
 | Area | URL prefix | Purpose |
 |---|---|---|
-| Customer | `/` | **Online ordering (pickup):** category menu → cart → place order → GCash QR auto-sent (proof auto-verified); product pages, about/branches, open/closed status, announcement banner, item tags, favorites; **Sign in with Google** required to order |
-| Cashier/POS | `/cashier` | Walk-in orders, **split payment (GCash + cash)**, **online pickup queue** (auto-verify, mismatch flags → one-tap Approve/Reject, recently-verified spot-check, Dismissed / Unclaimed lists), **reservation scheduling** (dine-in, function room, catering), receipts |
+| Customer | `/` | **Online ordering (pickup):** category menu → cart → place order → GCash QR auto-sent (proof auto-verified); product pages, about/branches, open/closed status, announcement banner, item tags, favorites; **rental catalog + booking** (per-date availability, prepaid); **Sign in with Google** required to order |
+| Cashier/POS | `/cashier` | Walk-in orders, **split payment (GCash + cash)**, **online pickup queue** (auto-verify, mismatch flags → one-tap Approve/Reject, recently-verified spot-check, Dismissed / Unclaimed lists), **rental handover / return**, **reservation scheduling** (dine-in, function room, catering), receipts |
 | Kitchen | `/kitchen` | **Read-only** ticket display: **NOW** (oldest-first, age timers, all-day) + **LATER** (scheduled pickups, auto-promoted) — no login, no cook interaction |
-| Admin | `/admin` | Dashboard (sales analytics), products + inventory, staff, settings, reports |
+| Admin | `/admin` | Dashboard (sales analytics), products + inventory + rental items, staff, settings, reports |
 
 Domain vocabulary (glossary: [CONTEXT.md](../CONTEXT.md)):
 
@@ -55,6 +55,11 @@ Domain vocabulary (glossary: [CONTEXT.md](../CONTEXT.md)):
   (a phone lookup prefills returning customers) on a centralized
   calendar with conflict and duplicate checks before confirm;
   customers get a read-only occupancy view, never a booking form.
+- **Rentals** — a separate stream from orders: public catalog with
+  computed per-date availability (stock vs overlapping confirmed
+  bookings), booked + **prepaid** through the same GCash gate;
+  **handover / return** move the stock, and the kitchen board never
+  sees them (§4 *Rentals* spec).
 
 Per-role flowcharts: [customer](flow-charts/customer.md) ·
 [cashier](flow-charts/cashier.md) ·
@@ -79,8 +84,8 @@ preference sync require Sign in with Google.**
    force-close toggle + scheduled date-range closures; place-order
    disabled while closed.
 6. **Announcement banner** — admin-written, site-wide.
-7. **About / branches** + reservation **occupancy view** (read-only)
-   pages.
+7. **About / branches**, reservation **occupancy view** (read-only),
+   and **rental catalog** pages.
 8. **Cart** — inline steppers, add-on picks, computed totals (the
    system does the math; the human types nothing).
 
@@ -309,8 +314,8 @@ order of work.
 ### Data layer
 
 - **Firebase RTDB** is the sole datastore (§2). Thin models —
-  **Order**, **Reservation**, **Product**, **Rental stock**,
-  **Staff**, **Settings** — behind `RtdbClient` (service-account
+  **Order**, **Reservation**, **Rental booking**, **Product**,
+  **Rental stock**, **Staff**, **Settings** — behind `RtdbClient` (service-account
   OAuth token cache); Laravel never touches Eloquent/SQL.
 - Every query is declared in `database.rules.json` with `.indexOn`;
   a restore (the Restore / Void path) only re-activates the order and
@@ -503,6 +508,33 @@ Spec: the server owns everything, the cook owns nothing.
   ability. It answers "is date X free?" without a call and reverses
   nothing.
 
+### Rentals
+
+Crates, plates, furniture — the stock-ruled half of Inventory (§4
+*Admin*). Rentals never enter the order stream: the kitchen board
+and Top 3 never see them.
+
+- **Catalog** — public read-only on `/`: image, **price per day**,
+  **per-date availability** computed as stock vs date-range
+  overlaps of confirmed bookings (the reservation conflict math —
+  never a mental ledger). Respects the open/closed badge like
+  place-order.
+- **Booking** — sign in (Google) → **date range + quantity
+  steppers** (2 input groups — ≤3 rule) → total computes itself →
+  **GCash QR auto-sent** through the same payment gate as orders
+  (proof attach, amount/ref flag, 15-min window). Unpaid booking
+  lapses — units were never handed over, so stock is untouched.
+  **Prepaid in full**; no deposit split in v1.
+- **Counter ops** — a **Handover / return** task at the POS:
+  **Hand over** on pickup (stock falls), **Confirm return** by the
+  due date (stock rises — the flow-level path Add stock never had;
+  Add stock stays purchases). Return-due date with a quiet
+  **overdue** staff row — no auto-penalty in v1.
+- **Admin** — rental items live in Inventory next to Add stock:
+  name · image · price/day · units. Bookings get their own
+  date-range report view, excluded from Top 3 and the 7-day
+  product trend (rankings rank products).
+
 ### Admin
 
 - **Dashboard** — KPIs + 7-day trend (RTDB range queries),
@@ -516,7 +548,8 @@ Spec: the server owns everything, the cook owns nothing.
 - **Inventory — rental units only.** Menu items carry no stock: food
   is made to order, and a counter that only ever falls manufactures
   false sold-outs and owner babysitting — sold-out is the **hide**
-  toggle instead, and the rentals catalog lands with issue 007. Stock
+  toggle instead; the catalog, booking, and handover / return flow
+  live in §4 *Rentals*. Stock
   rises via **Add stock** (supplier · qty · date = 3 inputs; qty is
   a stepper, date defaults today) and falls via rental handovers; the
   **low-stock list carries the restock button**. Flags, reports, and
@@ -527,7 +560,8 @@ Spec: the server owns everything, the cook owns nothing.
   + official QR image** (shown untouched inside the branded frame at
   checkout), **reservation capacities** per area (smart defaults
   feeding the public occupancy view).
-- **Reports** — sales and reservation reports with date filters; the
+- **Reports** — sales, reservation, and rental-booking reports with
+  date filters; the
   weekly export-backup runs itself on the Laravel scheduler (same
   mechanism as the proof sweep; manual fallback documented).
 
@@ -548,6 +582,10 @@ Spec: the server owns everything, the cook owns nothing.
   the order code → the sale shows in analytics.
 - **Negative beats** — a proof-less order **dismisses** at 15:00
   (tracker flips, queue clears); a conflicting reservation is rejected.
+- **Rentals** — browse availability → book (date range + qty,
+  ≤3 inputs) → QR auto-sent → auto-verified → **Hand over** (stock
+  falls) → **Confirm return** (stock rises); an overlapping range
+  is blocked; an unpaid booking lapses with stock untouched.
 - **Staff paths** — a walk-in ring-up with split tender → receipt; a
   reservation entered → conflict blocked → confirm → shows on the
   calendar; a sale appears in the analytics dashboard.

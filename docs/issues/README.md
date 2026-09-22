@@ -25,6 +25,7 @@ interaction** system after end-to-end setup.
 | 004 | [manual-reservation-entry](004-manual-reservation-entry.md) | high | Reservations retyped 5 fields at a time; violates ≤3-input rule |
 | 005 | [back-office-chores-never-automate](005-back-office-chores-never-automate.md) | medium | No restock flow; manual backups; manual holiday closures |
 | 006 | [cashier-fraud-watchdog](006-cashier-fraud-watchdog.md) | medium | "Exception-only" review quietly becomes review-everything |
+| 007 | [rentals-not-implemented](007-rentals-not-implemented.md) | high | No rental catalog, booking, handover, or return — 005's stock ruling lacks its missing half |
 
 ## Workflow
 
