@@ -15,7 +15,7 @@ board, and the owner manages menu, inventory, staff, and reports.
 - [2. Stack — decided](#2-stack--decided) — framework, database, hosting
 - [3. Design system](#3-design-system) — click-first UX, density rules
 - [4. Deployment topology](#4-deployment-topology) — one image, one DB
-- [5. Roadmap](#5-roadmap) — build order, 1–8
+- [5. Features](#5-features) — data, auth, ordering, POS, kitchen, admin
 
 ## 1. Vision
 
@@ -48,7 +48,7 @@ Domain vocabulary (glossary: [CONTEXT.md](../CONTEXT.md)):
 - **Kitchen display** — mirrors **verified, unserved** tickets
   read-only (order code on the ticket); clears when the cashier marks
   served. Cook interaction: none — the server owns lane promotion and
-  expiry (roadmap 5 board spec).
+  expiry (§5 kitchen board spec).
 - **Reservations** — dine-in, function room, catering; staff-entered on
   a centralized calendar with conflict and duplicate checks before
   confirm.
@@ -305,141 +305,172 @@ Free-tier known limits (accepted for demo):
   Firebase Storage (own bucket + rules + second credential scope —
   revisit only with real traffic).
 
-## 5. Roadmap
+## 5. Features
 
-1. **Scaffold** — `composer create-project`, git, `public/css/app.css`
-   tokens, Dockerfile + docker-compose boots `php artisan serve`/apache at
-   `/public`, `/health` route, empty `render.yaml` deploys green. Start the
-   root `CONVENTIONS.md` (indexed RTDB queries, stock
-   decrement-after-insert, role guards, Asia/Manila
-   timezone, `route()` URL generation).
-2. **RTDB data layer** — `RtdbClient` (service-account OAuth token cache),
-   thin models (Order, Reservation, Product + stock, Staff, Settings),
-   `database.rules.json` with `.indexOn` for every query;
-   Pest smoke test against a rules fixture.
-3. **Auth & roles** — Laravel session auth + role guards for cashier
-   and admin (middleware per prefix); staff accounts seeded (no public
-   *staff* signup, no OTP); customers sign in with **Google via
-   Socialite** (auto-provisions `users/{uid}` in RTDB); rate-limited
-   logins. `/kitchen` is a separate
-   read-only route gated by a shared-secret URL — no session, kiosk-level
-   access (satisfies the thesis's "kitchen personnel" RBAC slot without a
-   line-cook login).
-4. **Public site + online ordering** — landing: menu → product page,
-   plus about / branches page. Reads via Laravel; customer writes are
-   the order (POSTed to Laravel, validated, stock-checked) and their
-   own `users/{uid}` prefs (favorites, add-on selections) — all
-   server-mediated, no direct customer writes.
-   - **Categories + filter** — products carry an admin-managed category
-     (Mains, Milktea Series, Budget Meal, …); "All Products" groups
-     items under their category titles; tapping a category shows only
-     that category.
-   - **Add-ons** — admin configures per-product add-ons (name + price);
-     the customer picks them in the cart; the selection rides on the
-     order line item through to kitchen and receipt.
-   - **Favorites + saved prefs** — heart on product cards toggles a
-     per-account favorite; each product's last add-on selection is
-     re-checked next visit — stored at `users/{uid}`, cross-device;
-     these actions prompt sign-in, browsing never does.
-   - **Cart → checkout** — placing the order requires **Sign in with
-     Google** (browse stays open; session must be live at POST).
-     Online orders are **pickup-only, GCash-only** — no table field,
-     no Pay at Counter option. Fields:
-     **pickup time** (optional picker; default = ASAP, earliest =
-     now + 15 min; picker refuses too-soon inputs) + **place order**
-     → validated, stock-checked, `throttle`d → **order code**
-     returned and **GCash QR auto-sent** (official QR image inside a
-     branded frame, never re-rendered
-     (`docs/research/gcash-qr-2026.md`)); **15-min payment window**
-     starts. Proof of payment = GCash confirmation **screenshot
-     uploaded from the order screen** → **auto-verified on arrival**
-     (flagged "unconfirmed" 5 min; cashier taps **Reject** only on
-     exception) → kitchen ticket appears; no payment by 15:00 →
-     **Dismissed** (screen flips in-session; cashier queue
-     auto-clears; Dismissed list keeps Restore / Void).
-   - **Open/closed badge** — computed from admin-configured hours per
-     weekday, evaluated in `Asia/Manila` (Render runs UTC), with an admin
-     **force-close override** (holiday / temporary closure).
-   - **Announcement banner** — admin-written promo text + show/hide toggle
-     in settings.
-   - **Item tags** (chips on product cards):
-     - **promo** — admin enters *either* a discount percent *or* an exact
-       promo price; the sibling value and the "% off" label are computed,
-       never typed (stored as `promoMode` + `promoValue`, re-derived on any
-       base-price edit, validated `0 < promoPrice < price`). Same fields
-       drive the POS total — site and receipt can't disagree; original
-       shown struck through.
-     - **Top 3** — **computed eagerly**: re-ranked
-       server-side on every sale write over a **rolling 7-day FIFO
-       window** — anything older than 7 days drops out of the ranking
-       (raw sales rows are never deleted; analytics, reports, and the
-       weekly export keep full history). The ranking is generated as
-       soon as **3 distinct products have a recorded sale** in the
-       window — no waiting for a full week of history, no display
-       gate. It always shows the current top ≤ 3 — ranked by units
-       sold, ties broken by revenue, then name; empty window → no
-       tag. Ranking cached at `stats/top3`, read by the product-card
-       render.
-5. **Cashier + kitchen + reservations** — POS console with **split
-   tender** (GCash + cash on one order: one number typed, the other and
-   the change compute themselves; order stores `payments:
-   [{method, amount}]`, receipt prints the breakdown) plus the
-   **online pickup queue**: orders arrive ready-to-pay (no approval
-   tap — QR went out at placement); screenshot **auto-verifies**,
-   cashier taps **Reject** only on exception; **Dismissed list**
-   (Restore / Void) and **Unclaimed** note absorb retired orders;
-   **Mark served** = the one happy-path tap. Read-only `/kitchen`
-   board (spec — server owns everything, cook owns nothing):
-   - **NOW lane** — oldest first: walk-ins + ASAP pickups. Per-ticket
-     **age timers (red at 12 min)**, **NEW count** (flashing, genuine
-     new tickets only, stops after ~5 s), **all-day counts = NOW only**
-     (never LATER — a cook must never be told to make food he's not
-     allowed to make yet).
-   - **LATER** — scheduled pickups as **full-size dimmed rows**, sorted
-     by ready-for time, live countdown. Server **promotes** at
-     `pickup − 15 min` (cook-lead, hardcoded for v1) **or** at
-     auto-verify, whichever is later → promoted ticket joins NOW by
-     **age** like everything else (no deadline sort), shows **both**
-     clocks (age timer + ready-for), and reads **LATE immediately** if
-     overdue — never a fresh 0:00 that hides lateness. Promotion
-     highlights the card; NEW flash is not reused.
-   - **Hygiene** — 5–10 s fetch + **heartbeat**: board greys out past
-     ~15 s stale ("signal lost") so a dead screen never looks live;
-     unclaimed pickups **auto-expire** at ready-for + 15 min (or at
-     close) → cashier's no-show list; tickets clear on **Mark
-     served**.
-   - **reservation scheduling
-   module**: new booking (type: dine-in / function room / catering, date,
-   time, party), calendar/list view, date-time conflict + duplicate check,
-   confirm/cancel statuses; smoke test: pickup order placed → QR
-   auto-sent → screenshot auto-verified → appears on kitchen screen →
-   mark served clears it; unpaid order dismisses at 15:00; a
-   conflicting reservation is rejected.
-6. **Admin** — sales analytics dashboard: KPIs + 7-day trend (RTDB range
-   queries), best-sellers, peak hours; products CRUD with **image
-   uploads** (server-side resize/compress → base64 into RTDB, §4),
-   **categories** + per-product **add-ons**,
-   **one-click Add-promo** (percent or exact price —
-   sibling value and label auto-computed, per §3 click-first UX) +
-   **inventory monitoring** (stock movement, low-stock flags, inventory
-   reports); staff accounts, business settings (**hours per weekday,
-   force-close toggle, announcement banner, GCash number + official QR
-   image** — shown untouched inside the branded frame at checkout);
-   sales and
-   reservation reports with date filters.
-7. **Design pass** — apply §3 everywhere: dark mode audit, motion
-   choreography on the public site only, empty states, receipts.
-8. **Demo path + hardening** — scripted capstone happy path (browse menu
-   by category → cart → **Sign in with Google** → place order →
-   **GCash QR auto-appears**, 15-min window running → pay + upload
-   screenshot → **auto-verified** → kitchen ticket (order code,
-   running timer; scheduled pickup sits dimmed in LATER, then promotes)
-   → mark served → customer collects with order code → sale shows in
-   analytics; plus the negative beat: an unpaid order **dismisses** at
-   15:00 (screen flips, queue clears); plus a walk-in ring-up with split
-   tender → receipt; plus reservation:
-   enter → conflict
-   blocked → confirm →
-   shows on calendar; plus report: sale appears in
-   analytics dashboard); RTDB rules lockdown;
-   weekly export-backup documented.
+Grouped by area: a spec of what exists; nothing here implies an
+order of work.
+
+### Data layer
+
+- **Firebase RTDB** is the sole datastore (§2). Thin models —
+  **Order**, **Reservation**, **Product + stock**, **Staff**,
+  **Settings** — behind `RtdbClient` (service-account OAuth token
+  cache); Laravel never touches Eloquent/SQL.
+- Every query is declared in `database.rules.json` with `.indexOn`;
+  stock decrements **after** insert; URLs come from `route()`; all
+  times evaluate in `Asia/Manila` (Render runs UTC).
+- Customer writes are **server-mediated through Laravel** (order POST,
+  `users/{uid}` prefs) — never direct client writes.
+- A rules fixture backs a Pest smoke test of the layer.
+
+### Auth & roles
+
+- Staff accounts are **seeded** — no public staff signup, no OTP;
+  role guards are middleware per URL prefix (`/cashier`, `/admin`);
+  logins are rate-limited.
+- Customers sign in with **Google via Socialite** (one button), which
+  auto-provisions `users/{uid}` in RTDB.
+- `/kitchen` is a **separate read-only route** gated by a
+  shared-secret URL — no session, kiosk-level access (the thesis's
+  "kitchen personnel" RBAC slot without a line-cook login).
+
+### Customer site & ordering
+
+All at `/`.
+
+- **Landing / menu** — products grouped under category titles ("All
+  Products"), computed promo strike-through and "% off", open/closed
+  badge, announcement banner, item tags; about / branches page.
+- **Categories + filter** — products carry an admin-managed category
+  (Mains, Milktea Series, Budget Meal, …); tapping a category chip
+  shows only that category.
+- **Add-ons** — admin configures per-product add-ons (name + price);
+  the customer picks them in the cart; the selection rides on the
+  order line item through to kitchen and receipt.
+- **Favorites + saved prefs** — the heart on a product card toggles a
+  per-account favorite; each product's last add-on selection is
+  re-checked next visit, on any device — stored at `users/{uid}`.
+  These actions prompt sign-in; browsing never does.
+- **Cart → checkout** — placing the order requires **Sign in with
+  Google** (browse stays open; session must be live at POST). Online
+  orders are **pickup-only, GCash-only** — no table field, no Pay at
+  Counter option. Then, in order:
+  - **pickup time** — optional picker; default = ASAP, earliest =
+    now + 15 min; the picker refuses too-soon inputs, so no error can
+    follow payment.
+  - **place order** — validated, stock-checked, `throttle`d →
+    **order code** returned (it identifies the pickup; no table
+    field) and **GCash QR auto-sent** — the official QR image inside
+    a branded frame, never re-rendered
+    (`docs/research/gcash-qr-2026.md`) — starting the **15-min
+    payment window**. No cashier approval sits in front of it.
+  - **proof of payment** — GCash confirmation **screenshot uploaded
+    from the order screen** → **auto-verified on arrival** (flagged
+    "unconfirmed" 5 min; the cashier taps **Reject** only on
+    exception) → kitchen ticket appears the same instant.
+  - **expiry** — no payment by 15:00 → **Dismissed**: the order
+    screen flips in-session, the cashier queue auto-clears, and the
+    Dismissed list keeps Restore / Void.
+- **Open/closed badge** — computed from admin-configured hours per
+  weekday, plus an admin **force-close override** (holiday /
+  temporary closure); place-order is disabled while closed.
+- **Announcement banner** — admin-written promo text with a show/hide
+  toggle in settings.
+- **Item tags** (chips on product cards):
+  - **promo** — admin enters *either* a discount percent *or* an
+    exact promo price; the sibling value and the "% off" label are
+    computed, never typed (stored as `promoMode` + `promoValue`,
+    re-derived on any base-price edit, validated
+    `0 < promoPrice < price`). The same fields drive the POS total —
+    site and receipt can't disagree; the original shows struck
+    through.
+  - **Top 3** — **computed eagerly**: re-ranked server-side on every
+    sale write over a rolling **7-day FIFO window** (raw sales rows
+    are never deleted; analytics, reports, and the weekly export keep
+    full history). The ranking appears once **3 distinct products
+    have a recorded sale** in the window — no waiting for a full week
+    of history, no display gate. It always shows the current top ≤ 3,
+    ranked by units sold with ties broken by revenue then name; empty
+    window → no tag. Ranking is cached at `stats/top3` and read by
+    the product-card render.
+
+### Cashier POS
+
+- Walk-in ring-up: tap tiles build the order; promo price, totals,
+  and change compute themselves.
+- **Split tender** — GCash + cash on one order: one number typed, the
+  other and the change compute; the order stores
+  `payments: [{method, amount}]`; the receipt prints the breakdown.
+- **Online pickup queue** — orders arrive ready-to-pay (no approval
+  tap — the QR went out at placement); the screenshot **auto-verifies**
+  and the cashier taps **Reject** only on exception. **Mark served** is
+  the one happy-path tap.
+- **Retired orders** — **Dismissed list** (Restore / Void) and
+  **Unclaimed** note (paid but never collected: money kept, manual
+  note).
+
+### Kitchen board — read-only
+
+Spec: the server owns everything, the cook owns nothing.
+
+- **NOW lane** — oldest first: walk-ins + ASAP pickups. Per-ticket
+  **age timers (red at 12 min)**, **NEW count** (flashing, genuine
+  new tickets only, stops after ~5 s), **all-day counts = NOW only**
+  (never LATER — a cook must never be told to make food he's not
+  allowed to make yet).
+- **LATER** — scheduled pickups as full-size dimmed rows, sorted by
+  ready-for time, live countdown. The server **promotes** at
+  `pickup − 15 min` (cook-lead, hardcoded for v1) **or** at
+  auto-verify, whichever is later → the promoted ticket joins NOW by
+  **age** like everything else (no deadline sort), shows **both**
+  clocks (age timer + ready-for), and reads **LATE immediately** if
+  overdue — never a fresh 0:00 that hides lateness. Promotion
+  highlights the card; the NEW flash is not reused.
+- **Hygiene** — 5–10 s fetch + **heartbeat**: the board greys out
+  past ~15 s stale ("signal lost") so a dead screen never looks live;
+  unclaimed pickups **auto-expire** at ready-for + 15 min (or at
+  close) → the cashier's no-show list; tickets clear on **Mark
+  served**.
+
+### Reservations
+
+- Booking fields: type (dine-in / function room / catering), date,
+  time, party; calendar/list view; date-time **conflict + duplicate
+  check** before confirm; confirm / cancel statuses.
+
+### Admin
+
+- **Dashboard** — KPIs + 7-day trend (RTDB range queries),
+  best-sellers, peak hours.
+- **Products** — CRUD with **image uploads** (server-side resize /
+  compress → base64 into RTDB, §4); **categories** + per-product
+  **add-ons**; **one-click Add promo** (percent or exact price — the
+  sibling value and label auto-compute, §3).
+- **Inventory** — stock movement, low-stock flags, inventory reports;
+  stock adjust is an inline `− / +` stepper (§3).
+- **Staff & settings** — staff accounts; business settings: **hours
+  per weekday, force-close toggle, announcement banner, GCash number
+  + official QR image** (shown untouched inside the branded frame at
+  checkout).
+- **Reports** — sales and reservation reports with date filters.
+
+### Design
+
+- §3 applies everywhere: dark mode, motion choreography on the
+  public site only, designed empty states, receipts.
+
+### Acceptance
+
+- **Happy path** — browse menu by category → cart → **Sign in with
+  Google** → place order → **GCash QR auto-appears** (15-min window
+  running) → pay + upload screenshot → **auto-verified** → kitchen
+  ticket (order code, running timer; a scheduled pickup sits dimmed
+  in LATER, then promotes) → **Mark served** → customer collects with
+  the order code → the sale shows in analytics.
+- **Negative beats** — an unpaid order **dismisses** at 15:00 (screen
+  flips, queue clears); a conflicting reservation is rejected.
+- **Staff paths** — a walk-in ring-up with split tender → receipt; a
+  reservation entered → conflict blocked → confirm → shows on the
+  calendar; a sale appears in the analytics dashboard.
+- **State** — RTDB rules locked down; the weekly export-backup is
+  documented.

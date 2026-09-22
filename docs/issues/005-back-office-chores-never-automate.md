@@ -23,9 +23,9 @@ itself":
 
 ## Plan references
 
-- `docs/PLAN.md` §5 item 6 — "inventory monitoring (stock movement,
+- `docs/PLAN.md` §5 *Admin — Inventory* — "inventory monitoring (stock movement,
   low-stock flags …)" — decrement only.
-- `docs/PLAN.md` §5 item 8 — "weekly export-backup **documented**."
+- `docs/PLAN.md` §5 *Acceptance* — "weekly export-backup **documented**."
 - `docs/PLAN.md` §1 item 5 — "admin hours per weekday + force-close
   toggle" (no scheduling).
 
