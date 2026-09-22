@@ -40,7 +40,7 @@ flowchart TD
   DB[("Firebase RTDB — sole datastore")]
 
   subgraph CU["Customer · / (order online)"]
-    C1["Menu grouped by category · filter<br/>open status · announcement<br/>promo / favorite / top-3 tags"] --> C2["Cart → checkout<br/>table name + payment:<br/>Pay at Counter / GCash → QR frame"]
+    C1["Menu grouped by category · filter<br/>open status · announcement<br/>promo / top-3 tags"] --> C2["Cart → checkout<br/>table name + payment:<br/>Pay at Counter / GCash → QR frame"]
   end
 
   subgraph CA["Cashier · /cashier (POS)"]
@@ -268,7 +268,6 @@ Free-tier known limits (accepted for demo):
        base-price edit, validated `0 < promoPrice < price`). Same fields
        drive the POS total — site and receipt can't disagree; original
        shown struck through.
-     - **house favorite** — admin toggle.
      - **top 3 · last 7 days** — auto from sales data; shows nothing
        until a week of sales exists.
 5. **Cashier + kitchen + reservations** — POS console with **split
@@ -292,8 +291,6 @@ Free-tier known limits (accepted for demo):
    #1), **categories** + per-product **add-ons**,
    **one-click Add-promo** (percent or exact price —
    sibling value and label auto-computed, per §3 click-first UX) +
-   **house-favorite toggle** (feeds the
-   public site tags; top-3 tag is computed from this phase's sales data) +
    **inventory monitoring** (stock movement, low-stock flags, inventory
    reports); staff accounts, business settings (**hours per weekday,
    force-close toggle, announcement banner, GCash number + official QR
@@ -322,8 +319,13 @@ Free-tier known limits (accepted for demo):
   menu-photo + QR scale). **Firebase Storage when going real** (§4
   production path: bucket + its own rules + second credential scope —
   revisit only with real traffic or a mounted disk).
-- [ ] **#2 Customer auth** — guest checkout (3 taps, no account wall,
-  no email stack) vs phone/OTP accounts (would re-add Gmail API email,
-  currently rejected; prototype had signup + OTP + my-orders). Client
-  spec never asks for login — **on hold by request**; either choice
-  fits the order schema as designed.
+- [ ] **#2 Customer auth — reopened:** client now **expects an
+  account-based customer side** (feedback after last week's demo —
+  supersedes the "spec never asks for login" premise). Standing
+  counters on the OTP variant hold: it would re-add the rejected
+  stack (Gmail API, OTP, Firebase Auth) and violate the click-first
+  law ("enter a code") — lean **Laravel session auth + `users` node
+  in RTDB**, per-user favorites / saved add-on prefs stored
+  server-side (cross-device). Pending: exact gate boundary, and
+  which part of last week's demo the client found clunky.
+  `throttle` on checkout stays regardless — accounts ≠ spam fix.
