@@ -166,6 +166,7 @@ preference sync require Sign in with Google.**
 | Views | **Blade + plain CSS (design tokens + component classes)** | Server-rendered, no SPA, no Inertia — and **zero build step**: no npm, no Vite, no Node anywhere. One `public/css/app.css`. |
 | Motion | **CSS transitions + Web Animations API** | No animation library. Transitions for hover/toggle/focus, keyframes for toasts, native WAAPI for the rare choreography (badge bump, card stagger). Framer Motion (React-only) and `motion` both rejected — add a lib only if choreography proves painful. |
 | Database | **Firebase Realtime Database, sole datastore** | One source of truth; no migrations while the schema churns; matches the declared capstone stack. Laravel does *not* use Eloquent/SQL — persistence goes through a thin RTDB service. |
+| Firebase plan | **Spark (free) — 1 GB stored · 10 GB/mo downloaded (~360 MB/day) · 100 connections** | Capstone scale fits the free ceiling only under the read discipline in [§4 Data layer](#data-layer). On Spark an over-quota month **shuts RTDB off** — no throttling — so bandwidth is budgeted as a hard resource. Access is server-side REST (service account), and REST is excluded from the connection count, so the 100 cap never binds. |
 | Customer auth | **Laravel session + Socialite — "Sign in with Google"** | One button, zero signup/reset/verify screens; `users/{uid}` in RTDB. Basic scopes → Google's 100-user cap and app verification don't apply ([source](https://support.google.com/cloud/answer/15549945)) — publish the app anyway. New dep: `laravel/socialite` (approved). |
 | Kitchen display | **Auto-refreshing read-only page (5 s fetch)** | One endpoint returning open orders. No websocket, no cook session — the route is gated by a shared-secret URL instead of a login. |
 | Quality | Pint (Laravel's php-cs-fixer preset), PHPStan (larastan), Pest smoke tests | Lint, static analysis, offline smoke tests — one command each. |
@@ -199,6 +200,10 @@ preference sync require Sign in with Google.**
   read-only; cook interaction: none.
 - WebSockets/Reverb — the kitchen page just fetches every 5 s; no push
   infrastructure.
+- One RTDB read per device poll — N screens × 5 s × TLS overhead burns
+  the free ~360 MB/day download ceiling within hours; Laravel
+  coalesces polls behind one cached read instead (§4 *Quota
+  discipline*).
 - Cashier Approve-before-QR gate — a human tap between "I ordered" and
   "I can pay" with no purpose once payment is the gate; QR goes out at
   placement (cook review: kill it).
@@ -333,6 +338,32 @@ order of work.
   **7 days after Reject** as watchdog evidence, then the same sweep
   nulls it. Order row and sales history are untouched — only the
   image goes.
+- **Quota discipline** — the free ceiling (§2) allows ~**360 MB
+  downloaded per day**, and *every* read Laravel makes counts toward
+  it — TLS overhead and rules-denied requests included. Four standing
+  rules keep polls, images, and exports inside it:
+  1. **Coalesce polls** — every polled endpoint (kitchen 5 s, cashier
+     queue 5–10 s, customer trackers 5–10 s) serves from a **Laravel
+     cache entry whose TTL ≥ the client's poll interval**: N screens
+     hit Laravel, Laravel hits RTDB at most once per interval.
+     Freshness is unchanged — the entry is never older than the
+     cadence the client already accepts. `file` cache driver, no new
+     dependency.
+  2. **Cache the catalog** — `/` menu, product pages, and the
+     `stats/top3` chip read through a **60–300 s cache**. Product
+     images are base64-in-RTDB and change only on an admin edit, so a
+     page view must never re-read their bytes.
+  3. **Shallow, projected, bounded reads** — list, board, and queue
+     payloads carry scalar fields only and are field-projected;
+     proofs stay out-of-band (above). No code path may read a whole
+     tree: every query is declared with `.indexOn` (above) and is
+     range-, key-, or pagination-bounded.
+  4. **Incremental export** — the weekly backup reads `orders` by
+     `settledAt` range **since the previous run**, plus full reads of
+     only the small config trees (products, staff, settings,
+     rentals). A whole-database read is a restore path, never a
+     scheduled job: at 800 MB it alone costs ~3.5 GB/month — a third
+     of the monthly quota, every week it ran.
 - Customer writes are **server-mediated through Laravel** (order POST,
   `users/{uid}` prefs) — never direct client writes.
 - A rules fixture backs a Pest smoke test of the layer.
@@ -479,7 +510,9 @@ Spec: the server owns everything, the cook owns nothing.
 - **ready-for** — when an order should be cooked and waiting:
   scheduled = pickup time; ASAP online = verify + 15 min; walk-in =
   POS entry + 15 min (cook lead, hardcoded for v1).
-- **Hygiene** — fixed **5 s fetch** + **heartbeat**: past ~15 s stale
+- **Hygiene** — fixed **5 s fetch**, served from the coalesced
+  snapshot (§4 *Quota discipline* — ten kiosks cost one RTDB read per
+  interval) + **heartbeat**: past ~15 s stale
   the board shows a plain **"Reconnecting…"** banner and **auto-
   reloads** with backoff, so a slept kiosk instance recovers with no
   human and a dead screen never looks live. Tickets clear on **Mark
@@ -563,7 +596,10 @@ and Top 3 never see them.
 - **Reports** — sales, reservation, and rental-booking reports with
   date filters; the
   weekly export-backup runs itself on the Laravel scheduler (same
-  mechanism as the proof sweep; manual fallback documented).
+  mechanism as the proof sweep; manual fallback documented) and is
+  **incremental** — `orders` since the last run by `settledAt` range,
+  config trees read whole (§4 *Quota discipline*, rule 4), so the
+  backup never becomes the quota budget's largest reader.
 
 ### Design
 
@@ -591,4 +627,7 @@ and Top 3 never see them.
   calendar; a sale appears in the analytics dashboard.
 - **State** — RTDB rules locked down; the weekly export-backup runs
   on a schedule (last-backup badge in admin; manual fallback
-  documented).
+  documented); **Firebase quota watched** in the console's Usage tab
+  (storage · downloads · connections) — Spark halts the database for
+  the rest of the month at the ceiling (§2), so a creeping graph is
+  an outage warning, not a bill.
