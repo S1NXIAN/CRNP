@@ -1,6 +1,6 @@
 # 001 — No customer "order ready" notification
 
-**Status:** open
+**Status:** fixed
 **Severity:** critical (breaks customer seamlessness + feeds Unclaimed)
 **Personas affected:** customer (Seamlessness 4/10), kitchen, cashier
 
@@ -42,7 +42,22 @@ This one gap cascades:
 
 ## Acceptance criteria
 
-- [ ] A customer learns their order is ready **without asking staff**.
-- [ ] Unclaimed rate no longer depends on the customer guessing.
-- [ ] Kitchen/cashier can see paid-but-waiting customers the plan hides
+- [x] A customer learns their order is ready **without asking staff**.
+- [x] Unclaimed rate no longer depends on the customer guessing.
+- [x] Kitchen/cashier can see paid-but-waiting customers the plan hides
       from the board.
+
+## Resolution (2026-09-22)
+
+Chosen: **customer-side order tracker** (generalizes fix direction 1 —
+the existing in-session Dismissed flip becomes a full live status
+screen: awaiting payment → verifying → cooking → READY) plus an
+**awaiting-proof row** in the cashier's pickup queue for criterion 3.
+
+- `docs/PLAN.md` — §1 items 15–16, customer flow steps 4–5; §4
+  checkout bullets + online pickup queue.
+- `docs/flow-charts/customer.md`, `docs/flow-charts/cashier.md`
+  updated (kitchen chart unchanged — board invariant untouched).
+- `CONTEXT.md` — new **Order tracker** term.
+- Directions 2 (messaging API) and 3 (public code board) declined; no
+  ADR — no recorded rejection reversed.

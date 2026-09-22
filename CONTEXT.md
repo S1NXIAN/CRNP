@@ -23,6 +23,10 @@ _Avoid_: order number, reference number, tracking ID
 When a customer asked to collect an online order; ASAP when they didn't.
 _Avoid_: scheduled time, delivery slot, ETA
 
+**Order tracker**:
+The customer's live screen for their active online order — awaiting payment → verifying → cooking → READY. Bound to the session and account; the order code is shown, never typed.
+_Avoid_: order status page, order history, tracking ID
+
 ### Payment lifecycle
 
 **Payment window**:

@@ -42,7 +42,7 @@ Domain vocabulary (glossary: [CONTEXT.md](../CONTEXT.md)):
   (**Mark served**).
 - **Dismissed** — payment window missed: active queue auto-clears, the
   order lands in a Dismissed list (Restore / Void), the customer's
-  screen flips in-session.
+  **order tracker** flips in-session.
 - **Unclaimed** — paid but never collected: money kept, manual note.
 - **Kitchen display** — mirrors **verified, unserved** tickets
   read-only (order code on the ticket); clears when the cashier marks
@@ -103,17 +103,22 @@ preference sync require Sign in with Google.**
 
 **D. After ordering**
 
-15. **Pay + prove** — customer pays GCash → uploads the confirmation
-    screenshot from the order screen → **auto-verified** (cashier taps
-    **Reject** only when bogus) → kitchen ticket appears the same
-    instant. No payment by 15:00 → **Dismissed**: the order screen
-    flips to "Order dismissed — no payment received", the cashier's
-    queue auto-clears, the order lands in the **Dismissed list**
-    (Restore / Void).
+15. **Pay + prove** — placing the order opens the **order tracker**:
+    a live status screen (*awaiting payment → verifying → cooking →
+    READY*), polling every 5–10 s (no push, no websockets), bound to
+    the session and `users/{uid}` — reopenable from the signed-in
+    account, the **order code** shown, never typed. Customer pays
+    GCash → uploads the confirmation screenshot from the tracker →
+    **auto-verified** (cashier taps **Reject** only when bogus) →
+    kitchen ticket appears the same instant. No payment by 15:00 →
+    **Dismissed**: the tracker flips to "Order dismissed — no payment
+    received", the cashier's queue auto-clears, the order lands in the
+    **Dismissed list** (Restore / Void).
 16. **Collect** — cooked → cashier **Mark served** (the single happy-
-    path tap) → customer collects with the **order code** → order
-    feeds sales & analytics. Paid but never collected → **Unclaimed**
-    (money kept). No order history in v1.
+    path tap) → the tracker flips **cooking → READY** the same instant
+    → customer collects with the **order code** → order feeds sales &
+    analytics. Paid but never collected → **Unclaimed** (money kept).
+    The tracker covers the active order only — no order history in v1.
 
 ### Customer flow
 
@@ -126,10 +131,11 @@ preference sync require Sign in with Google.**
    (auto-sent, 15-min window starts).
 4. **Pay** — pay → upload screenshot → **auto-verified** → kitchen
    ticket same instant (scheduled pickup: dimmed in LATER, promoted
-   at pickup − 15 min); order code + live state on screen (waiting /
-   dismissed / verified).
-5. **Collect** — cooked → cashier **Mark served** → customer collects
-   with the order code → shows in analytics.
+   at pickup − 15 min); the **order tracker** shows the live state
+   (awaiting payment / verifying / cooking / dismissed).
+5. **Collect** — cooked → cashier **Mark served** → the tracker
+   flips **READY** → customer collects with the order code → shows in
+   analytics.
 
 ## 2. Stack — decided
 
@@ -338,12 +344,19 @@ All at `/`.
     a branded frame, never re-rendered
     (`docs/research/gcash-qr-2026.md`) — starting the **15-min
     payment window**. No cashier approval sits in front of it.
+  - **order tracker** — the post-placement screen is a live status
+    screen (5–10 s fetch, no websockets): *awaiting payment* →
+    *verifying* → *cooking* → **READY** (flips the instant the cashier
+    taps Mark served), plus *Dismissed* when the window lapses. Bound
+    to the session and `users/{uid}`: reopenable from the signed-in
+    account with zero typing — the order code is displayed, never
+    entered. Active order only; no order history.
   - **proof of payment** — GCash confirmation **screenshot uploaded
-    from the order screen** → **auto-verified on arrival** (flagged
+    from the tracker** → **auto-verified on arrival** (flagged
     "unconfirmed" 5 min; the cashier taps **Reject** only on
     exception) → kitchen ticket appears the same instant.
-  - **expiry** — no payment by 15:00 → **Dismissed**: the order
-    screen flips in-session, the cashier queue auto-clears, and the
+  - **expiry** — no payment by 15:00 → **Dismissed**: the tracker
+    flips in-session, the cashier queue auto-clears, and the
     Dismissed list keeps Restore / Void.
 - **Open/closed badge** — computed from admin-configured hours per
   weekday, plus an admin **force-close override** (holiday /
@@ -378,8 +391,11 @@ All at `/`.
   `payments: [{method, amount}]`; the receipt prints the breakdown.
 - **Online pickup queue** — orders arrive ready-to-pay (no approval
   tap — the QR went out at placement); the screenshot **auto-verifies**
-  and the cashier taps **Reject** only on exception. **Mark served** is
-  the one happy-path tap.
+  and the cashier taps **Reject** only on exception. In-window orders
+  with **no screenshot yet** show as **awaiting proof**, so staff see
+  a customer waiting at the counter instead of a blank queue. **Mark
+  served** is the one happy-path tap — it flips the customer's
+  **order tracker** to **READY** the same instant.
 - **Retired orders** — **Dismissed list** (Restore / Void) and
   **Unclaimed** note (paid but never collected: money kept, manual
   note).
