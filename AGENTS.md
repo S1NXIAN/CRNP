@@ -11,3 +11,10 @@ Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `
 ### Domain docs
 
 Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
+
+### Flowcharts
+
+Spec edits that change a role's flow **update that role's chart before
+committing** — same commit, no exceptions; a stale chart is a bug. Charts:
+`docs/flow-charts/` → customer · cashier · kitchen · admin. Chart text stays
+declarative (what the system does), never build order.

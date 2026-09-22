@@ -5,6 +5,7 @@ flowchart TD
     A["Sign in — admin account<br/>/admin (role-guarded)"] --> B{"Area?"}
     B --> C["Dashboard: KPIs · 7-day trend<br/>best-sellers · peak hours"]
     B --> D["Products + inventory"]
+    B --> SA["Staff accounts<br/>role-guarded · no public signup"]
     B --> E["Settings"]
     B --> F["Reports"]
     D --> D1["Add/edit product + image<br/>server resize → base64 in RTDB"]
