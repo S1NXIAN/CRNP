@@ -1,15 +1,20 @@
 # Cashier (POS) flowchart
 
 One tap per online order on the happy path: **Mark served**.
-Proof auto-verifies; the cashier taps **Reject** only on exception.
+Proof auto-verifies; only an amount/ref mismatch flags — one-tap
+**Approve / Reject**, the exception.
 
 ```mermaid
 flowchart TD
     A["Sign in — staff account<br/>/cashier (role-guarded)"] --> B{"Task?"}
-    B --> C["Online pickup queue<br/>order code · screenshot auto-verified<br/>flagged 'unconfirmed' 5 min<br/>awaiting-proof row: in-window, no screenshot"]
+    B --> C["Online pickup queue<br/>order code · screenshot auto-verified<br/>flag = amount/ref mismatch → Approve / Reject<br/>recently-verified list: at-leisure spot-check<br/>awaiting-proof row: in-window, no screenshot"]
     B --> D["Walk-in ring-up: tap tiles<br/>promo price + totals compute<br/>split tender: type one number"]
     B --> E["New reservation — type phone<br/>typeahead prefills name/party/type<br/>new customer: 2 steps (≤3 + ≤2)<br/>dine-in / function room / catering"]
-    C -->|"bogus proof"| R["Reject — confirm<br/>order dismissed, tracker flips<br/>proof image deleted immediately"]
+    C -->|"flag: mismatch"| V{"Approve or Reject?"}
+    V -->|"Reject"| R["Reject — confirm<br/>rejection record + image kept 7 days<br/>order dismissed, tracker flips"]
+    V -->|"Approve"| F
+    C -.->|"spot-check · no quota"| SV["Recently-verified list<br/>Reject reachable until Mark served"]
+    SV -.->|"reject after the fact"| R
     C --> F["Settle / collect: split tender<br/>other tender + change compute"]
     D --> F
     F --> G["Receipt = one button"]

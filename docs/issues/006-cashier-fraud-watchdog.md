@@ -1,6 +1,6 @@
 # 006 — Cashier is the fraud watchdog on every screenshot
 
-**Status:** open
+**Status:** fixed
 **Severity:** medium (turns "default-yes" into per-order manual review)
 **Personas affected:** cashier (Seamlessness 6/10 driver)
 
@@ -44,7 +44,48 @@ remove.
 
 ## Acceptance criteria
 
-- [ ] The cashier's default state is **not watching** the queue.
-- [ ] Any residual review is bounded (< N orders/shift) and defined in
+- [x] The cashier's default state is **not watching** the queue.
+- [x] Any residual review is bounded (< N orders/shift) and defined in
       the plan, not implied.
-- [ ] Reject remains reachable for genuine exceptions after the fact.
+- [x] Reject remains reachable for genuine exceptions after the fact.
+
+## Resolution (2026-09-22)
+
+Combo: **exceptions + spot-check** (dirs 1 + 3; dirs 2/4 split), plus
+the owner's ruling on 002's flagged tradeoff.
+
+- **The blanket "unconfirmed" 5-min flag is gone** — the exception is
+  now *defined*: at attach the customer enters **amount paid**
+  (prefilled = order total) + **GCash ref#** (2 fields, ≤3-input rule
+  holds). `amount ≠ total` or blank ref# → **flagged hold**, both
+  numbers side by side, one-tap **Approve / Reject**, kitchen waits
+  for the tap. Everything else auto-verifies with zero human eyes.
+  Expected flag volume: **≤ 2/shift** — criterion 2's N, stated in
+  the plan (§4 proof attach + queue).
+- **Dir 2 declined (means)**: OCR adds an external dependency to
+  derive a number the customer can type, and ref#-match has no
+  source to verify against (no GCash API in scope — a "matched" ref
+  would be theater). The goal (only mismatches reach the cashier)
+  comes from the customer-entered amount vs known total — zero deps.
+  Dir 1's "first order from a new account" sub-signal declined too:
+  flags every first-time customer — noise, not exception.
+- **Dir 3 adopted — recently-verified list**: verified orders sit for
+  at-leisure spot-check, no quota, no timer (criterion 1: default
+  state is not watching). **Reject stays reachable until Mark
+  served** (criterion 3); after settlement the owner reviews via the
+  sales report + rejection record (dir 4's after-the-fact half).
+- **002 tradeoff revisited (owner ruling)**: rejected proofs are no
+  longer deleted immediately — kept **7 days after Reject** as
+  watchdog evidence, and Reject writes a **rejection record** (order
+  id, entered vs total, ref#, cashier, timestamp). Reverses 002's
+  addendum line; plan edit only, not a §2 recorded rejection (no
+  ADR).
+
+- `docs/PLAN.md` — §1 payment gate + Pay/prove item 15, §3
+  default-yes ×2, §4 proof attach, online pickup queue, proof
+  lifecycle, role table, acceptance happy path.
+- Charts: cashier (flag → Approve/Reject decision, recently-verified
+  list, 7-day rejection evidence), customer (amount + ref at attach).
+- `CONTEXT.md` — **Payment verified** amended; new **Flagged hold**,
+  **Recently-verified list** terms.
+- No ADR.

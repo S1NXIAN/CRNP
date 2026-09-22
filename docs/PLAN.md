@@ -26,7 +26,7 @@ demonstrated end-to-end, not localhost-only.
 | Area | URL prefix | Purpose |
 |---|---|---|
 | Customer | `/` | **Online ordering (pickup):** category menu → cart → place order → GCash QR auto-sent (proof auto-verified); product pages, about/branches, open/closed status, announcement banner, item tags, favorites; **Sign in with Google** required to order |
-| Cashier/POS | `/cashier` | Walk-in orders, **split payment (GCash + cash)**, **online pickup queue** (auto-verify → Reject exception, Dismissed / Unclaimed lists), **reservation scheduling** (dine-in, function room, catering), receipts |
+| Cashier/POS | `/cashier` | Walk-in orders, **split payment (GCash + cash)**, **online pickup queue** (auto-verify, mismatch flags → one-tap Approve/Reject, recently-verified spot-check, Dismissed / Unclaimed lists), **reservation scheduling** (dine-in, function room, catering), receipts |
 | Kitchen | `/kitchen` | **Read-only** ticket display: **NOW** (oldest-first, age timers, all-day) + **LATER** (scheduled pickups, auto-promoted) — no login, no cook interaction |
 | Admin | `/admin` | Dashboard (sales analytics), products + inventory, staff, settings, reports |
 
@@ -37,9 +37,10 @@ Domain vocabulary (glossary: [CONTEXT.md](../CONTEXT.md)):
   **walk-in** (cashier at the POS, split tender, table name added there).
 - **Payment is the gate** — no cashier approval before the QR: placing
   the order auto-sends it (15-min payment window), and the uploaded
-  GCash screenshot **auto-verifies**. Default-yes: the cashier taps
-  **Reject** only on exception; one tap per order on the happy path
-  (**Mark served**).
+  GCash screenshot **auto-verifies** unless the customer's entered
+  amount or GCash ref# mismatches (**flagged hold**). Default-yes:
+  the cashier taps **Approve / Reject** only on a flag; one tap per
+  order on the happy path (**Mark served**).
 - **Dismissed** — payment window missed: active queue auto-clears, the
   order lands in a Dismissed list (Restore / Void), the customer's
   **order tracker** flips in-session.
@@ -115,9 +116,12 @@ preference sync require Sign in with Google.**
     account, the **order code** shown, never typed. Customer pays
     GCash → takes the OS screenshot → taps **Attach payment
     screenshot**: the native picker opens on the newest image and
-    selection auto-uploads (no Submit) → **auto-verified on arrival**
-    (cashier taps **Reject** only when bogus) → kitchen ticket appears
-    the same instant. At 15:00 → **Dismissed only when no proof
+    selection auto-uploads (no Submit) → **amount paid** (prefilled =
+    order total) + **GCash ref#** typed → **auto-verified on
+    arrival** when both match → kitchen ticket appears the same
+    instant; a mismatch (or blank ref#) lands a **flagged hold**
+    instead — both numbers side by side, cashier taps **Approve or
+    Reject**, kitchen waits for the tap. At 15:00 → **Dismissed only when no proof
     exists** — an upload started before the window closes wins the
     race and holds the order; only the zero-proof case flips the
     tracker to "Order dismissed — no payment received", auto-clears
@@ -230,10 +234,11 @@ Per surface:
   change compute themselves; payment is two tenders (GCash + cash,
   split allowed — cashier types one number, the other and the change
   compute themselves); receipt = one button; online queue runs
-  **default-yes**: proof auto-verifies, the cashier taps **Reject**
-  only on exception, **Mark served** is the one happy-path tap, and
-  Dismissed/Unclaimed lists absorb everything the system retires;
-  reservation = the guided screen below.
+  **default-yes**: proof auto-verifies, only an amount/ref mismatch
+  flags (**Approve / Reject** — the exception), **Mark served** is
+  the one happy-path tap; Dismissed/Unclaimed lists absorb
+  everything the system retires; reservation = the guided screen
+  below.
 - **Kitchen** — total by design: zero input, zero login, zero editing.
 - **Admin** — buttons over forms: one **Add promo** button per product
   row → segmented `% / ₱` control + one number + live preview ("customer
@@ -251,8 +256,9 @@ Universal patterns:
 - **Smart defaults pre-filled** (opening hours, receipt header,
   low-stock threshold): the human edits only what differs.
 - **Default-yes, exception-only taps** — the system acts first and the
-  human taps only to object (GCash proof auto-verifies; **Reject** is
-  the exception). Target: **one tap per online order** (Mark served).
+  human taps only to object (GCash proof auto-verifies; only an
+  amount/ref mismatch flags — **Reject** is the exception). Target:
+  **one tap per online order** (Mark served).
 - **Inline steppers over edit forms** — stock adjust is `− / +` on the
   row, not a modal.
 - **Every click confirms itself**: toast + row updates in place
@@ -318,9 +324,10 @@ order of work.
   trust the client). Held **out-of-band** — queue, tracker, and
   board list reads never carry image bytes. A daily end-of-day
   sweep (`Asia/Manila`) nulls `proof` on terminal orders (served /
-  voided) **7 days** after `settledAt`; a **rejected** proof is
-  deleted **immediately** on Reject. Order row and sales history
-  are untouched — only the image goes.
+  voided) **7 days** after `settledAt`; a **rejected** proof is kept
+  **7 days after Reject** as watchdog evidence, then the same sweep
+  nulls it. Order row and sales history are untouched — only the
+  image goes.
 - Customer writes are **server-mediated through Laravel** (order POST,
   `users/{uid}` prefs) — never direct client writes.
 - A rules fixture backs a Pest smoke test of the layer.
@@ -378,13 +385,17 @@ All at `/`.
   - **proof of payment** — GCash confirmation screenshot **attached
     from the tracker**: one **Attach payment screenshot** button →
     native picker opens on the **newest image** → selection
-    **auto-uploads, no Submit** → **auto-verified on arrival** (flagged
-    "unconfirmed" 5 min; the cashier taps **Reject** only on
-    exception) → kitchen ticket appears the same instant. ≤2 in-page
-    taps (button + newest thumbnail; iOS's picker sheet adds one).
-    Selection is **compressed client-side** first (adaptive JPEG:
-    ≤300 KB, ≥720 px floor) and re-encoded to the same ceiling
-    server-side — a 3 MB screenshot never reaches RTDB.
+    **auto-uploads, no Submit** → two fields: **amount paid**
+    (prefilled = order total; edit only what differs) + **GCash
+    ref#** → **auto-verified on arrival** when amount = order total
+    and ref# is present; anything else lands a **flagged hold**
+    (cashier taps **Approve or Reject**; kitchen waits for the tap).
+    The flag replaces the blanket "unconfirmed" 5-min watch: only
+    mismatches reach a human, expected **≤ 2/shift**. ≤2 in-page
+    taps + 2 fields (button + newest thumbnail; iOS's picker sheet
+    adds one). Selection is **compressed client-side** first
+    (adaptive JPEG: ≤300 KB, ≥720 px floor) and re-encoded to the
+    same ceiling server-side — a 3 MB screenshot never reaches RTDB.
   - **expiry** — 15:00 → **Dismissed only when no proof exists**: an
     upload started before the window closes wins the race and holds
     the order for verify. Zero proof flips the tracker in-session,
@@ -424,13 +435,21 @@ All at `/`.
   `payments: [{method, amount}]`; the receipt prints the breakdown.
 - **Online pickup queue** — orders arrive ready-to-pay (no approval
   tap — the QR went out at placement); the screenshot **auto-verifies**
-  and the cashier taps **Reject** only on exception. In-window orders
-  with **no screenshot yet** show as **awaiting proof**, so staff see
-  a customer waiting at the counter instead of a blank queue. A proof
-  upload that started before 15:00 **holds** the order — the expiry
-  sweep dismisses only **zero-proof** orders. **Mark served** is the
-  one happy-path tap — it flips the customer's **order tracker** to
-  **READY** the same instant.
+  and the cashier taps **Reject** only on exception — the exception
+  being a **flagged hold**: entered amount ≠ order total or blank
+  ref#, shown with both numbers side by side for one-tap
+  **Approve / Reject** (kitchen waits for the tap; expected
+  **≤ 2/shift** — verified orders are never a watching duty).
+  Verified orders land in a **recently-verified list** for at-leisure
+  spot-check: no quota, no timer, **Reject stays reachable until
+  Mark served**; Reject writes a **rejection record** (order id,
+  entered vs total, ref#, who, when) and keeps the image **7 days**
+  as evidence. In-window orders with **no screenshot yet** show as
+  **awaiting proof**, so staff see a customer waiting at the counter
+  instead of a blank queue. A proof upload that started before 15:00
+  **holds** the order — the expiry sweep dismisses only **zero-proof**
+  orders. **Mark served** is the one happy-path tap — it flips the
+  customer's **order tracker** to **READY** the same instant.
 - **Retired orders** — **Dismissed list** (Restore / Void) and
   **Unclaimed** note (paid but never collected: money kept, manual
   note).
@@ -522,7 +541,8 @@ Spec: the server owns everything, the cook owns nothing.
 - **Happy path** — browse menu by category → cart → **Sign in with
   Google** → place order → **GCash QR auto-appears** (15-min window
   running) → pay + **Attach screenshot** (newest thumbnail,
-  auto-uploads) → **auto-verified** → kitchen
+  auto-uploads; amount prefilled + ref# typed) → **auto-verified**
+  → kitchen
   ticket (order code, running timer; a scheduled pickup sits dimmed
   in LATER, then promotes) → **Mark served** → customer collects with
   the order code → the sale shows in analytics.

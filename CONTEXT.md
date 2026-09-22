@@ -34,8 +34,16 @@ The 15 minutes an online order has to be paid, starting when the GCash QR goes o
 _Avoid_: timeout, expiry period, order timer
 
 **Payment verified**:
-The order's GCash payment has been accepted — by the system on screenshot upload, or kept under review until the cashier clears it. Only verified orders reach the kitchen.
+The order's GCash payment has been accepted — by the system on screenshot upload, unless the entered amount or GCash ref# mismatches, which holds it for the cashier's one-tap Approve/Reject. Only verified orders reach the kitchen.
 _Avoid_: payment confirmed, paid status, payment approved
+
+**Flagged hold**:
+An order whose entered amount ≠ order total or whose GCash ref# is missing — parked for one Approve/Reject tap. The only thing that interrupts auto-verify; the kitchen waits on it.
+_Avoid_: unconfirmed, pending review, 5-min flag
+
+**Recently-verified list**:
+Auto-verified orders kept for at-leisure spot-checking — no quota, no timer; Reject stays reachable until Mark served.
+_Avoid_: audit queue, sampling queue, review queue
 
 **Dismissed**:
 An online order whose payment window expired unpaid. Auto-clears the active queues; retained for restore or void.

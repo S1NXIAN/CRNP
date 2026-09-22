@@ -87,7 +87,8 @@ Raised after the fix: unconstrained screenshots (3 MB phone shots →
   deleted).
 - **Rejected proof = deleted immediately** on Reject — bogus images
   keep no bytes; the rejection event itself stays recorded on the
-  order.
+  order. **Revisited in issue 006 (owner ruling): rejected images
+  are kept 7 days as watchdog evidence** — see 006's Resolution.
 
 Tradeoff flagged for **issue 006**: the fraud watchdog works off the
 rejection *record*, not the discarded image — revisit at 003 triage
