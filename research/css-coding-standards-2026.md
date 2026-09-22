@@ -65,7 +65,7 @@ Decision table — one mechanism per situation (mechanism split from README §2 
 - Entering/exiting elements hidden with `display: none` MUST use `transition-behavior: allow-discrete` together with `@starting-style`; that pair is the required structure for fade-in/out of `display` ([MDN: Using CSS transitions](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Transitions/Using)).
 - Every duration and delay MUST use a `--duration-*` token and every easing a `--ease-*` token; literal `ms`/`s` values MUST NOT appear in component or motion rules (project token rule, README §2).
 - All non-essential motion that moves or scales content MUST be reduced or removed under `@media (prefers-reduced-motion: reduce)` — fades in place of translation/scale are acceptable ([MDN: `prefers-reduced-motion`](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@media/prefers-reduced-motion): the feature lets users request minimal non-essential motion; [MDN: Web Animations API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Animations_API) applies the same note to JS-driven animation).
-- The kitchen new-order flash MUST NEVER flash more than 3 times in any one-second period (WCAG 2.2 Level A, flashing content can trigger seizures) ([WCAG 2.3.1 Three Flashes or Below Threshold](https://www.w3.org/WAI/WCAG22/Understanding/three-flashes-or-below-threshold)).
+- Flashing or strobing content MUST NEVER flash more than 3 times in any one-second period (WCAG 2.2 Level A, flashing content can trigger seizures) ([WCAG 2.3.1 Three Flashes or Below Threshold](https://www.w3.org/WAI/WCAG22/Understanding/three-flashes-or-below-threshold)).
 - Blinking content (e.g., an attention blink) MUST stop by itself within 5 seconds or MUST provide a mechanism to pause, stop, or hide it ([WCAG 2.2.2 Pause, Stop, Hide](https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide); sufficient techniques G11/G152/SCR22 and failure F112 are listed on that page).
 
 ## 6. Responsive layout: mobile-first
@@ -97,7 +97,6 @@ Decision table — one mechanism per situation (mechanism split from README §2 
 - Computed contrast MUST NOT be rounded when checking thresholds — 4.499:1 fails 4.5:1 ([WCAG 1.4.3 Contrast (Minimum)](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum)).
 - Non-text UI components (input borders, control states), focus indicators, and meaningful graphical objects MUST have ≥3:1 contrast against adjacent colors ([WCAG 1.4.11 Non-Text Contrast](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast)).
 - State and meaning (error, promo, low stock, valid/invalid) MUST NOT be conveyed by color alone — each MUST also carry text or a shape/icon cue ([WCAG 1.4.1 Use of Color (Level A)](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color); failure F81 on that page covers required/error fields identified by color only).
-- The kitchen ticket's 12-minute "late" state MUST NOT be conveyed by red alone — the running numeric age MUST remain visible alongside the color change ([WCAG 1.4.1](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color); project feature: README §3/§5 "age timers (red at 12 min)").
 
 ### 7.3 Reflow and text
 
@@ -107,7 +106,6 @@ Decision table — one mechanism per situation (mechanism split from README §2 
 ### 7.4 Touch targets
 
 - Every pointer-input target MUST be at least 24×24 CSS px ([WCAG 2.5.8 Target Size (Minimum) (Level AA)](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum)).
-- Cashier/POS touch targets MUST be ≥44 px (project rule, README §3 "cashier touch targets ≥44 px" — stricter than the 24 px WCAG floor; its spacing exception must not be needed on POS tiles).
 
 ## 8. Source list
 
