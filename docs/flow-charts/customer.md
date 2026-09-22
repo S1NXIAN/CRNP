@@ -18,9 +18,9 @@ flowchart TD
     H -->|"yes"| I
     I --> J["Place order — POST to Laravel<br/>validated · stock-checked · throttled<br/>→ order code + GCash QR auto-sent<br/>15-min payment window starts"]
     J --> T["Order tracker — live status screen<br/>session/account-bound · order code shown, never typed<br/>5–10 s poll: awaiting payment → verifying → cooking → READY"]
-    T --> K{"Paid within 15 min?"}
-    K -->|"no"| L["Dismissed — tracker flips:<br/>'Order dismissed — no payment received'<br/>queue auto-clears · Dismissed list"]
-    K -->|"yes"| M["Pay GCash → upload screenshot<br/>auto-verified (cashier Reject on exception)"]
+    T --> K{"Proof attached by 15:00?"}
+    K -->|"zero proof"| L["Dismissed (zero proof at 15:00) — tracker flips:<br/>'Order dismissed — no payment received'<br/>queue auto-clears · Dismissed list"]
+    K -->|"yes"| M["Pay GCash → OS screenshot → Attach<br/>newest thumbnail · auto-uploads<br/>auto-verified (cashier Reject on exception)"]
     M --> N["Same instant → kitchen ticket:<br/>order code + age timer<br/>scheduled pickup: dimmed in LATER,<br/>promoted at pickup − 15 min"]
     N --> O["Cooked → cashier Mark served<br/>tracker flips cooking → READY same instant<br/>collect with order code · feeds analytics"]
     O -.->|"paid, never collected"| P["Unclaimed — money kept"]

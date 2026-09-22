@@ -30,7 +30,7 @@ _Avoid_: order status page, order history, tracking ID
 ### Payment lifecycle
 
 **Payment window**:
-The 15 minutes an online order has to be paid, starting when the GCash QR goes out.
+The 15 minutes an online order has to be paid, starting when the GCash QR goes out. Ends in dismissal only when no proof was sent — an upload started inside the window holds.
 _Avoid_: timeout, expiry period, order timer
 
 **Payment verified**:

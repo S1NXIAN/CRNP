@@ -108,12 +108,16 @@ preference sync require Sign in with Google.**
     READY*), polling every 5–10 s (no push, no websockets), bound to
     the session and `users/{uid}` — reopenable from the signed-in
     account, the **order code** shown, never typed. Customer pays
-    GCash → uploads the confirmation screenshot from the tracker →
-    **auto-verified** (cashier taps **Reject** only when bogus) →
-    kitchen ticket appears the same instant. No payment by 15:00 →
-    **Dismissed**: the tracker flips to "Order dismissed — no payment
-    received", the cashier's queue auto-clears, the order lands in the
-    **Dismissed list** (Restore / Void).
+    GCash → takes the OS screenshot → taps **Attach payment
+    screenshot**: the native picker opens on the newest image and
+    selection auto-uploads (no Submit) → **auto-verified on arrival**
+    (cashier taps **Reject** only when bogus) → kitchen ticket appears
+    the same instant. At 15:00 → **Dismissed only when no proof
+    exists** — an upload started before the window closes wins the
+    race and holds the order; only the zero-proof case flips the
+    tracker to "Order dismissed — no payment received", auto-clears
+    the cashier's queue, and lands the order in the **Dismissed list**
+    (Restore / Void).
 16. **Collect** — cooked → cashier **Mark served** (the single happy-
     path tap) → the tracker flips **cooking → READY** the same instant
     → customer collects with the **order code** → order feeds sales &
@@ -129,10 +133,12 @@ preference sync require Sign in with Google.**
 3. **Order** — cart → *Sign in with Google* (once) → pickup time
    (default ASAP) → Place order → **GCash QR appears immediately**
    (auto-sent, 15-min window starts).
-4. **Pay** — pay → upload screenshot → **auto-verified** → kitchen
-   ticket same instant (scheduled pickup: dimmed in LATER, promoted
-   at pickup − 15 min); the **order tracker** shows the live state
-   (awaiting payment / verifying / cooking / dismissed).
+4. **Pay** — pay → OS screenshot → **Attach** (newest thumbnail,
+   auto-uploads) → **auto-verified** → kitchen ticket same instant
+   (scheduled pickup: dimmed in LATER, promoted at pickup − 15 min);
+   a slow upload holds past 15:00 — only zero proof dismisses; the
+   **order tracker** shows the live state (awaiting payment /
+   verifying / cooking / dismissed).
 5. **Collect** — cooked → cashier **Mark served** → the tracker
    flips **READY** → customer collects with the order code → shows in
    analytics.
@@ -351,13 +357,18 @@ All at `/`.
     to the session and `users/{uid}`: reopenable from the signed-in
     account with zero typing — the order code is displayed, never
     entered. Active order only; no order history.
-  - **proof of payment** — GCash confirmation **screenshot uploaded
-    from the tracker** → **auto-verified on arrival** (flagged
+  - **proof of payment** — GCash confirmation screenshot **attached
+    from the tracker**: one **Attach payment screenshot** button →
+    native picker opens on the **newest image** → selection
+    **auto-uploads, no Submit** → **auto-verified on arrival** (flagged
     "unconfirmed" 5 min; the cashier taps **Reject** only on
-    exception) → kitchen ticket appears the same instant.
-  - **expiry** — no payment by 15:00 → **Dismissed**: the tracker
-    flips in-session, the cashier queue auto-clears, and the
-    Dismissed list keeps Restore / Void.
+    exception) → kitchen ticket appears the same instant. ≤2 in-page
+    taps (button + newest thumbnail; iOS's picker sheet adds one).
+  - **expiry** — 15:00 → **Dismissed only when no proof exists**: an
+    upload started before the window closes wins the race and holds
+    the order for verify. Zero proof flips the tracker in-session,
+    auto-clears the cashier queue, and the Dismissed list keeps
+    Restore / Void.
 - **Open/closed badge** — computed from admin-configured hours per
   weekday, plus an admin **force-close override** (holiday /
   temporary closure); place-order is disabled while closed.
@@ -393,9 +404,11 @@ All at `/`.
   tap — the QR went out at placement); the screenshot **auto-verifies**
   and the cashier taps **Reject** only on exception. In-window orders
   with **no screenshot yet** show as **awaiting proof**, so staff see
-  a customer waiting at the counter instead of a blank queue. **Mark
-  served** is the one happy-path tap — it flips the customer's
-  **order tracker** to **READY** the same instant.
+  a customer waiting at the counter instead of a blank queue. A proof
+  upload that started before 15:00 **holds** the order — the expiry
+  sweep dismisses only **zero-proof** orders. **Mark served** is the
+  one happy-path tap — it flips the customer's **order tracker** to
+  **READY** the same instant.
 - **Retired orders** — **Dismissed list** (Restore / Void) and
   **Unclaimed** note (paid but never collected: money kept, manual
   note).
@@ -455,12 +468,13 @@ Spec: the server owns everything, the cook owns nothing.
 
 - **Happy path** — browse menu by category → cart → **Sign in with
   Google** → place order → **GCash QR auto-appears** (15-min window
-  running) → pay + upload screenshot → **auto-verified** → kitchen
+  running) → pay + **Attach screenshot** (newest thumbnail,
+  auto-uploads) → **auto-verified** → kitchen
   ticket (order code, running timer; a scheduled pickup sits dimmed
   in LATER, then promotes) → **Mark served** → customer collects with
   the order code → the sale shows in analytics.
-- **Negative beats** — an unpaid order **dismisses** at 15:00 (screen
-  flips, queue clears); a conflicting reservation is rejected.
+- **Negative beats** — a proof-less order **dismisses** at 15:00
+  (tracker flips, queue clears); a conflicting reservation is rejected.
 - **Staff paths** — a walk-in ring-up with split tender → receipt; a
   reservation entered → conflict blocked → confirm → shows on the
   calendar; a sale appears in the analytics dashboard.

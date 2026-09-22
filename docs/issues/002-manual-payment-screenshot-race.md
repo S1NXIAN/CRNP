@@ -1,6 +1,6 @@
 # 002 — Manual screenshot upload races the 15-min payment window
 
-**Status:** open
+**Status:** fixed
 **Severity:** critical (biggest manual chore in the "system-assisted" flow)
 **Personas affected:** customer (Ease 6/10 driver), cashier
 
@@ -38,6 +38,32 @@ stakes step is fully manual.
 
 ## Acceptance criteria
 
-- [ ] A normal person can complete payment proof in **≤2 taps**.
-- [ ] No legitimate payer gets Dismissed for a slow/blurry upload.
-- [ ] Auto-verify path stays human-free on the happy path.
+- [x] A normal person can complete payment proof in **≤2 taps**.
+- [x] No legitimate payer gets Dismissed for a slow/blurry upload.
+- [x] Auto-verify path stays human-free on the happy path.
+
+## Resolution (2026-09-22)
+
+Chosen: **attach-from-recents + proof-hold** (revises direction 2,
+adopts direction 4):
+
+- **Attach-from-recents** — one **Attach payment screenshot** button →
+  native picker opens on the newest image → selection auto-uploads,
+  auto-verifies. Camera dropped: the GCash confirmation is on the
+  *same* phone as the tracker, so "photograph it" points at the wrong
+  device. In-page taps: 2 on Android, 3 on iOS (file-input sheet);
+  the OS screenshot gesture sits outside every direction, including 3's
+  typing.
+- **Proof-hold** — the 15:00 sweep dismisses only when `proof` is
+  null; an upload started before the window closes wins the race and
+  holds the order. Reject-on-bogus still dismisses.
+
+- `docs/PLAN.md` — §1 item 15, customer flow step 4; §4 proof /
+  expiry bullets + pickup queue.
+- `docs/flow-charts/customer.md`, `docs/flow-charts/cashier.md`
+  updated (kitchen untouched).
+- `CONTEXT.md` — Payment window term records the zero-proof rule.
+- Direction 1 subsumed by proof-hold; direction 3 declined (typed ref
+  needs a GCash transaction-matching capability or cashier eyeballing
+  = human on the happy path, plus ToS work; violates click-first). No
+  ADR — no recorded rejection reversed.
