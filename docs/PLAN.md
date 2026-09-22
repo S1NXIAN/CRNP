@@ -349,10 +349,17 @@ order of work.
      Freshness is unchanged — the entry is never older than the
      cadence the client already accepts. `file` cache driver, no new
      dependency.
-  2. **Cache the catalog** — `/` menu, product pages, and the
-     `stats/top3` chip read through a **60–300 s cache**. Product
-     images are base64-in-RTDB and change only on an admin edit, so a
-     page view must never re-read their bytes.
+  2. **Cache the catalog, invalidate on write** — `/` menu, product
+     pages, and the `stats/top3` chip read through a **60–300 s
+     cache**. Product images are base64-in-RTDB and change only on an
+     admin edit, so a page view must never re-read their bytes. Every
+     write that can change what those screens render — price, promo,
+     visibility, category, add-ons, image, and each sale that
+     rewrites `stats/top3` — **evicts the catalog keys in the same
+     request** (`Cache::forget`), so the TTL is a backstop for the
+     nobody-edited case, never the propagation path. Site and register
+     cannot disagree on a price (§4 *Customer site*): a customer is
+     never shown a figure the POS won't charge.
   3. **Shallow, projected, bounded reads** — list, board, and queue
      payloads carry scalar fields only and are field-projected;
      proofs stay out-of-band (above). No code path may read a whole
