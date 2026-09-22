@@ -317,8 +317,11 @@ order of work.
   **Settings** — behind `RtdbClient` (service-account OAuth token
   cache); Laravel never touches Eloquent/SQL.
 - Every query is declared in `database.rules.json` with `.indexOn`;
-  stock decrements **after** insert; URLs come from `route()`; all
-  times evaluate in `Asia/Manila` (Render runs UTC).
+  stock decrements **after** insert; a restore (the Restore / Void
+  path) reverts by the **Firebase key stored in the order's items
+  array** — never by name — and checks order status first to avoid a
+  double-restore; URLs come from `route()`; all times evaluate in
+  `Asia/Manila` (Render runs UTC).
 - Customer writes are **server-mediated through Laravel** (order POST,
   `users/{uid}` prefs) — never direct client writes.
 - A rules fixture backs a Pest smoke test of the layer.
@@ -350,7 +353,9 @@ All at `/`.
 - **Favorites + saved prefs** — the heart on a product card toggles a
   per-account favorite; each product's last add-on selection is
   re-checked next visit, on any device — stored at `users/{uid}`.
-  These actions prompt sign-in; browsing never does.
+  These actions prompt sign-in; browsing never does. There is **no
+  favorites page or filter in v1** — hearts persist and sync, nothing
+  more.
 - **Cart → checkout** — placing the order requires **Sign in with
   Google** (browse stays open; session must be live at POST). Online
   orders are **pickup-only, GCash-only** — no table field, no Pay at
@@ -391,7 +396,8 @@ All at `/`.
     have a recorded sale** in the window — no waiting for a full week
     of history, no display gate. It always shows the current top ≤ 3,
     ranked by units sold with ties broken by revenue then name; empty
-    window → no tag. Ranking is cached at `stats/top3` and read by
+    window → no tag. The chip reads exactly **"Top 3"** — no "last 7
+    days" suffix. Ranking is cached at `stats/top3` and read by
     the product-card render.
 
 ### Cashier POS
