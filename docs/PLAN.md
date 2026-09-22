@@ -303,6 +303,16 @@ order of work.
   array** — never by name — and checks order status first to avoid a
   double-restore; URLs come from `route()`; all times evaluate in
   `Asia/Manila` (server clock is UTC).
+- **Proof lifecycle** — screenshots land compressed at
+  `orders/{id}/proof`: client-side canvas on selection (adaptive
+  JPEG — ≤300 KB target, ≥720 px legibility floor so receipt text
+  stays readable), server re-encodes to the same ceiling (never
+  trust the client). Held **out-of-band** — queue, tracker, and
+  board list reads never carry image bytes. A daily end-of-day
+  sweep (`Asia/Manila`) nulls `proof` on terminal orders (served /
+  voided) **7 days** after `settledAt`; a **rejected** proof is
+  deleted **immediately** on Reject. Order row and sales history
+  are untouched — only the image goes.
 - Customer writes are **server-mediated through Laravel** (order POST,
   `users/{uid}` prefs) — never direct client writes.
 - A rules fixture backs a Pest smoke test of the layer.
@@ -364,6 +374,9 @@ All at `/`.
     "unconfirmed" 5 min; the cashier taps **Reject** only on
     exception) → kitchen ticket appears the same instant. ≤2 in-page
     taps (button + newest thumbnail; iOS's picker sheet adds one).
+    Selection is **compressed client-side** first (adaptive JPEG:
+    ≤300 KB, ≥720 px floor) and re-encoded to the same ceiling
+    server-side — a 3 MB screenshot never reaches RTDB.
   - **expiry** — 15:00 → **Dismissed only when no proof exists**: an
     upload started before the window closes wins the race and holds
     the order for verify. Zero proof flips the tracker in-session,

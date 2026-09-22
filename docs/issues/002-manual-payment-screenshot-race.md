@@ -67,3 +67,33 @@ adopts direction 4):
   needs a GCash transaction-matching capability or cashier eyeballing
   = human on the happy path, plus ToS work; violates click-first). No
   ADR — no recorded rejection reversed.
+
+## Addendum (2026-09-22) — proof storage flood + cleanup
+
+Raised after the fix: unconstrained screenshots (3 MB phone shots →
+~4 MB base64 in RTDB each) would flood the datastore (~400 MB/day at
+100 online orders).
+
+- **Compress client + server** — canvas on selection, adaptive JPEG
+  ≤300 KB with ≥720 px legibility floor (receipt text stays
+  readable); server re-encodes to the same ceiling — never trust the
+  client. Extends §4 Admin's product-image rule to the upload path,
+  zero dependencies (canvas API).
+- **Out-of-band** — `orders/{id}/proof`; queue/tracker/board list
+  reads never carry image bytes, so 5–10 s polls stay kilobytes.
+- **Daily end-of-day sweep** (`Asia/Manila`) — nulls `proof` on
+  terminal orders (served / voided) **7 days** after `settledAt`;
+  order row and sales history untouched (raw sales rows are never
+  deleted).
+- **Rejected proof = deleted immediately** on Reject — bogus images
+  keep no bytes; the rejection event itself stays recorded on the
+  order.
+
+Tradeoff flagged for **issue 006**: the fraud watchdog works off the
+rejection *record*, not the discarded image — revisit at 003 triage
+if after-the-fact image review is needed.
+
+- `docs/PLAN.md` — §4 Data layer (proof lifecycle) + proof-of-payment
+  bullet.
+- `docs/flow-charts/cashier.md` — Reject node notes immediate
+  deletion.
