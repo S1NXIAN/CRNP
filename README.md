@@ -73,6 +73,72 @@ flowchart TD
   DB --> A3
 ```
 
+Per-role flowcharts: [customer](docs/flow-charts/customer.md) ·
+[cashier](docs/flow-charts/cashier.md) ·
+[kitchen](docs/flow-charts/kitchen.md) ·
+[admin](docs/flow-charts/admin.md).
+
+### Customer side — feature list
+
+All at `/`. **Browse is open to everyone; ordering, favoriting, and
+preference sync require Sign in with Google.**
+
+**A. Browse — no login**
+
+1. **Menu (landing)** — products grouped under category titles
+   ("All Products"); promo prices struck through with computed "% off".
+2. **Category filter** — tap a category chip → only that category.
+3. **Product cards** — image, price, **promo** and **top-3 · last
+   7 days** tags (top-3 hidden until a week of sales exists), favorite
+   heart (tapping while signed out prompts the Google button).
+4. **Product page** — image, price/promo, details.
+5. **Open/closed badge** — computed from admin hours per weekday +
+   force-close toggle; place-order disabled while closed.
+6. **Announcement banner** — admin-written, site-wide.
+7. **About / branches** page.
+8. **Cart** — inline steppers, add-on picks, computed totals (the
+   system does the math; the human types nothing).
+
+**B. Account — one Google button**
+
+9. **Sign in with Google** — no form, no OTP, no password; session
+   remembered; browsing never gated.
+10. **Favorites** — heart toggles per-account favorites, synced
+    cross-device via `users/{uid}`.
+11. **Saved add-on prefs** — a product's last add-on selection comes
+    pre-checked next visit, on any device.
+
+**C. Checkout — login required, 3 taps**
+
+12. **Table name** — required; shown to cashier and on the kitchen
+    ticket.
+13. **Payment method** — Pay at Counter | GCash → **QR in its branded
+    frame** (official image, never re-rendered).
+14. **Place order** — POST to Laravel → validated, stock-checked,
+    `throttle`d per-IP → **order number** returned.
+
+**D. After ordering**
+
+15. **Order joins the one shared stream** — kitchen ticket (table
+    name + age timer), cashier's online-orders queue (table name ·
+    payment method).
+16. **Served** → cashier clears the ticket → order feeds sales &
+    analytics; receipt at the counter. No status workflow, no order
+    history in v1.
+
+### Customer flow
+
+1. **Arrive** — `/` shows menu, open/closed badge, banner, tags,
+   computed prices. No wall.
+2. **Browse** — filter by category → product page → add to cart
+   (steppers, add-ons; heart prompts sign-in if signed out).
+3. **Order** — cart → *Sign in with Google* (once) → **table name**
+   → **payment** (GCash → QR frame) → Place order.
+4. **Land** — order number on screen; same instant RTDB → kitchen
+   ticket with running timer + cashier's online-orders queue.
+5. **Serve** — cooked → carried → cashier marks served → shows in
+   analytics.
+
 ## 2. Stack — decided
 
 | Layer | Choice | Why |
