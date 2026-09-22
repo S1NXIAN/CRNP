@@ -31,7 +31,7 @@ Plus two display-timing gripes:
 
 - `docs/PLAN.md` §1 — "kitchen ticket appears the same instant [as
   auto-verify]"; "tickets clear on **Mark served**."
-- `docs/PLAN.md` §5 *Kitchen board — Hygiene* — NEW flash ~5 s, 5–10 s fetch, heartbeat
+- `docs/PLAN.md` §4 *Kitchen board — Hygiene* — NEW flash ~5 s, 5–10 s fetch, heartbeat
   grey-out at ~15 s.
 - `docs/flow-charts/kitchen.md`.
 

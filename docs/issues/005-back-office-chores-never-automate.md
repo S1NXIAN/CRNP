@@ -23,9 +23,9 @@ itself":
 
 ## Plan references
 
-- `docs/PLAN.md` §5 *Admin — Inventory* — "inventory monitoring (stock movement,
+- `docs/PLAN.md` §4 *Admin — Inventory* — "inventory monitoring (stock movement,
   low-stock flags …)" — decrement only.
-- `docs/PLAN.md` §5 *Acceptance* — "weekly export-backup **documented**."
+- `docs/PLAN.md` §4 *Acceptance* — "weekly export-backup **documented**."
 - `docs/PLAN.md` §1 item 5 — "admin hours per weekday + force-close
   toggle" (no scheduling).
 
@@ -34,9 +34,9 @@ itself":
 1. **Restock path** — add a receiving action (supplier, qty, date) to the
    stock steppers; keep it 1-tap via an "Add stock" row action. Low-stock
    list gets a restock button.
-2. **Scheduled backup** — convert the documented weekly export to the
-   in-container cron already used for keepalive (`render.yaml` / §4);
-   owner reads a "last backup" badge instead of running anything.
+2. **Scheduled backup** — convert the documented weekly export to a
+   scheduled cron; owner reads a "last backup" badge instead of running
+   anything.
 3. **Scheduled closures** — date-range picker for holidays that flips
    force-close automatically; keep the bare toggle for emergencies.
 4. **Optional: low-stock reorder note** — system drafts a reorder list

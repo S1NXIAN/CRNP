@@ -23,7 +23,7 @@ remove.
 
 - `docs/PLAN.md` §1 — "the customer's uploaded GCash screenshot
   **auto-verifies**; the cashier taps **Reject** only on exception."
-- `docs/PLAN.md` §5 *Customer site & ordering — Cart → checkout* — "flagged 'unconfirmed' 5 min; cashier taps
+- `docs/PLAN.md` §4 *Customer site & ordering — Cart → checkout* — "flagged 'unconfirmed' 5 min; cashier taps
   Reject only on exception."
 - `docs/PLAN.md` §3 — "Default-yes, exception-only taps."
 

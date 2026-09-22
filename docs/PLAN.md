@@ -14,8 +14,7 @@ board, and the owner manages menu, inventory, staff, and reports.
 - [1. Vision](#1-vision) — roles, surfaces, customer flow
 - [2. Stack — decided](#2-stack--decided) — framework, database, hosting
 - [3. Design system](#3-design-system) — click-first UX, density rules
-- [4. Deployment topology](#4-deployment-topology) — one image, one DB
-- [5. Features](#5-features) — data, auth, ordering, POS, kitchen, admin
+- [4. Features](#4-features) — data, auth, ordering, POS, kitchen, admin
 
 ## 1. Vision
 
@@ -24,12 +23,12 @@ flow below under [Customer flow](#customer-flow)). Capstone title says
 **"Online Management System"** — it must run on the internet,
 demonstrated end-to-end, not localhost-only.
 
-| Area | URL prefix | Purpose | Runs |
-|---|---|---|---|
-| Customer | `/` | **Online ordering (pickup):** category menu → cart → place order → GCash QR auto-sent (proof auto-verified); product pages, about/branches, open/closed status, announcement banner, item tags, favorites; **Sign in with Google** required to order | Online (showcase) |
-| Cashier/POS | `/cashier` | Walk-in orders, **split payment (GCash + cash)**, **online pickup queue** (auto-verify → Reject exception, Dismissed / Unclaimed lists), **reservation scheduling** (dine-in, function room, catering), receipts | In-store via Docker, online reachable |
-| Kitchen | `/kitchen` | **Read-only** ticket display: **NOW** (oldest-first, age timers, all-day) + **LATER** (scheduled pickups, auto-promoted) — no login, no cook interaction | In-store via Docker |
-| Admin | `/admin` | Dashboard (sales analytics), products + inventory, staff, settings, reports | Both |
+| Area | URL prefix | Purpose |
+|---|---|---|
+| Customer | `/` | **Online ordering (pickup):** category menu → cart → place order → GCash QR auto-sent (proof auto-verified); product pages, about/branches, open/closed status, announcement banner, item tags, favorites; **Sign in with Google** required to order |
+| Cashier/POS | `/cashier` | Walk-in orders, **split payment (GCash + cash)**, **online pickup queue** (auto-verify → Reject exception, Dismissed / Unclaimed lists), **reservation scheduling** (dine-in, function room, catering), receipts |
+| Kitchen | `/kitchen` | **Read-only** ticket display: **NOW** (oldest-first, age timers, all-day) + **LATER** (scheduled pickups, auto-promoted) — no login, no cook interaction |
+| Admin | `/admin` | Dashboard (sales analytics), products + inventory, staff, settings, reports |
 
 Domain vocabulary (glossary: [CONTEXT.md](../CONTEXT.md)):
 
@@ -48,7 +47,7 @@ Domain vocabulary (glossary: [CONTEXT.md](../CONTEXT.md)):
 - **Kitchen display** — mirrors **verified, unserved** tickets
   read-only (order code on the ticket); clears when the cashier marks
   served. Cook interaction: none — the server owns lane promotion and
-  expiry (§5 kitchen board spec).
+  expiry (§4 kitchen board spec).
 - **Reservations** — dine-in, function room, catering; staff-entered on
   a centralized calendar with conflict and duplicate checks before
   confirm.
@@ -142,8 +141,6 @@ preference sync require Sign in with Google.**
 | Database | **Firebase Realtime Database, sole datastore** | One source of truth; no migrations while the schema churns; matches the declared capstone stack. Laravel does *not* use Eloquent/SQL — persistence goes through a thin RTDB service. |
 | Customer auth | **Laravel session + Socialite — "Sign in with Google"** | One button, zero signup/reset/verify screens; `users/{uid}` in RTDB. Basic scopes → Google's 100-user cap and app verification don't apply ([source](https://support.google.com/cloud/answer/15549945)) — publish the app anyway. New dep: `laravel/socialite` (approved). |
 | Kitchen display | **Auto-refreshing read-only page (5–10 s fetch)** | One endpoint returning open orders. No websocket, no cook session — the route is gated by a shared-secret URL instead of a login. |
-| Local runtime | **Docker** (single `php:8.2-apache` app container, no DB container — the DB is Firebase) | Same image locally and on Render; stations on the LAN browse to it. |
-| Hosting | **Render free** (`render.yaml` Blueprint) + existing 14-min keepalive | Sleep acceptable; `Projects/ping` + in-container cron hold it warm. Health route `/health`. |
 | Quality | Pint (Laravel's php-cs-fixer preset), PHPStan (larastan), Pest smoke tests | Lint, static analysis, offline smoke tests — one command each. |
 
 <details>
@@ -277,35 +274,7 @@ display, admin tables) and only after grouping/whitespace — mirroring
 Material's three tiers and Carbon's per-screen model. "Dense" never
 means sub-minimum tap targets.
 
-## 4. Deployment topology
-
-```
-                ┌────────────────────────────────┐
-                │ Firebase RTDB — sole datastore │
-                │ indexed queries, rules locked  │
-                └──────▲────────────────▲────────┘
-                       │ REST (OAuth)   │
-        LAN (Docker)   │                │   Online (Render free)
-  ┌────────────────────┴───┐      ┌─────┴──────────────────────┐
-  │ one container, same    │      │ same image, crnp-web       │
-  │ image: /cashier        │      │ / user site + /admin       │
-  │ /admin                 │      │ keepalive cron 14 min      │
-  └────────────────────────┘      └────────────────────────────┘
-```
-
-One codebase, one image, one database — the "online vs in-store" split is
-just **who opens which URL**, not two systems.
-
-Free-tier known limits (accepted for demo):
-- Instance sleeps after ~15 min idle → keepalive cron inside the container.
-- Ephemeral `uploads/` → images lost on redeploy — **solved for demo**:
-  images live in RTDB as base64 (Laravel resizes/compresses server-side
-  to ~800 px first; RTDB's 1 GB / 10 GB-download free quota dwarfs
-  menu-photo + QR scale), not on disk. Production = mounted disk or
-  Firebase Storage (own bucket + rules + second credential scope —
-  revisit only with real traffic).
-
-## 5. Features
+## 4. Features
 
 Grouped by area: a spec of what exists; nothing here implies an
 order of work.
@@ -321,7 +290,7 @@ order of work.
   path) reverts by the **Firebase key stored in the order's items
   array** — never by name — and checks order status first to avoid a
   double-restore; URLs come from `route()`; all times evaluate in
-  `Asia/Manila` (Render runs UTC).
+  `Asia/Manila` (server clock is UTC).
 - Customer writes are **server-mediated through Laravel** (order POST,
   `users/{uid}` prefs) — never direct client writes.
 - A rules fixture backs a Pest smoke test of the layer.
@@ -449,7 +418,8 @@ Spec: the server owns everything, the cook owns nothing.
 - **Dashboard** — KPIs + 7-day trend (RTDB range queries),
   best-sellers, peak hours.
 - **Products** — CRUD with **image uploads** (server-side resize /
-  compress → base64 into RTDB, §4); **categories** + per-product
+  compress to ~800 px → base64 into RTDB; no file uploads);
+  **categories** + per-product
   **add-ons**; **one-click Add promo** (percent or exact price — the
   sibling value and label auto-compute, §3).
 - **Inventory** — stock movement, low-stock flags, inventory reports;
