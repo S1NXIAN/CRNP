@@ -33,6 +33,33 @@ Create a GitHub issue.
 
 Run `gh issue view <number> --comments`.
 
+## `ready-for-agent` marks the frontier, not every ticket
+
+`ready-for-agent` means **unblocked and ready to start now**, not merely
+"fully specified". Apply it to a ticket **only when it has no open
+blocker** — the frontier. A blocked ticket is fully specified but not
+startable, so it stays unlabeled until its blockers close. Labeling
+blocked tickets too makes the label lie: an agent that greps for
+`ready-for-agent` would grab a ticket it cannot begin.
+
+- **Which is the frontier?** Any open ticket whose every blocker is
+  closed (`issue_dependencies_summary.blocked_by == 0`) and that has no
+  assignee. First in dependency order wins.
+- **A spec / umbrella / parent issue is not a ticket.** Do not label it
+  `ready-for-agent`; it is a reference, not a unit of work. If the plan
+  needs a final review, publish it as its own capstone ticket blocked by
+  every build ticket, rather than relying on someone to re-read the
+  parent.
+- **Relabel as blockers close.** When you close a ticket, find what it
+  was blocking and label any child that is now on the frontier:
+  `gh api repos/<owner>/<repo>/issues/<closed>/dependencies/blocking --jq '.[].number'`
+  then `gh issue edit <child> --add-label ready-for-agent` for each child
+  whose remaining blockers are all closed. (The `issue_dependencies_summary.blocking`
+  field is only a count; the `/dependencies/blocking` endpoint returns the
+  list.) The label does not maintain itself.
+- **How a ticket starts.** Only a frontier ticket is assigned and
+  started: `gh issue edit <n> --add-assignee @me`.
+
 ## Wayfinding operations
 
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
