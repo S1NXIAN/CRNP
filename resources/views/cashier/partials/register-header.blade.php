@@ -6,6 +6,7 @@
 <header class="register-header">
     <span class="register-header__brand">{{ config('app.name') }} · POS</span>
     <nav class="register-header__nav" aria-label="Register">
+        <a href="{{ route('cashier.queue') }}" @if (request()->routeIs('cashier.queue')) aria-current="page" @endif>Online queue</a>
         <a href="{{ route('cashier.reservations.index') }}" @if (request()->routeIs('cashier.reservations.*')) aria-current="page" @endif>Reservations</a>
     </nav>
     <p class="register-header__duty">
