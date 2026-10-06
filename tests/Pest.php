@@ -318,6 +318,50 @@ function seedReservation(string $id, array $overrides = []): string
 }
 
 /**
+ * Arrange a rental item node exactly as the admin create action writes it
+ * (#34): name · image · price/day · units.
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function seedRentalItem(string $id, array $overrides = []): string
+{
+    rtdb()->seed("rentals/{$id}", [
+        'name' => 'Folding chair',
+        'imageBase64' => '',
+        'pricePerDay' => 50.0,
+        'units' => 3,
+        ...$overrides,
+    ]);
+
+    return $id;
+}
+
+/**
+ * Arrange a rental booking node exactly as the booking action writes it (#34).
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function seedRentalBooking(string $id, array $overrides = []): string
+{
+    rtdb()->seed("rentalBookings/{$id}", [
+        'code' => 'RNT1',
+        'itemId' => 'r1',
+        'uid' => 'sub-ada',
+        'dateFrom' => '2026-10-08',
+        'dateTo' => '2026-10-10',
+        'qty' => 1,
+        'total' => 150.0,
+        'status' => 'confirmed',
+        'payments' => [],
+        'returnDueAt' => '2026-10-10T15:59:59Z',
+        'createdAt' => '2026-10-06T02:00:00Z',
+        ...$overrides,
+    ]);
+
+    return $id;
+}
+
+/**
  * The distinct form field names a person actually supplies on a screen — hidden
  * inputs (CSRF, method spoof, wizard carry-over) and submit controls excluded.
  *

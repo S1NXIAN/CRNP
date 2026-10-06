@@ -8,6 +8,7 @@
     <nav class="register-header__nav" aria-label="Register">
         <a href="{{ route('cashier.queue') }}" @if (request()->routeIs('cashier.queue')) aria-current="page" @endif>Online queue</a>
         <a href="{{ route('cashier.reservations.index') }}" @if (request()->routeIs('cashier.reservations.*')) aria-current="page" @endif>Reservations</a>
+        <a href="{{ route('cashier.rentals.index') }}" @if (request()->routeIs('cashier.rentals.*')) aria-current="page" @endif>Rentals</a>
     </nav>
     <p class="register-header__duty">
         <span class="register-header__duty-label">Cashier on duty</span>

@@ -13,6 +13,7 @@
         <nav class="site-account" aria-label="Admin">
             <a href="{{ route('admin.dashboard') }}">Dashboard</a>
             <a href="{{ route('admin.products.index') }}">Products</a>
+            <a href="{{ route('admin.rentals.index') }}">Inventory</a>
         </nav>
     </header>
 
