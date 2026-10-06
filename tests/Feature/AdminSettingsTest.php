@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Catalog\CatalogCache;
+use App\Cache\CatalogCache;
 use App\Settings\ReservationArea;
 use App\Settings\SettingsRepository;
 use App\Staff\StaffRole;

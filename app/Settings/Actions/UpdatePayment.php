@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace App\Settings\Actions;
 
-use App\Images\ImageCompressor;
-use App\Images\ImagePreset;
 use App\Settings\SettingsRepository;
+use App\Support\Image\ImageCompressor;
 use Illuminate\Http\UploadedFile;
 
 /**
@@ -37,7 +36,7 @@ final readonly class UpdatePayment
                 throw new \InvalidArgumentException('The QR upload could not be read.');
             }
 
-            $storedQr = $this->compressor->compressToDataUrl($bytes, ImagePreset::GcashQr);
+            $storedQr = 'data:image/jpeg;base64,' . $this->compressor->compressToBase64($bytes);
         }
 
         $this->settings->save($current->withPayment(trim($number), $storedQr));

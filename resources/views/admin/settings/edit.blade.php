@@ -165,7 +165,7 @@
             <p class="settings-panel__copy">
                 Both the number and the official QR image are required before
                 ordering opens. The QR is resized to
-                {{ \App\Images\ImagePreset::GcashQr->maxEdge() }} px server-side and stored as
+                {{ config('settings.qr_max_edge') }} px server-side and stored as
                 base64 — the official image is scaled, never restyled.
             </p>
 

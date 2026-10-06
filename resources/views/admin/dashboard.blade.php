@@ -11,6 +11,8 @@
     <header class="site-header">
         <span class="site-title">{{ config('app.name') }} · Admin</span>
         <nav class="site-account" aria-label="Admin">
+            <a href="{{ route('admin.products.index') }}">Products</a>
+            <a href="{{ route('admin.categories.index') }}">Categories</a>
             <a href="{{ route('admin.staff.index') }}">Staff</a>
             <a href="{{ route('admin.settings.edit') }}">Settings</a>
         </nav>

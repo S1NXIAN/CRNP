@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Settings;
 
-use App\Catalog\CatalogCache;
+use App\Cache\CatalogCache;
 use App\Rtdb\Contracts\RtdbClient;
 
 /**
@@ -20,7 +20,10 @@ final readonly class SettingsRepository
 {
     private const CACHE_KEY = 'settings';
 
-    public function __construct(private RtdbClient $client) {}
+    public function __construct(
+        private RtdbClient $client,
+        private CatalogCache $catalog,
+    ) {}
 
     public function current(): Settings
     {
@@ -48,7 +51,7 @@ final readonly class SettingsRepository
     public function evict(): void
     {
         $this->client->forget(self::CACHE_KEY);
-        $this->client->forget(CatalogCache::KEY);
+        $this->catalog->forget();
     }
 
     private static function ttl(): int

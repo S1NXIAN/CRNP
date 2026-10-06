@@ -12,9 +12,9 @@ return [
     | All wall-clock evaluation happens in the diner's timezone (the server
     | clock is UTC), so opening hours, scheduled closures, and the close sweep
     | agree. `cache_ttl` bounds a settings read no write has touched; every
-    | settings write evicts it. `catalog_cache_ttl` is the backstop for the
-    | shared catalog cache — a settings write (hours, force-close, closures,
-    | banner) evicts that key immediately so an emergency close propagates on
+    | settings write evicts it. The shared catalog cache key and TTL live in
+    | `App\Cache\CatalogCache` (#21) — a settings write (hours, force-close,
+    | closures, banner) calls its `forget()` so an emergency close propagates on
     | the next request.
     |
     */
@@ -23,6 +23,12 @@ return [
 
     'cache_ttl' => (int) env('SETTINGS_CACHE_TTL', 120),
 
-    'catalog_cache_ttl' => (int) env('CATALOG_CACHE_TTL', 120),
+    /*
+    | The longest edge the official GCash QR is scaled to before storage. The
+    | shared compressor (`App\Support\Image\ImageCompressor`) does the work;
+    | this only feeds the admin screen's copy so the number has one home.
+    */
+
+    'qr_max_edge' => 800,
 
 ];
