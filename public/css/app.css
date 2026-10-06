@@ -1,0 +1,136 @@
+@layer reset, tokens, base, components, utilities;
+
+@layer reset {
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+    }
+
+    body,
+    h1,
+    h2,
+    h3,
+    p,
+    figure {
+        margin: 0;
+    }
+
+    img {
+        display: block;
+        max-width: 100%;
+    }
+}
+
+@layer tokens {
+    :root {
+        --color-brand: #c8102e;
+        --color-brand-ink: #ffffff;
+        --color-surface: #16181d;
+        --color-surface-raised: #21242b;
+        --color-text: #f5f6f8;
+        --color-text-muted: #a9adb6;
+        --color-border: #32363f;
+        --radius-sm: 6px;
+        --radius-md: 12px;
+        --radius-lg: 20px;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 16px;
+        --space-4: 24px;
+        --space-5: 40px;
+        --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        --tap-target: 24px;
+        --tap-target-touch: 44px;
+    }
+
+    @media (prefers-color-scheme: light) {
+        :root {
+            --color-surface: #f4f5f7;
+            --color-surface-raised: #ffffff;
+            --color-text: #16181d;
+            --color-text-muted: #5a5f6b;
+            --color-border: #d7dae0;
+        }
+    }
+}
+
+@layer base {
+    body {
+        min-height: 100vh;
+        background: var(--color-surface);
+        color: var(--color-text);
+        font-family: var(--font-body);
+        line-height: 1.5;
+    }
+
+    a {
+        color: var(--color-brand);
+    }
+}
+
+@layer components {
+    .site-header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    /* The logo artwork is white-on-transparent: it sits on a dark chip so it
+       never disappears against a light background. Served as-is. */
+    .logo-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: var(--space-2);
+        background: var(--color-surface-raised);
+        border-radius: var(--radius-md);
+    }
+
+    .logo-chip img {
+        width: 40px;
+        height: auto;
+    }
+
+    .site-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .site-main {
+        display: grid;
+        gap: var(--space-3);
+        max-width: 960px;
+        margin: 0 auto;
+        padding: var(--space-5) var(--space-4);
+    }
+
+    .empty-state {
+        padding: var(--space-5);
+        background: var(--color-surface-raised);
+        border: 1px dashed var(--color-border);
+        border-radius: var(--radius-lg);
+        text-align: center;
+        color: var(--color-text-muted);
+    }
+
+    .empty-state__title {
+        color: var(--color-text);
+        font-size: 1.125rem;
+    }
+}
+
+@layer utilities {
+    .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+}
