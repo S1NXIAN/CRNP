@@ -76,6 +76,18 @@ final readonly class RtdbQuery
         );
     }
 
+    public function startAt(string|int $start): self
+    {
+        return new self(
+            $this->orderBy,
+            null,
+            (string) $start,
+            $this->endAt,
+            $this->limitToFirst,
+            $this->limitToLast,
+        );
+    }
+
     public function limitToFirst(int $count): self
     {
         return new self(

@@ -318,6 +318,55 @@ function seedReservation(string $id, array $overrides = []): string
 }
 
 /**
+ * Arrange a `sales/{id}` row exactly as Mark served / Settle walk-in / the
+ * close sweep writes it — the revenue row the dashboard, reports, and export
+ * read (#32).
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function seedSale(string $id, array $overrides = []): string
+{
+    rtdb()->seed("sales/{$id}", [
+        'code' => 'SALE1',
+        'type' => 'walkin',
+        'lines' => [],
+        'total' => 100.0,
+        'payments' => [['method' => 'cash', 'amount' => 100.0]],
+        'soldAt' => now('UTC')->toIso8601ZuluString(),
+        ...$overrides,
+    ]);
+
+    return $id;
+}
+
+/**
+ * Arrange an `orders/{id}` row for the admin reports (#32) — a rejected or
+ * voided order carrying an outstanding `refundOwed`.
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function seedAdminOrder(string $id, array $overrides = []): string
+{
+    rtdb()->seed("orders/{$id}", [
+        'code' => 'ORD1',
+        'type' => 'online',
+        'status' => 'rejected',
+        'lines' => [],
+        'total' => 400.0,
+        'payments' => [],
+        'change' => 0.0,
+        'placedAt' => '2026-10-06T04:00:00Z',
+        'rejectedAt' => '2026-10-06T04:10:00Z',
+        'enteredAmount' => 350.0,
+        'refundOwed' => 350.0,
+        'gcashRef' => 'GC999',
+        ...$overrides,
+    ]);
+
+    return $id;
+}
+
+/**
  * The distinct form field names a person actually supplies on a screen — hidden
  * inputs (CSRF, method spoof, wizard carry-over) and submit controls excluded.
  *

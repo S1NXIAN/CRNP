@@ -43,3 +43,20 @@ Schedule::command('proofs:cleanup')
     ->dailyAt('23:59')
     ->timezone('Asia/Manila')
     ->name('proofs:cleanup');
+
+/*
+|--------------------------------------------------------------------------
+| Weekly export-backup
+|--------------------------------------------------------------------------
+|
+| The **incremental export-backup** (PLAN §4 *Quota discipline*, rule 4) reads
+| every durable tree by `updatedAt > lastRun`, holding its watermark and
+| checkpoint at `export/state`, and excludes `proofs`. Its manual fallback is
+| `php artisan export:run` (docs/agents/operations.md).
+|
+*/
+
+Schedule::command('export:run')
+    ->weeklyOn(1, '03:00')
+    ->timezone('Asia/Manila')
+    ->name('export:run');

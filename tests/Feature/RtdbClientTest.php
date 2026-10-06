@@ -179,6 +179,30 @@ it('builds a bounded range query with a limit', function (): void {
     });
 });
 
+it('builds an open-ended startAt query for the export watermark', function (): void {
+    fakeRtdb([
+        RTDB_BASE_URL . '/sales.json*' => Http::response([]),
+    ]);
+
+    restRtdbClient()->query(
+        'sales',
+        RtdbQuery::orderBy('updatedAt')->startAt('2026-10-06T00:00:00Z')->limitToFirst(500),
+    );
+
+    Http::assertSent(function (Request $request): bool {
+        if ($request->method() !== 'GET' || ! str_starts_with($request->url(), RTDB_BASE_URL . '/sales.json?')) {
+            return false;
+        }
+
+        $query = httpQuery($request);
+
+        return $query['orderBy'] === '"updatedAt"'
+            && $query['startAt'] === '"2026-10-06T00:00:00Z"'
+            && ! isset($query['endAt'])
+            && $query['limitToFirst'] === '500';
+    });
+});
+
 it('serves a cached read without re-reading inside the poll cadence', function (): void {
     fakeRtdb([
         RTDB_BASE_URL . '/products.json' => Http::response(['p1' => ['name' => 'Milktea']]),

@@ -329,6 +329,133 @@
         border-radius: var(--radius-md);
     }
 
+    /* Admin dashboard — badges, KPIs, the 7-day trend, and the two ranking
+       tables. Compact density (read-only glanceable surface), grouped and
+       whitespaced so it never reads as dense. */
+    .badge-row,
+    .kpi-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+        gap: var(--space-3);
+    }
+
+    .badge-card,
+    .kpi {
+        display: grid;
+        gap: var(--space-1);
+        padding: var(--space-3);
+        background: var(--color-surface-raised);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+    }
+
+    .badge-card--refunds {
+        border-color: var(--color-brand);
+    }
+
+    .badge-card__label,
+    .kpi__label {
+        color: var(--color-text-muted);
+        font-size: 0.8125rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .badge-card__value,
+    .kpi__value {
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+
+    .badge-card__detail {
+        color: var(--color-text-muted);
+        font-size: 0.875rem;
+    }
+
+    .dashboard-panel {
+        display: grid;
+        gap: var(--space-3);
+        padding: var(--space-4);
+        background: var(--color-surface-raised);
+        border-radius: var(--radius-lg);
+    }
+
+    .dashboard-columns {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+        gap: var(--space-3);
+        align-items: start;
+    }
+
+    /* The trend bars animate only transform/opacity and are toned down under
+       prefers-reduced-motion; the figure is always readable as text too. */
+    .trend {
+        display: flex;
+        align-items: flex-end;
+        gap: var(--space-2);
+        height: 12rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .trend__day {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        gap: var(--space-1);
+        height: 100%;
+    }
+
+    .trend__bar-wrap {
+        display: flex;
+        flex: 1;
+        align-items: flex-end;
+        width: 100%;
+    }
+
+    .trend__bar {
+        width: 100%;
+        min-height: 2px;
+        background: var(--color-brand);
+        border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+        transition: transform 200ms ease;
+    }
+
+    .trend__value,
+    .trend__date {
+        color: var(--color-text-muted);
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+
+    /* Admin reports — a tab row, a one-click date filter, and compact tables. */
+    .report-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-3);
+    }
+
+    .report-tabs a[aria-current="page"] {
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .report-filter {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: var(--space-3);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .trend__bar {
+            transition: none;
+        }
+    }
+
     .settings-panel {
         display: grid;
         gap: var(--space-3);

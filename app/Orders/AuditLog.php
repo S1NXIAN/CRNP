@@ -16,8 +16,8 @@ use Illuminate\Support\Str;
  * Activity can read a single order's history back without a whole-tree scan.
  *
  * Entries are append-only: each is its own keyed node, so unlimited restores
- * each leave their own record. The shape is `{orderId, action, who, when}` —
- * the same order id / who / when triple the rejection record carries.
+ * each leave their own record. The shape is `{orderId, code, action, who, when}`
+ * — the order id / code / who / when the admin Activity feed (#32) reads back.
  */
 final readonly class AuditLog
 {
@@ -26,15 +26,23 @@ final readonly class AuditLog
     /**
      * Append an entry for an order action.
      */
-    public function record(string $orderId, string $action, HandledBy $handledBy): void
+    public function record(string $orderId, string $action, HandledBy $handledBy, ?string $code = null): void
     {
         $when = now('UTC')->toIso8601ZuluString();
 
-        $this->client->set('audit/' . (string) Str::ulid(), [
+        $node = [
             'orderId' => $orderId,
             'action' => $action,
             'who' => $handledBy->toNode(),
             'when' => $when,
-        ]);
+        ];
+
+        // The order code rides along so the Activity feed can show it without a
+        // per-entry order read.
+        if ($code !== null && $code !== '') {
+            $node['code'] = $code;
+        }
+
+        $this->client->set('audit/' . (string) Str::ulid(), $node);
     }
 }
