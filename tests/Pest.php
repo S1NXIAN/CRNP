@@ -96,6 +96,24 @@ function rtdb(): RtdbClient
 }
 
 /**
+ * The business-settings seam the admin surface and the customer site share.
+ */
+function settings(): \App\Settings\SettingsRepository
+{
+    return app(\App\Settings\SettingsRepository::class);
+}
+
+/**
+ * Arrange the `settings` node without stamping `updatedAt`.
+ *
+ * @param  array<string, mixed>  $settings
+ */
+function seedSettings(array $settings = []): void
+{
+    rtdb()->seed('settings', $settings);
+}
+
+/**
  * Sign a request in as a Google account without running the OAuth exchange:
  * the guard resolves the staff row from the signed-in email, so tests only
  * need the identity the session carries.

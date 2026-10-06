@@ -14,12 +14,23 @@
             <a href="{{ route('admin.products.index') }}">Products</a>
             <a href="{{ route('admin.categories.index') }}">Categories</a>
             <a href="{{ route('admin.staff.index') }}">Staff</a>
+            <a href="{{ route('admin.settings.edit') }}">Settings</a>
         </nav>
     </header>
 
     <main class="site-main">
         <h1>Dashboard</h1>
-        <p>KPIs, products, settings, and reports arrive with the admin slices.</p>
+
+        @unless ($setupComplete)
+            <p class="setup-banner" role="alert">
+                <strong>Complete setup.</strong>
+                Ordering stays closed until both the GCash number and the official
+                QR image are configured.
+                <a href="{{ route('admin.settings.edit') }}">Open settings</a>.
+            </p>
+        @endunless
+
+        <p>KPIs, products, and reports arrive with the admin slices.</p>
     </main>
 </body>
 </html>
