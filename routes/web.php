@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Auth\GoogleSignInController;
 use App\Http\Controllers\Auth\SignInPromptController;
@@ -41,4 +43,22 @@ Route::middleware(['auth', 'staff.role:admin'])->prefix('admin')->name('admin.')
     Route::post('/staff', [StaffController::class, 'store'])->name('staff.store');
     Route::put('/staff/{staff}', [StaffController::class, 'update'])->name('staff.update');
     Route::delete('/staff/{staff}', [StaffController::class, 'destroy'])->name('staff.destroy');
+
+    // Categories — the admin-managed grouping products reference by id.
+    Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
+    Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
+    Route::put('/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
+    Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
+
+    // Products — CRUD, the one-tap hide toggle (86 board), and the one-click
+    // Add promo control. The product form stays promo-free.
+    Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+    Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
+    Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+    Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
+    Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
+    Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+    Route::put('/products/{product}/visibility', [ProductController::class, 'visibility'])->name('products.visibility');
+    Route::post('/products/{product}/promo', [ProductController::class, 'addPromo'])->name('products.promo.store');
+    Route::delete('/products/{product}/promo', [ProductController::class, 'removePromo'])->name('products.promo.destroy');
 });
