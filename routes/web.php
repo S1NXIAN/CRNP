@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Auth\GoogleSignInController;
 use App\Http\Controllers\Auth\SignInPromptController;
 use App\Http\Controllers\Auth\SwitchAccountController;
+use App\Http\Controllers\Cashier\QueueController;
 use App\Http\Controllers\Cashier\RegisterController;
 use App\Http\Controllers\Cashier\ReservationController;
 use App\Http\Controllers\Cashier\WalkInController;
@@ -91,6 +92,15 @@ Route::post('/auth/switch-account', SwitchAccountController::class)
 // the next request. `/cashier` is for cashiers, `/admin` for admins only.
 Route::middleware(['auth', 'staff.role:cashier'])->group(function (): void {
     Route::get('/cashier', RegisterController::class)->name('cashier.register');
+
+    // The online pickup queue: prepaid orders arrive ready-to-pay (no approval
+    // tap), verified orders land in the recently-verified list (Reject reachable
+    // until Mark served), and in-window orders with no screenshot show as
+    // awaiting proof. The read is coalesced behind a cache entry, and Mark
+    // served is the one happy-path tap — a stale or duplicate tap is a no-op.
+    Route::get('/cashier/queue', [QueueController::class, 'index'])->name('cashier.queue');
+    Route::get('/cashier/queue/state', [QueueController::class, 'state'])->name('cashier.queue.state');
+    Route::post('/cashier/orders/{order}/serve', [QueueController::class, 'serve'])->name('cashier.orders.serve');
 
     // Walk-in ring-up: tap tiles → one typed cash number → receipt. The order
     // draws its code at ring-up and only reaches the kitchen board at settle.

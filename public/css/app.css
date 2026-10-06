@@ -1044,6 +1044,67 @@
         gap: var(--space-3);
     }
 
+    /* The online pickup queue: three sections — ready-to-pay,
+       recently-verified (spot-check), awaiting-proof — each a list of scalar
+       rows with the one happy-path tap. */
+    .queue {
+        display: grid;
+        gap: var(--space-4);
+    }
+
+    .queue__title {
+        font-size: 1.5rem;
+    }
+
+    .queue-section {
+        display: grid;
+        gap: var(--space-2);
+        padding: var(--space-4);
+        background: var(--color-surface-raised);
+        border-radius: var(--radius-lg);
+    }
+
+    .queue-section__title {
+        font-size: 1.125rem;
+    }
+
+    .queue-section__hint {
+        color: var(--color-text-muted);
+        font-size: 0.9375rem;
+    }
+
+    .queue-list {
+        display: grid;
+        gap: var(--space-2);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .queue-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-3);
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+    }
+
+    .queue-row__code {
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+    }
+
+    .queue-row__total {
+        color: var(--color-text-muted);
+    }
+
+    .queue-row__action {
+        margin-left: auto;
+    }
+
     /* The receipt: server-rendered, printable, with the order code and the
        tender breakdown. */
     .receipt {
