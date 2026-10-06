@@ -11,6 +11,7 @@ use App\Http\Controllers\Auth\GoogleSignInController;
 use App\Http\Controllers\Auth\SignInPromptController;
 use App\Http\Controllers\Auth\SwitchAccountController;
 use App\Http\Controllers\Cashier\RegisterController;
+use App\Http\Controllers\Cashier\WalkInController;
 use App\Http\Controllers\Customer\AboutController;
 use App\Http\Controllers\Customer\AddOnPrefsController;
 use App\Http\Controllers\Customer\FavoriteToggleController;
@@ -52,6 +53,17 @@ Route::post('/auth/switch-account', SwitchAccountController::class)
 // the next request. `/cashier` is for cashiers, `/admin` for admins only.
 Route::middleware(['auth', 'staff.role:cashier'])->group(function (): void {
     Route::get('/cashier', RegisterController::class)->name('cashier.register');
+
+    // Walk-in ring-up: tap tiles → one typed cash number → receipt. The order
+    // draws its code at ring-up and only reaches the kitchen board at settle.
+    Route::prefix('cashier/walkins')->name('cashier.walkins.')->group(function (): void {
+        Route::post('/', [WalkInController::class, 'store'])->name('store');
+        Route::get('/{walkin}', [WalkInController::class, 'show'])->name('show');
+        Route::post('/{walkin}/items', [WalkInController::class, 'addItem'])->name('items.store');
+        Route::delete('/{walkin}/items/{product}', [WalkInController::class, 'removeItem'])->name('items.destroy');
+        Route::post('/{walkin}/settle', [WalkInController::class, 'settle'])->name('settle');
+        Route::get('/{walkin}/receipt', [WalkInController::class, 'receipt'])->name('receipt');
+    });
 });
 
 Route::middleware(['auth', 'staff.role:admin'])->prefix('admin')->name('admin.')->group(function (): void {

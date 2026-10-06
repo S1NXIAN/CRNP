@@ -1,0 +1,81 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Orders\Actions;
+
+use App\Orders\HandledBy;
+use App\Orders\Order;
+use App\Orders\OrderStatus;
+use App\Orders\Payment;
+use App\Orders\SplitTender;
+use App\Rtdb\Contracts\RtdbClient;
+use InvalidArgumentException;
+
+/**
+ * Settles a walk-in: derives the split tender from the one number the cashier
+ * typed, asserts the tender sums to the total, then writes the order and its
+ * sale row.
+ *
+ * `cash ≥ total` → all-cash with computed change and no GCash leg; `cash <
+ * total` → `GCash = total − cash`, change `0`, and a GCash ref# is required
+ * because that leg is `> 0` (PLAN §4 *Cashier POS*). At settle the order flips
+ * to `cooking`, so the kitchen ticket appears the same instant and not before.
+ *
+ * The status guard makes a stale or duplicate settle a friendly no-op. The
+ * `sales/{id}` row is keyed by the same order id (1:1 with the order), so a
+ * second sale is structurally impossible, and both rows carry `handledBy`.
+ */
+final readonly class SettleWalkIn
+{
+    public function __construct(private RtdbClient $client) {}
+
+    public function __invoke(string $orderId, float $cashTyped, ?string $gcashRef, HandledBy $handledBy): void
+    {
+        $node = $this->client->get("orders/{$orderId}");
+
+        $order = is_array($node) ? Order::fromNode($orderId, $node) : null;
+
+        if ($order === null) {
+            throw new InvalidArgumentException("No order with id [{$orderId}].");
+        }
+
+        // Status-guarded: a stale or duplicate tap never flips a settled order.
+        if ($order->status !== OrderStatus::Pending) {
+            return;
+        }
+
+        $tender = SplitTender::for($order->total, $cashTyped);
+        $gcashRef = $gcashRef !== null ? trim($gcashRef) : null;
+
+        if ($tender->requiresGcashRef && ($gcashRef === null || $gcashRef === '')) {
+            throw new InvalidArgumentException('A GCash reference number is required for the GCash leg.');
+        }
+
+        // True by construction, still validated: the tender can never drift.
+        SplitTender::assertBalanced($tender->payments, $order->total);
+
+        $settledAt = now('UTC')->toIso8601ZuluString();
+        $payments = array_map(static fn(Payment $payment): array => $payment->toNode(), $tender->payments);
+
+        $this->client->update("orders/{$orderId}", [
+            'status' => OrderStatus::Cooking->value,
+            'payments' => $payments,
+            'change' => $tender->change,
+            'gcashRef' => $tender->requiresGcashRef ? $gcashRef : null,
+            'settledAt' => $settledAt,
+            'handledBy' => $handledBy->toNode(),
+        ]);
+
+        // `sales/{id}` is 1:1 with the order key — the shared key makes a second
+        // sale structurally impossible.
+        $this->client->set("sales/{$orderId}", [
+            'code' => $order->code,
+            'type' => $order->type,
+            'total' => $order->total,
+            'payments' => $payments,
+            'soldAt' => $settledAt,
+            'handledBy' => $handledBy->toNode(),
+        ]);
+    }
+}
