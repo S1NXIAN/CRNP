@@ -12,6 +12,7 @@
     </a>
     <nav class="site-nav" aria-label="Primary">
         <a href="{{ route('home') }}" @if (request()->routeIs('home')) aria-current="page" @endif>Menu</a>
+        <a href="{{ route('occupancy') }}" @if (request()->routeIs('occupancy')) aria-current="page" @endif>Availability</a>
         <a href="{{ route('about') }}" @if (request()->routeIs('about')) aria-current="page" @endif>About</a>
     </nav>
     <div class="site-account">
