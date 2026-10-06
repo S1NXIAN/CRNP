@@ -25,7 +25,7 @@ final readonly class Catalog
      */
     public function products(): array
     {
-        return $this->productsFromNode($this->client->get('products'));
+        return self::productsFromNode($this->client->get('products'));
     }
 
     /**
@@ -54,8 +54,62 @@ final readonly class Catalog
      */
     public function categories(): array
     {
-        $node = $this->client->get('categories');
+        return self::categoriesFromNode($this->client->get('categories'));
+    }
 
+    public function product(string $id): ?Product
+    {
+        $node = $this->client->get("products/{$id}");
+
+        return is_array($node) ? Product::fromNode($id, $node) : null;
+    }
+
+    public function category(string $id): ?Category
+    {
+        $node = $this->client->get("categories/{$id}");
+
+        return is_array($node) ? Category::fromNode($id, $node) : null;
+    }
+
+    /**
+     * Map a raw `products` node to value objects, skipping a row that cannot be
+     * parsed rather than rendering a half-row. Shared by the admin's fresh read
+     * and the public site's cached read, so the two can never disagree on shape.
+     *
+     * @param  mixed  $node
+     * @return array<string, Product>
+     */
+    public static function productsFromNode(mixed $node): array
+    {
+        if (! is_array($node)) {
+            return [];
+        }
+
+        $products = [];
+
+        foreach ($node as $id => $row) {
+            if (! is_string($id) || ! is_array($row)) {
+                continue;
+            }
+
+            $product = Product::fromNode($id, $row);
+
+            if ($product !== null) {
+                $products[$id] = $product;
+            }
+        }
+
+        return $products;
+    }
+
+    /**
+     * Map a raw `categories` node to value objects in the admin's order.
+     *
+     * @param  mixed  $node
+     * @return array<string, Category>
+     */
+    public static function categoriesFromNode(mixed $node): array
+    {
         if (! is_array($node)) {
             return [];
         }
@@ -79,46 +133,5 @@ final readonly class Catalog
         });
 
         return $categories;
-    }
-
-    public function product(string $id): ?Product
-    {
-        $node = $this->client->get("products/{$id}");
-
-        return is_array($node) ? Product::fromNode($id, $node) : null;
-    }
-
-    public function category(string $id): ?Category
-    {
-        $node = $this->client->get("categories/{$id}");
-
-        return is_array($node) ? Category::fromNode($id, $node) : null;
-    }
-
-    /**
-     * @param  mixed  $node
-     * @return array<string, Product>
-     */
-    private function productsFromNode(mixed $node): array
-    {
-        if (! is_array($node)) {
-            return [];
-        }
-
-        $products = [];
-
-        foreach ($node as $id => $row) {
-            if (! is_string($id) || ! is_array($row)) {
-                continue;
-            }
-
-            $product = Product::fromNode($id, $row);
-
-            if ($product !== null) {
-                $products[$id] = $product;
-            }
-        }
-
-        return $products;
     }
 }

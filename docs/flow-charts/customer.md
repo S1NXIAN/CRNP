@@ -6,8 +6,9 @@ Online orders are pickup-only, GCash-only, identified by order code.
 ```mermaid
 flowchart TD
     A["Arrive at / — menu visible,<br/>no login wall"] --> B{"Open — hours + force-close<br/>+ scheduled closures<br/>+ GCash number & QR configured?"}
-    B -->|"closed / setup incomplete"| C["Read-only: menu + announcement<br/>place-order disabled<br/>(admin sees Complete setup)"]
-    B -->|"open"| D["Menu grouped by category<br/>promo / Top 3 tags · computed prices"]
+    B -->|"closed / setup incomplete"| C["Read-only: menu + announcement<br/>place-order disabled<br/>with a plain reason<br/>(admin sees Complete setup)"]
+    B -->|"open"| D["Menu grouped by category<br/>promo / Top 3 tags · computed prices<br/>served from the catalog cache<br/>(no image re-read per view)"]
+    A -.->|"About"| AB["About / branches page"]
     D -.->|"Reservations"| V["Public occupancy view — read-only<br/>seats taken vs capacity per slot<br/>no names · books nothing"]
     D -.->|"Rentals"| RC["Rental catalog — read-only<br/>price/day · per-date availability"]
     RC --> RD["Book: date range + qty steppers<br/>total computes → sign in → QR auto-sent<br/>prepaid · 15-min window · unpaid lapses"]
@@ -16,6 +17,7 @@ flowchart TD
     E --> D
     D --> F["Product page → Add to cart<br/>steppers · add-ons · computed totals"]
     F -.->|"heart while signed out"| G
+    F -.->|"favorite / add-on picks saved<br/>to users/{uid} — sync across devices"| PS["Per-account prefs<br/>favorites + last add-on selection"]
     F --> H{"Place order — signed in?"}
     H -->|"no"| G["Sign in with Google<br/>one tap · session remembered"]
     G --> I["Pickup time — default ASAP<br/>earliest = now + 15 min"]

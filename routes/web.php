@@ -11,10 +11,27 @@ use App\Http\Controllers\Auth\GoogleSignInController;
 use App\Http\Controllers\Auth\SignInPromptController;
 use App\Http\Controllers\Auth\SwitchAccountController;
 use App\Http\Controllers\Cashier\RegisterController;
-use App\Http\Controllers\LandingController;
+use App\Http\Controllers\Customer\AboutController;
+use App\Http\Controllers\Customer\AddOnPrefsController;
+use App\Http\Controllers\Customer\FavoriteToggleController;
+use App\Http\Controllers\Customer\MenuController;
+use App\Http\Controllers\Customer\ProductPageController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', LandingController::class)->name('home');
+// The public site: the menu and product pages serve from the coalesced catalog
+// cache (PLAN §4 Quota discipline, rule 2), so a page view never re-reads the
+// base64 product images. Browsing never requires a sign-in.
+Route::get('/', MenuController::class)->name('home');
+Route::get('/menu/{product}', ProductPageController::class)->name('menu.product');
+Route::get('/about', AboutController::class)->name('about');
+
+// Gated per-account actions: the heart and the saved add-on selection prompt
+// the Google button while signed out (browsing never does) and sync through
+// `users/{uid}`, so they follow the customer across devices.
+Route::middleware('auth')->group(function (): void {
+    Route::post('/menu/{product}/favorite', FavoriteToggleController::class)->name('favorites.toggle');
+    Route::post('/menu/{product}/add-ons', AddOnPrefsController::class)->name('prefs.add-ons');
+});
 
 // The one sign-in surface: a Google button, never a form. Browsing stays open;
 // only ordering, favoriting, and preference sync route a visitor here.
