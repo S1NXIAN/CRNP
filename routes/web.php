@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Admin\ActivityController;
+use App\Http\Controllers\Admin\BackupDownloadController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Auth\GoogleSignInController;
@@ -183,4 +186,19 @@ Route::middleware(['auth', 'staff.role:admin'])->prefix('admin')->name('admin.')
     Route::post('/settings/payment', [SettingsController::class, 'updatePayment'])->name('settings.payment');
     Route::post('/settings/kitchen-secret', [SettingsController::class, 'rotateKitchenSecret'])->name('settings.kitchen-secret');
     Route::put('/settings/capacities', [SettingsController::class, 'updateCapacities'])->name('settings.capacities');
+
+    // Reports — sales, reservations, and rental bookings, each filtered by date,
+    // plus the refunds-owed column and the admin-only Mark refunded. The rental
+    // shape is #34's; until it lands the report reads it defensively.
+    Route::get('/reports/sales', [ReportsController::class, 'sales'])->name('reports.sales');
+    Route::get('/reports/reservations', [ReportsController::class, 'reservations'])->name('reports.reservations');
+    Route::get('/reports/rentals', [ReportsController::class, 'rentals'])->name('reports.rentals');
+    Route::post('/reports/refunds/{order}/mark', [ReportsController::class, 'markRefunded'])->name('reports.refunds.mark');
+
+    // Activity — the bounded feed (time · who · action · order code) plus the
+    // per-cashier daily totals grouped by `handledBy`.
+    Route::get('/activity', ActivityController::class)->name('activity');
+
+    // The last-backup download behind the dashboard badge.
+    Route::get('/backup/download', BackupDownloadController::class)->name('backup.download');
 });

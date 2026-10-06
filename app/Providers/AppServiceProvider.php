@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Auth\RtdbUserProvider;
+use App\Export\ExportBackup;
 use App\Rtdb\Contracts\RtdbClient;
 use App\Rtdb\InMemoryRtdbClient;
 use App\Rtdb\RestRtdbClient;
@@ -14,6 +15,7 @@ use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -40,6 +42,16 @@ class AppServiceProvider extends ServiceProvider
             return new RestRtdbClient(
                 $baseUrl,
                 new ServiceAccountTokenProvider($serviceAccountPath, $tokenUri, $tokenTtl),
+            );
+        });
+
+        // The export-backup writes its JSON to the local disk (the private
+        // `storage/app` tree), which is not a secret store: bind the disk so the
+        // service is testable against a faked filesystem.
+        $this->app->bind(ExportBackup::class, function (): ExportBackup {
+            return new ExportBackup(
+                $this->app->make(RtdbClient::class),
+                Storage::disk('local'),
             );
         });
     }

@@ -61,7 +61,7 @@ final readonly class Restore
             'restoredAt' => now('UTC')->toIso8601ZuluString(),
         ]);
 
-        $this->audit->record($orderId, 'restore', $handledBy);
+        $this->audit->record($orderId, 'restore', $handledBy, $order->code);
 
         $this->tracker->forget($orderId);
         $this->queue->forget();
