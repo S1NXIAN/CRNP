@@ -11,9 +11,18 @@
     @include('cashier.partials.register-header')
 
     <main class="site-main">
-        <section class="empty-state" aria-labelledby="register-heading">
-            <h1 class="empty-state__title" id="register-heading">The register is being set up</h1>
-            <p>The walk-in ring-up and the online pickup queue arrive with the cashier slices.</p>
+        <section class="register-actions" aria-labelledby="register-heading">
+            <h1 class="register-actions__title" id="register-heading">Ring up a walk-in</h1>
+            <p class="site-main__copy">
+                Tap tiles to build the order — promo prices and totals compute
+                themselves. The order code is drawn at ring-up and the kitchen
+                ticket appears only at settle.
+            </p>
+
+            <form method="POST" action="{{ route('cashier.walkins.store') }}">
+                @csrf
+                <button type="submit" class="primary-button">New walk-in</button>
+            </form>
         </section>
     </main>
 </body>

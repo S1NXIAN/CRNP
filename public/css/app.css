@@ -903,6 +903,224 @@
         color: var(--color-text-muted);
     }
 
+    /* Cashier walk-in ring-up: tap tiles on the left, the running order and the
+       one-number settle on the right. Touch targets stay at 44px. */
+    .register-actions {
+        display: grid;
+        gap: var(--space-3);
+        justify-items: start;
+        max-width: 40rem;
+        padding: var(--space-5);
+        background: var(--color-surface-raised);
+        border-radius: var(--radius-lg);
+    }
+
+    .register-actions__title {
+        font-size: 1.5rem;
+    }
+
+    .walkin-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+        background: var(--color-surface-raised);
+        border-radius: var(--radius-md);
+    }
+
+    .walkin-head__label {
+        color: var(--color-text-muted);
+        font-size: 0.8125rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .walkin-head__code {
+        font-size: 1.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+    }
+
+    .walkin-grid {
+        display: grid;
+        gap: var(--space-4);
+    }
+
+    @media (min-width: 800px) {
+        .walkin-grid {
+            grid-template-columns: minmax(0, 3fr) minmax(20rem, 2fr);
+            align-items: start;
+        }
+    }
+
+    .walkin-menu,
+    .walkin-cart {
+        display: grid;
+        gap: var(--space-3);
+        padding: var(--space-4);
+        background: var(--color-surface-raised);
+        border-radius: var(--radius-lg);
+    }
+
+    .walkin-panel__title {
+        font-size: 1.125rem;
+    }
+
+    .tile-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+        gap: var(--space-2);
+    }
+
+    .tile {
+        display: grid;
+        gap: var(--space-1);
+        width: 100%;
+        min-height: var(--tap-target-touch);
+        padding: var(--space-3);
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        color: var(--color-text);
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .tile:hover,
+    .tile:focus-visible {
+        border-color: var(--color-brand);
+    }
+
+    .tile:disabled {
+        cursor: default;
+        opacity: 0.5;
+    }
+
+    .tile__name {
+        font-weight: 600;
+    }
+
+    .tile__price {
+        color: var(--color-text-muted);
+        font-size: 0.9375rem;
+    }
+
+    .walkin-total {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        padding-top: var(--space-3);
+        border-top: 1px solid var(--color-border);
+        font-weight: 600;
+    }
+
+    .walkin-total__amount {
+        font-size: 1.5rem;
+    }
+
+    .settle-form {
+        display: grid;
+        gap: var(--space-3);
+    }
+
+    /* The receipt: server-rendered, printable, with the order code and the
+       tender breakdown. */
+    .receipt {
+        display: grid;
+        gap: var(--space-3);
+        max-width: 24rem;
+        margin: 0 auto;
+        padding: var(--space-5) var(--space-4);
+        background: var(--color-surface-raised);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+    }
+
+    .receipt__head {
+        display: grid;
+        gap: var(--space-2);
+        justify-items: center;
+        text-align: center;
+    }
+
+    .receipt__title {
+        font-size: 1.25rem;
+    }
+
+    .receipt__code-label {
+        display: block;
+        color: var(--color-text-muted);
+        font-size: 0.8125rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .receipt__code-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+    }
+
+    .receipt__lines,
+    .receipt__payments {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .receipt__lines td,
+    .receipt__payments td {
+        padding: var(--space-1) 0;
+    }
+
+    .receipt__amount {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .receipt__total {
+        display: flex;
+        justify-content: space-between;
+        padding-top: var(--space-2);
+        border-top: 1px solid var(--color-border);
+        font-weight: 700;
+    }
+
+    .receipt__payments {
+        padding-top: var(--space-2);
+        border-top: 1px dashed var(--color-border);
+        color: var(--color-text-muted);
+    }
+
+    .receipt__foot {
+        padding-top: var(--space-3);
+        border-top: 1px solid var(--color-border);
+        color: var(--color-text-muted);
+        font-size: 0.875rem;
+        text-align: center;
+    }
+
+    .receipt-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-3);
+        margin-top: var(--space-4);
+    }
+
+    @media print {
+        .register-header,
+        .receipt-actions {
+            display: none;
+        }
+
+        .receipt {
+            border: 0;
+        }
+    }
+
     @media (min-width: 720px) {
         .product-detail {
             grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
