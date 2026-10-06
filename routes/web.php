@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Auth\GoogleSignInController;
 use App\Http\Controllers\Auth\SignInPromptController;
@@ -41,4 +42,16 @@ Route::middleware(['auth', 'staff.role:admin'])->prefix('admin')->name('admin.')
     Route::post('/staff', [StaffController::class, 'store'])->name('staff.store');
     Route::put('/staff/{staff}', [StaffController::class, 'update'])->name('staff.update');
     Route::delete('/staff/{staff}', [StaffController::class, 'destroy'])->name('staff.destroy');
+
+    // Business settings. Each write goes through an action that persists the
+    // whole `settings` node and evicts the catalog cache, so a force-close
+    // reaches the customer site on the next request.
+    Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
+    Route::put('/settings/hours', [SettingsController::class, 'updateHours'])->name('settings.hours');
+    Route::put('/settings/banner', [SettingsController::class, 'updateBanner'])->name('settings.banner');
+    Route::post('/settings/closures', [SettingsController::class, 'storeClosure'])->name('settings.closures.store');
+    Route::delete('/settings/closures/{closure}', [SettingsController::class, 'destroyClosure'])->name('settings.closures.destroy');
+    Route::post('/settings/payment', [SettingsController::class, 'updatePayment'])->name('settings.payment');
+    Route::post('/settings/kitchen-secret', [SettingsController::class, 'rotateKitchenSecret'])->name('settings.kitchen-secret');
+    Route::put('/settings/capacities', [SettingsController::class, 'updateCapacities'])->name('settings.capacities');
 });

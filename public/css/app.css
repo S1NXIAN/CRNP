@@ -298,6 +298,93 @@
         align-items: center;
         gap: var(--space-2);
     }
+
+    /* The admin Complete-setup banner: shown until the GCash number and QR are
+       both configured, and mirrored on the settings screen. */
+    .setup-banner {
+        display: grid;
+        gap: var(--space-1);
+        padding: var(--space-3);
+        background: var(--color-surface-raised);
+        border: 1px solid var(--color-brand);
+        border-radius: var(--radius-md);
+    }
+
+    .settings-panel {
+        display: grid;
+        gap: var(--space-3);
+        padding: var(--space-4);
+        background: var(--color-surface-raised);
+        border-radius: var(--radius-lg);
+    }
+
+    .settings-panel__copy,
+    .settings-panel__status {
+        max-width: 60ch;
+        color: var(--color-text-muted);
+    }
+
+    .settings-form {
+        display: grid;
+        gap: var(--space-3);
+        justify-items: start;
+    }
+
+    .settings-form__row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-3);
+    }
+
+    .settings-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .settings-table th,
+    .settings-table td {
+        padding: var(--space-2) var(--space-3);
+        text-align: left;
+        border-bottom: 1px solid var(--color-border);
+        vertical-align: middle;
+    }
+
+    .settings-table .field__input {
+        min-height: var(--tap-target);
+    }
+
+    .toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        min-height: var(--tap-target);
+    }
+
+    .closure-list {
+        display: grid;
+        gap: var(--space-2);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .closure-list__item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        padding: var(--space-2) var(--space-3);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+    }
+
+    .qr-preview {
+        max-width: 160px;
+        margin-top: var(--space-2);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        background: #ffffff;
+    }
 }
 
 @layer utilities {
