@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\BackupDownloadController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\RentalController as AdminRentalController;
 use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\StaffController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Auth\SignInPromptController;
 use App\Http\Controllers\Auth\SwitchAccountController;
 use App\Http\Controllers\Cashier\QueueController;
 use App\Http\Controllers\Cashier\RegisterController;
+use App\Http\Controllers\Cashier\RentalController;
 use App\Http\Controllers\Cashier\ReservationController;
 use App\Http\Controllers\Cashier\WalkInController;
 use App\Http\Controllers\Customer\AboutController;
@@ -27,6 +29,8 @@ use App\Http\Controllers\Customer\OccupancyController;
 use App\Http\Controllers\Customer\OrderTrackerController;
 use App\Http\Controllers\Customer\ProductPageController;
 use App\Http\Controllers\Customer\ProofController;
+use App\Http\Controllers\Customer\RentalBookingController;
+use App\Http\Controllers\Customer\RentalCatalogController;
 use App\Http\Controllers\Kitchen\KitchenBoardController;
 use Illuminate\Support\Facades\Route;
 
@@ -40,6 +44,12 @@ Route::get('/about', AboutController::class)->name('about');
 // The public read-only occupancy view: seats taken vs capacity per slot for the
 // week ahead, confirmed bookings only, aggregate only — it books nothing.
 Route::get('/occupancy', OccupancyController::class)->name('occupancy');
+
+// The public rental catalog and item pages: read-only price/day and computed
+// per-date availability, behind the same open/closed badge as place-order.
+// Booking itself is sign-in-gated on the item page (PLAN §4 *Rentals*).
+Route::get('/rentals', RentalCatalogController::class)->name('rentals.index');
+Route::get('/rentals/{item}', [RentalBookingController::class, 'show'])->name('rentals.show');
 
 // Gated per-account actions: the heart and the saved add-on selection prompt
 // the Google button while signed out (browsing never does) and sync through
@@ -65,6 +75,18 @@ Route::middleware('auth')->group(function (): void {
     // auto-verifies (or flags the hold); the client re-polls the tracker.
     Route::post('/orders/{order}/proof', [ProofController::class, 'store'])->name('orders.proof.store');
     Route::post('/orders/{order}/proof/start', [ProofController::class, 'start'])->name('orders.proof.start');
+
+    // Rental booking: a date range + quantity stepper, the total computed
+    // server-side, then the SAME GCash gate as orders (proof attach, amount/ref
+    // flag, 15-minute window). Prepaid in full; no deposit split. The
+    // account-bound tracker reopens with zero typing and lives under its own
+    // prefix so it never collides with the public `/rentals/{item}` item page.
+    Route::post('/rentals/{item}/book', [RentalBookingController::class, 'store'])->name('rentals.book');
+    Route::get('/my-rentals', [RentalBookingController::class, 'mine'])->name('rentals.mine');
+    Route::get('/my-rentals/{booking}', [RentalBookingController::class, 'track'])->name('rentals.track');
+    Route::get('/my-rentals/{booking}/state', [RentalBookingController::class, 'state'])->name('rentals.state');
+    Route::post('/my-rentals/{booking}/proof', [RentalBookingController::class, 'proof'])->name('rentals.proof.store');
+    Route::post('/my-rentals/{booking}/proof/start', [RentalBookingController::class, 'proofStart'])->name('rentals.proof.start');
 });
 
 // Checkout: pickup time (default ASAP, earliest now + 15 min) then Place order.
@@ -135,6 +157,12 @@ Route::middleware(['auth', 'staff.role:cashier'])->group(function (): void {
     Route::post('/cashier/reservations', [ReservationController::class, 'store'])->name('cashier.reservations.store');
     Route::post('/cashier/reservations/{reservation}/confirm', [ReservationController::class, 'confirm'])->name('cashier.reservations.confirm');
     Route::post('/cashier/reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])->name('cashier.reservations.cancel');
+
+    // Rental counter: Hand over lowers stock, Confirm return raises it, and a
+    // quiet overdue row sits past the return-due date with no penalty.
+    Route::get('/cashier/rentals', [RentalController::class, 'index'])->name('cashier.rentals.index');
+    Route::post('/cashier/rentals/{booking}/hand-over', [RentalController::class, 'handOver'])->name('cashier.rentals.hand-over');
+    Route::post('/cashier/rentals/{booking}/confirm-return', [RentalController::class, 'confirmReturn'])->name('cashier.rentals.confirm-return');
 });
 
 // The kitchen read-only board: a kiosk-level, shared-secret URL with no login
@@ -174,6 +202,18 @@ Route::middleware(['auth', 'staff.role:admin'])->prefix('admin')->name('admin.')
     Route::put('/products/{product}/visibility', [ProductController::class, 'visibility'])->name('products.visibility');
     Route::post('/products/{product}/promo', [ProductController::class, 'addPromo'])->name('products.promo.store');
     Route::delete('/products/{product}/promo', [ProductController::class, 'removePromo'])->name('products.promo.destroy');
+
+    // Rental inventory — rental units only. Item CRUD (name · image · price/day
+    // · units) sits next to Add stock (supplier · qty · date) and the inline
+    // − / + stepper; the low-stock list carries the restock button.
+    Route::get('/rentals', [AdminRentalController::class, 'index'])->name('rentals.index');
+    Route::get('/rentals/create', [AdminRentalController::class, 'create'])->name('rentals.create');
+    Route::post('/rentals', [AdminRentalController::class, 'store'])->name('rentals.store');
+    Route::get('/rentals/{item}/edit', [AdminRentalController::class, 'edit'])->name('rentals.edit');
+    Route::put('/rentals/{item}', [AdminRentalController::class, 'update'])->name('rentals.update');
+    Route::delete('/rentals/{item}', [AdminRentalController::class, 'destroy'])->name('rentals.destroy');
+    Route::post('/rentals/{item}/adjust', [AdminRentalController::class, 'adjust'])->name('rentals.adjust');
+    Route::post('/rentals/{item}/stock', [AdminRentalController::class, 'stock'])->name('rentals.stock');
 
     // Business settings. Each write goes through an action that persists the
     // whole `settings` node and evicts the catalog cache, so a force-close

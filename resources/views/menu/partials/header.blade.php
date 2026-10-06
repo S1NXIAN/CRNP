@@ -13,10 +13,12 @@
     <nav class="site-nav" aria-label="Primary">
         <a href="{{ route('home') }}" @if (request()->routeIs('home')) aria-current="page" @endif>Menu</a>
         <a href="{{ route('occupancy') }}" @if (request()->routeIs('occupancy')) aria-current="page" @endif>Availability</a>
+        <a href="{{ route('rentals.index') }}" @if (request()->routeIs('rentals.index', 'rentals.show')) aria-current="page" @endif>Rentals</a>
         <a href="{{ route('about') }}" @if (request()->routeIs('about')) aria-current="page" @endif>About</a>
         @auth
             <a href="{{ route('cart.show') }}" @if (request()->routeIs('cart.show', 'checkout.show')) aria-current="page" @endif>Cart</a>
             <a href="{{ route('orders.tracker') }}" @if (request()->routeIs('orders.*')) aria-current="page" @endif>My order</a>
+            <a href="{{ route('rentals.mine') }}" @if (request()->routeIs('rentals.mine', 'rentals.track')) aria-current="page" @endif>My rentals</a>
         @endauth
     </nav>
     <div class="site-account">
