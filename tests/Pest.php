@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Auth\RtdbUser;
 use App\Rtdb\Contracts\RtdbClient;
 use App\Rtdb\RestRtdbClient;
 use App\Rtdb\ServiceAccountTokenProvider;
+use App\Staff\StaffDirectory;
+use App\Staff\StaffRole;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -90,4 +93,35 @@ function httpQuery(Request $request): array
 function rtdb(): RtdbClient
 {
     return app(RtdbClient::class);
+}
+
+/**
+ * Sign a request in as a Google account without running the OAuth exchange:
+ * the guard resolves the staff row from the signed-in email, so tests only
+ * need the identity the session carries.
+ */
+function signIn(string $email, ?string $name = null, string $sub = 'sub-1'): RtdbUser
+{
+    $user = new RtdbUser($sub, $email, $name ?? $email);
+
+    test()->actingAs($user);
+
+    return $user;
+}
+
+/**
+ * Arrange a staff row exactly as the seeder or the admin create action would,
+ * keyed by the derived staff id, and return that id.
+ */
+function seedStaff(string $email, StaffRole $role, string $name = 'Staff'): string
+{
+    $id = StaffDirectory::idForEmail($email);
+
+    rtdb()->seed("staff/{$id}", [
+        'name' => $name,
+        'email' => $email,
+        'role' => $role->value,
+    ]);
+
+    return $id;
 }

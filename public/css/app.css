@@ -184,6 +184,120 @@
         color: var(--color-text);
         font-size: 1.125rem;
     }
+
+    /* Register header — names the cashier on duty; Switch account is the only
+       other command. */
+    .register-header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+        background: var(--color-surface-raised);
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .register-header__brand {
+        font-weight: 600;
+    }
+
+    .register-header__duty {
+        display: flex;
+        align-items: baseline;
+        gap: var(--space-2);
+        margin-left: auto;
+    }
+
+    .register-header__duty-label {
+        color: var(--color-text-muted);
+        font-size: 0.8125rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .register-header__duty-name {
+        font-weight: 600;
+    }
+
+    .notice {
+        padding: var(--space-2) var(--space-3);
+        background: var(--color-surface-raised);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+    }
+
+    .site-main__copy {
+        max-width: 60ch;
+        color: var(--color-text-muted);
+    }
+
+    .staff-create,
+    .staff-form {
+        display: grid;
+        gap: var(--space-3);
+    }
+
+    .staff-create {
+        max-width: 32rem;
+        padding: var(--space-4);
+        background: var(--color-surface-raised);
+        border-radius: var(--radius-lg);
+    }
+
+    .field {
+        display: grid;
+        gap: var(--space-1);
+    }
+
+    .field__label {
+        font-size: 0.875rem;
+        color: var(--color-text-muted);
+    }
+
+    .field__input {
+        min-height: var(--tap-target-touch);
+        padding: var(--space-2) var(--space-3);
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        color: var(--color-text);
+        font: inherit;
+    }
+
+    .field__error {
+        color: var(--color-brand);
+        font-size: 0.875rem;
+    }
+
+    .primary-button {
+        min-height: var(--tap-target-touch);
+        padding: var(--space-2) var(--space-3);
+        background: var(--color-brand);
+        border: 0;
+        border-radius: var(--radius-md);
+        color: var(--color-brand-ink);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .staff-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .staff-table th,
+    .staff-table td {
+        padding: var(--space-2) var(--space-3);
+        text-align: left;
+        border-bottom: 1px solid var(--color-border);
+        vertical-align: middle;
+    }
+
+    .inline-form {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+    }
 }
 
 @layer utilities {
