@@ -36,6 +36,9 @@ final readonly class Order
         public ?string $pickupAt = null,
         public ?string $deadlineAt = null,
         public ?string $customerUid = null,
+        public bool $proofInFlight = false,
+        public ?string $uploadStartedAt = null,
+        public ?string $proofReceivedAt = null,
     ) {}
 
     /**
@@ -66,6 +69,9 @@ final readonly class Order
         $pickupAt = $node['pickupAt'] ?? null;
         $deadlineAt = $node['deadlineAt'] ?? null;
         $customerUid = $node['customerUid'] ?? null;
+        $proofInFlight = $node['proofInFlight'] ?? false;
+        $uploadStartedAt = $node['uploadStartedAt'] ?? null;
+        $proofReceivedAt = $node['proofReceivedAt'] ?? null;
 
         return new self(
             id: $id,
@@ -83,12 +89,25 @@ final readonly class Order
             pickupAt: is_string($pickupAt) && $pickupAt !== '' ? $pickupAt : null,
             deadlineAt: is_string($deadlineAt) && $deadlineAt !== '' ? $deadlineAt : null,
             customerUid: is_string($customerUid) && $customerUid !== '' ? $customerUid : null,
+            proofInFlight: $proofInFlight === true,
+            uploadStartedAt: is_string($uploadStartedAt) && $uploadStartedAt !== '' ? $uploadStartedAt : null,
+            proofReceivedAt: is_string($proofReceivedAt) && $proofReceivedAt !== '' ? $proofReceivedAt : null,
         );
     }
 
     public function isPending(): bool
     {
         return $this->status === OrderStatus::Pending;
+    }
+
+    /**
+     * Whether a proof upload is mid-flight for this order. An upload sent with
+     * no terminal response counts as in flight, so the expiry sweep (#25) holds
+     * the order across 15:00 rather than dismissing it.
+     */
+    public function isMidUpload(): bool
+    {
+        return $this->proofInFlight;
     }
 
     /**

@@ -11,22 +11,19 @@ use RuntimeException;
 /**
  * Resizes an uploaded image with GD so no raw upload reaches RTDB.
  *
- * The longest edge is scaled to ~800px, JPEG quality is stepped down until the
- * encoded bytes fit under ~300KB, and the longest edge is never taken below a
- * 720px floor (a source smaller than the floor is left at its own size — this
- * never upscales). The result is JPEG binary; callers store its base64.
+ * The longest edge is scaled down to the preset's ceiling, JPEG quality is
+ * stepped down until the encoded bytes fit under the preset's byte budget, and
+ * the longest edge is never taken below the preset's legibility floor (a source
+ * smaller than the floor is left at its own size — this never upscales). The
+ * result is JPEG binary; callers store its base64.
  *
- * Shared with the settings slice (#20); the two definitions are reconciled at
- * merge. See `/home/xian/crnp-notes/foundation-web.md` §6.
+ * Two callers share this: the catalog/settings QR path (#20/#21) uses the
+ * default `Catalog` preset, and the proof-of-payment path (#24) uses the
+ * `Proof` preset — both never trust the client's own compression, they
+ * re-encode to the same ceiling server-side.
  */
 final class ImageCompressor
 {
-    private const MAX_EDGE = 800;
-
-    private const FLOOR_EDGE = 720;
-
-    private const MAX_BYTES = 300 * 1024;
-
     private const START_QUALITY = 85;
 
     private const QUALITY_STEP = 7;
@@ -41,7 +38,7 @@ final class ImageCompressor
     /**
      * @return string JPEG binary
      */
-    public function compress(string $binary): string
+    public function compress(string $binary, ImagePreset $preset = ImagePreset::Catalog): string
     {
         $source = @imagecreatefromstring($binary);
 
@@ -53,18 +50,18 @@ final class ImageCompressor
         $height = imagesy($source);
 
         try {
-            $edge = $this->targetEdge($width, $height);
+            $edge = $this->targetEdge($width, $height, $preset);
 
             while (true) {
-                $encoded = $this->encodeAtEdge($source, $width, $height, $edge);
+                $encoded = $this->encodeAtEdge($source, $width, $height, $edge, $preset);
 
-                // Accept once the bytes fit, or once the 720px floor is reached
-                // and no further shrink is allowed.
-                if (strlen($encoded) <= self::MAX_BYTES || $edge <= self::FLOOR_EDGE) {
+                // Accept once the bytes fit, or once the legibility floor is
+                // reached and no further shrink is allowed.
+                if (strlen($encoded) <= $preset->maxBytes() || $edge <= $preset->floorEdge()) {
                     return $encoded;
                 }
 
-                $edge = max(self::FLOOR_EDGE, $edge - self::EDGE_STEP);
+                $edge = max($preset->floorEdge(), $edge - self::EDGE_STEP);
             }
         } finally {
             imagedestroy($source);
@@ -74,28 +71,28 @@ final class ImageCompressor
     /**
      * @return string base64 of the compressed JPEG
      */
-    public function compressToBase64(string $binary): string
+    public function compressToBase64(string $binary, ImagePreset $preset = ImagePreset::Catalog): string
     {
-        return base64_encode($this->compress($binary));
+        return base64_encode($this->compress($binary, $preset));
     }
 
     /**
-     * The longest edge to target: shrink to the max edge, but never below the
-     * floor and never above the source's own longest edge.
+     * The longest edge to target: shrink to the preset ceiling, but never below
+     * the floor and never above the source's own longest edge.
      */
-    private function targetEdge(int $width, int $height): int
+    private function targetEdge(int $width, int $height, ImagePreset $preset): int
     {
         $long = max($width, $height);
-        $target = min($long, self::MAX_EDGE);
+        $target = min($long, $preset->maxEdge());
 
-        if ($target < self::FLOOR_EDGE) {
-            $target = min(self::FLOOR_EDGE, $long);
+        if ($target < $preset->floorEdge()) {
+            $target = min($preset->floorEdge(), $long);
         }
 
         return $target;
     }
 
-    private function encodeAtEdge(GdImage $source, int $width, int $height, int $edge): string
+    private function encodeAtEdge(GdImage $source, int $width, int $height, int $edge, ImagePreset $preset): string
     {
         $scale = $edge / max($width, $height);
         $targetWidth = max(1, (int) round($width * $scale));
@@ -128,7 +125,7 @@ final class ImageCompressor
             imagejpeg($canvas, null, $quality);
             $data = (string) ob_get_clean();
 
-            if (strlen($data) <= self::MAX_BYTES) {
+            if (strlen($data) <= $preset->maxBytes()) {
                 break;
             }
 
