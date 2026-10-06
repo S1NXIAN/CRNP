@@ -53,4 +53,13 @@ final readonly class OrderTracker
     {
         return "order-state:{$orderId}";
     }
+
+    /**
+     * Evict an order's coalesced entry so its own write propagates on the next
+     * poll rather than waiting out the cadence.
+     */
+    public function forget(string $orderId): void
+    {
+        $this->client->forget($this->cacheKey($orderId));
+    }
 }

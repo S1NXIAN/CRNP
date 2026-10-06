@@ -22,6 +22,7 @@ use App\Http\Controllers\Customer\MenuController;
 use App\Http\Controllers\Customer\OccupancyController;
 use App\Http\Controllers\Customer\OrderTrackerController;
 use App\Http\Controllers\Customer\ProductPageController;
+use App\Http\Controllers\Customer\ProofController;
 use Illuminate\Support\Facades\Route;
 
 // The public site: the menu and product pages serve from the coalesced catalog
@@ -53,6 +54,12 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/orders', [OrderTrackerController::class, 'reopen'])->name('orders.tracker');
     Route::get('/orders/{order}', [OrderTrackerController::class, 'show'])->name('orders.show');
     Route::get('/orders/{order}/state', [OrderTrackerController::class, 'state'])->name('orders.state');
+
+    // Proof of payment: an in-flight marker when the upload begins, then the
+    // screenshot + amount + ref#. The server re-encodes the image and
+    // auto-verifies (or flags the hold); the client re-polls the tracker.
+    Route::post('/orders/{order}/proof', [ProofController::class, 'store'])->name('orders.proof.store');
+    Route::post('/orders/{order}/proof/start', [ProofController::class, 'start'])->name('orders.proof.start');
 });
 
 // Checkout: pickup time (default ASAP, earliest now + 15 min) then Place order.

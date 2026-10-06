@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Support\Image\ImageCompressor;
+use App\Support\Image\ImagePreset;
 
 /**
  * A deterministic, high-entropy JPEG so the encoder has to work — a flat colour
@@ -81,4 +82,32 @@ it('emits a JPEG regardless of the source format', function (): void {
 
     expect($info)->not->toBeFalse()
         ->and($info[2])->toBe(IMAGETYPE_JPEG);
+});
+
+it('bounds a proof screenshot under 300KB without dropping below the 720px floor', function (): void {
+    $compressed = (new ImageCompressor())->compress(noisyJpeg(2000, 1500), ImagePreset::Proof);
+
+    $info = getimagesizefromstring($compressed);
+
+    expect($info)->not->toBeFalse()
+        ->and(strlen($compressed))->toBeLessThanOrEqual(300 * 1024)
+        ->and(max($info[0], $info[1]))->toBeGreaterThanOrEqual(720);
+});
+
+it('never scales a proof screenshot past the proof preset edge ceiling', function (): void {
+    $compressed = (new ImageCompressor())->compress(noisyJpeg(4000, 3000), ImagePreset::Proof);
+
+    $info = getimagesizefromstring($compressed);
+
+    expect($info)->not->toBeFalse()
+        ->and(max($info[0], $info[1]))->toBeLessThanOrEqual(1600);
+});
+
+it('keeps the catalog preset at the 800px edge by default', function (): void {
+    $compressed = (new ImageCompressor())->compress(noisyJpeg(1600, 1200));
+
+    $info = getimagesizefromstring($compressed);
+
+    expect($info)->not->toBeFalse()
+        ->and(max($info[0], $info[1]))->toBe(800);
 });

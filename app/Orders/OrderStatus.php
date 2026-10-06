@@ -49,14 +49,16 @@ enum OrderStatus: string
 
     /**
      * The tracker's customer-facing label. The later states carry their full
-     * sentence so the tracker can render whatever the order node says.
+     * sentence so the tracker can render whatever the order node says. A flagged
+     * hold (`verifying`) and a rejected proof both read the same sentence — the
+     * customer self-corrects at the counter, no blame and no reason codes.
      */
     public function label(): string
     {
         return match ($this) {
             self::Pending => 'Pending',
             self::AwaitingPayment => 'Awaiting payment',
-            self::Verifying => 'Verifying',
+            self::Verifying => 'Payment needs checking — see the counter',
             self::Cooking => 'Cooking',
             self::Served => 'READY',
             self::Dismissed => 'Order dismissed — no payment received',

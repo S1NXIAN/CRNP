@@ -12,6 +12,11 @@ namespace App\Orders;
  * #24/#26/#27/#29 write — and degrades gracefully on one it does not recognise
  * (a friendly label, not a blank screen). The tracker is bound to the session
  * and `users/{uid}` via `customerUid`.
+ *
+ * A flagged hold carries `enteredAmount` — the figure the customer typed —
+ * beside `total`, so the tracker can show both side by side beneath "Payment
+ * needs checking" and let the customer self-correct. The image bytes never ride
+ * here; the proof lives in the sibling `proofs/{id}` node.
  */
 final readonly class OrderTrackerState
 {
@@ -21,6 +26,7 @@ final readonly class OrderTrackerState
         public string $status,
         public string $label,
         public float $total,
+        public ?float $enteredAmount,
         public ?string $pickupAt,
         public ?string $deadlineAt,
         public bool $isActive,
@@ -42,6 +48,7 @@ final readonly class OrderTrackerState
         $status = is_string($rawStatus) && $rawStatus !== '' ? $rawStatus : 'unknown';
         $known = OrderStatus::tryFrom($status);
         $total = $node['total'] ?? 0;
+        $enteredAmount = $node['enteredAmount'] ?? null;
         $pickupAt = $node['pickupAt'] ?? null;
         $deadlineAt = $node['deadlineAt'] ?? null;
         $customerUid = $node['customerUid'] ?? null;
@@ -52,6 +59,7 @@ final readonly class OrderTrackerState
             status: $status,
             label: $known?->label() ?? 'Order status unavailable',
             total: is_numeric($total) ? (float) $total : 0.0,
+            enteredAmount: is_numeric($enteredAmount) ? (float) $enteredAmount : null,
             pickupAt: is_string($pickupAt) && $pickupAt !== '' ? $pickupAt : null,
             deadlineAt: is_string($deadlineAt) && $deadlineAt !== '' ? $deadlineAt : null,
             isActive: $known?->isActive() ?? false,
@@ -72,6 +80,7 @@ final readonly class OrderTrackerState
             'status' => $this->status,
             'label' => $this->label,
             'total' => $this->total,
+            'enteredAmount' => $this->enteredAmount,
             'pickupAt' => $this->pickupAt,
             'deadlineAt' => $this->deadlineAt,
             'isActive' => $this->isActive,
