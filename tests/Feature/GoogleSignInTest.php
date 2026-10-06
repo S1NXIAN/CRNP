@@ -151,6 +151,26 @@ it('rate-limits the login routes to five per five minutes per forwarded IP', fun
         ->assertStatus(429);
 });
 
+it('recovers the login limit inside its five-minute window', function (): void {
+    for ($attempt = 1; $attempt <= 5; $attempt++) {
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.8'])
+            ->get(route('auth.google.redirect'))
+            ->assertRedirect();
+    }
+
+    $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.8'])
+        ->get(route('auth.google.redirect'))
+        ->assertStatus(429);
+
+    // The limit decays inside its window: once five minutes elapse the same
+    // client is served again, so a bad login loop is self-healing.
+    $this->travel(301)->seconds();
+
+    $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.8'])
+        ->get(route('auth.google.redirect'))
+        ->assertRedirect();
+});
+
 it('counts the login limit per forwarded IP so one proxy does not lock everyone out', function (): void {
     for ($attempt = 1; $attempt <= 5; $attempt++) {
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.7'])
