@@ -1,0 +1,52 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+    "orders": {
+      ".indexOn": ["status", "deadlineAt", "updatedAt", "settledAt"]
+    },
+    "proofs": {
+      ".indexOn": ["updatedAt", "rejectedAt"]
+    },
+    "sales": {
+      ".indexOn": ["updatedAt", "soldAt"]
+    },
+    "products": {
+      ".indexOn": ["category", "updatedAt"]
+    },
+    "reservations": {
+      ".indexOn": ["phone", "date", "updatedAt"]
+    },
+    "rentalBookings": {
+      ".indexOn": ["updatedAt", "dateFrom"]
+    },
+    "rentals": {
+      ".indexOn": ["updatedAt"]
+    },
+    "staff": {
+      ".indexOn": ["email", "updatedAt"]
+    },
+    "users": {
+      ".indexOn": ["updatedAt"]
+    },
+    "audit": {
+      ".indexOn": ["orderId", "updatedAt"]
+    },
+    "settings": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "stats": {
+      "top3": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "export": {
+      "state": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}
