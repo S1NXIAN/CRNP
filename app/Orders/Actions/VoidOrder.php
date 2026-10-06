@@ -13,19 +13,23 @@ use App\Rtdb\Contracts\RtdbClient;
 use InvalidArgumentException;
 
 /**
- * Voids a **Dismissed** order — ends it for good (PLAN §4 *Cashier POS* —
- * *Retired orders*).
+ * **Void** an order — the terminal tap that ends a **Rejected** (#27) or
+ * **Dismissed** (#29) order (PLAN §4 *Cashier POS* — *Rejected* / *Retired
+ * orders*).
  *
- * A Void is the other way out of the Dismissed list: it flips the order to the
- * terminal `voided` state and **never clears `refundOwed`** — money owed
- * survives until the admin's Mark refunded settles it. The write touches only
- * the status, the terminal `settledAt` stamp (the proof-cleanup sweep's
- * watermark), and the void instant, so any `refundOwed` booked on the order is
- * left exactly as it was.
+ * Void flips the order to `voided` so it leaves every live read, and it **never
+ * clears `refundOwed`** — a money obligation outlives the order and is settled
+ * only by the admin's **Mark refunded** (#32). The same action serves both
+ * retired lists: a Rejected order's only other tap is Approve (the undo), while
+ * a Dismissed order's is Restore.
  *
- * The tap is **status-guarded**: only a `Dismissed` order may be voided here. A
- * **Rejected** order's Void is #27's own state machine, so this action leaves it
- * alone; a stale tap on any other state is a friendly no-op.
+ * The tap is **status-guarded**: only a `rejected` or `dismissed` order may be
+ * voided, so a stale or duplicate tap on a served, cooking, or already-voided
+ * order is a friendly no-op. When a `HandledBy` is supplied (the Dismissed path)
+ * the terminal `settledAt` stamp — the proof-cleanup sweep's watermark — and the
+ * cashier are written too; the Rejected path omits them. The order's coalesced
+ * tracker entry and the queue's coalesced entry are evicted so the tap
+ * propagates on the next request.
  */
 final readonly class VoidOrder
 {
@@ -35,7 +39,7 @@ final readonly class VoidOrder
         private CashierQueueCache $queue,
     ) {}
 
-    public function __invoke(string $orderId, HandledBy $handledBy): void
+    public function __invoke(string $orderId, ?HandledBy $handledBy = null): void
     {
         $node = $this->client->get("orders/{$orderId}");
         $order = is_array($node) ? Order::fromNode($orderId, $node) : null;
@@ -44,9 +48,9 @@ final readonly class VoidOrder
             throw new InvalidArgumentException("No order with id [{$orderId}].");
         }
 
-        // Status-guarded: only a Dismissed order is voided here. A Rejected
-        // order's Void belongs to #27; any stale tap writes nothing.
-        if ($order->status !== OrderStatus::Dismissed) {
+        // Status-guarded: only a Rejected (#27) or Dismissed (#29) order is
+        // voided here; any stale tap writes nothing.
+        if ($order->status !== OrderStatus::Rejected && $order->status !== OrderStatus::Dismissed) {
             return;
         }
 
@@ -54,12 +58,19 @@ final readonly class VoidOrder
         // clears the obligation.
         $voidedAt = now('UTC')->toIso8601ZuluString();
 
-        $this->client->update("orders/{$orderId}", [
+        $write = [
             'status' => OrderStatus::Voided->value,
             'voidedAt' => $voidedAt,
-            'settledAt' => $voidedAt,
-            'handledBy' => $handledBy->toNode(),
-        ]);
+        ];
+
+        // The Dismissed path names the cashier and stamps the terminal
+        // `settledAt` watermark; the Rejected path leaves both untouched.
+        if ($handledBy !== null) {
+            $write['settledAt'] = $voidedAt;
+            $write['handledBy'] = $handledBy->toNode();
+        }
+
+        $this->client->update("orders/{$orderId}", $write);
 
         $this->tracker->forget($orderId);
         $this->queue->forget();

@@ -205,6 +205,11 @@ it('rotates the kitchen secret and invalidates the old one', function (): void {
 
     expect($settings->kitchenSecret)->toBe($second)
         ->and($settings->kitchenSecret)->not->toBe($first);
+
+    // The admin can read the live board link off the settings screen.
+    $this->get(route('admin.settings.edit'))
+        ->assertOk()
+        ->assertSee(route('kitchen.board.secret', ['secret' => $second]), false);
 });
 
 it('lets an admin edit reservation capacities per area', function (): void {

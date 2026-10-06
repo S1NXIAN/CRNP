@@ -24,6 +24,7 @@ use App\Http\Controllers\Customer\OccupancyController;
 use App\Http\Controllers\Customer\OrderTrackerController;
 use App\Http\Controllers\Customer\ProductPageController;
 use App\Http\Controllers\Customer\ProofController;
+use App\Http\Controllers\Kitchen\KitchenBoardController;
 use Illuminate\Support\Facades\Route;
 
 // The public site: the menu and product pages serve from the coalesced catalog
@@ -98,11 +99,13 @@ Route::middleware(['auth', 'staff.role:cashier'])->group(function (): void {
     // until Mark served), and in-window orders with no screenshot show as
     // awaiting proof. The read is coalesced behind a cache entry, and Mark
     // served is the one happy-path tap — a stale or duplicate tap is a no-op.
-    // #29 adds the Dismissed (Restore / Void) and Unclaimed (Collect late) taps;
-    // every one is status-guarded.
+    // #27 adds Reject / Approve / Void; #29 adds the Dismissed (Restore / Void)
+    // and Unclaimed (Collect late) taps; every one is status-guarded.
     Route::get('/cashier/queue', [QueueController::class, 'index'])->name('cashier.queue');
     Route::get('/cashier/queue/state', [QueueController::class, 'state'])->name('cashier.queue.state');
     Route::post('/cashier/orders/{order}/serve', [QueueController::class, 'serve'])->name('cashier.orders.serve');
+    Route::post('/cashier/orders/{order}/reject', [QueueController::class, 'reject'])->name('cashier.orders.reject');
+    Route::post('/cashier/orders/{order}/approve', [QueueController::class, 'approve'])->name('cashier.orders.approve');
     Route::post('/cashier/orders/{order}/restore', [QueueController::class, 'restore'])->name('cashier.orders.restore');
     Route::post('/cashier/orders/{order}/void', [QueueController::class, 'void'])->name('cashier.orders.void');
     Route::post('/cashier/orders/{order}/collect-late', [QueueController::class, 'collectLate'])->name('cashier.orders.collect-late');
@@ -129,6 +132,18 @@ Route::middleware(['auth', 'staff.role:cashier'])->group(function (): void {
     Route::post('/cashier/reservations', [ReservationController::class, 'store'])->name('cashier.reservations.store');
     Route::post('/cashier/reservations/{reservation}/confirm', [ReservationController::class, 'confirm'])->name('cashier.reservations.confirm');
     Route::post('/cashier/reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])->name('cashier.reservations.cancel');
+});
+
+// The kitchen read-only board: a kiosk-level, shared-secret URL with no login
+// and zero cook interaction. The gate is the secret from settings (#20), which
+// accepts either a path segment or a query string; rotating the secret kills
+// the old URL. The board serves NOW/LATER from the coalesced snapshot, so ten
+// kiosks cost one RTDB read per 5 s interval.
+Route::middleware('kitchen.secret')->group(function (): void {
+    Route::get('/kitchen', [KitchenBoardController::class, 'board'])->name('kitchen.board');
+    Route::get('/kitchen/state', [KitchenBoardController::class, 'state'])->name('kitchen.state');
+    Route::get('/kitchen/{secret}', [KitchenBoardController::class, 'board'])->name('kitchen.board.secret');
+    Route::get('/kitchen/{secret}/state', [KitchenBoardController::class, 'state'])->name('kitchen.state.secret');
 });
 
 Route::middleware(['auth', 'staff.role:admin'])->prefix('admin')->name('admin.')->group(function (): void {

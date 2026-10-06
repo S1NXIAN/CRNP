@@ -8,12 +8,17 @@ namespace App\Orders;
  * The cashier's **online pickup queue**: the sections the screen renders
  * (PLAN §4 *Cashier POS*).
  *
+ * - **flagged holds** — orders whose entered amount or ref# mismatched; the
+ *   only thing that interrupts auto-verify. Both numbers are shown side by side
+ *   for one-tap **Approve / Reject** (kitchen waits for the tap).
  * - **ready to pay** — prepaid, verified, unserved orders; Mark served is the
  *   one happy-path tap.
  * - **recently verified** — the same verified orders for at-leisure spot-check;
  *   Reject stays reachable until Mark served.
  * - **awaiting proof** — in-window orders with no screenshot yet, so staff see
  *   a customer waiting rather than a blank queue.
+ * - **rejected** — its own state; the only actions are **Approve** (the undo)
+ *   or **Void**, never Restore. The claimed refund is shown beside the total.
  * - **ready — awaiting handover** (#29) — tickets the server cleared off the
  *   kitchen board (ready-for + grace / close) that are paid but unserved, so
  *   nothing disappears without a trace; the cashier collects them with Mark
@@ -30,39 +35,47 @@ namespace App\Orders;
 final readonly class QueueSnapshot
 {
     /**
+     * @param  list<QueueOrder>  $flaggedHolds
      * @param  list<QueueOrder>  $readyToPay
      * @param  list<QueueOrder>  $recentlyVerified
      * @param  list<QueueOrder>  $awaitingProof
      * @param  list<QueueOrder>  $awaitingHandover
      * @param  list<QueueOrder>  $dismissed
+     * @param  list<QueueOrder>  $rejected
      * @param  list<QueueOrder>  $unclaimed
      */
     public function __construct(
+        public array $flaggedHolds,
         public array $readyToPay,
         public array $recentlyVerified,
         public array $awaitingProof,
         public array $awaitingHandover = [],
         public array $dismissed = [],
+        public array $rejected = [],
         public array $unclaimed = [],
     ) {}
 
     public function signature(): string
     {
-        return 'r:' . $this->ids($this->readyToPay)
+        return 'f:' . $this->ids($this->flaggedHolds)
+            . ';r:' . $this->ids($this->readyToPay)
             . ';v:' . $this->ids($this->recentlyVerified)
             . ';a:' . $this->ids($this->awaitingProof)
             . ';h:' . $this->ids($this->awaitingHandover)
             . ';d:' . $this->ids($this->dismissed)
+            . ';x:' . $this->ids($this->rejected)
             . ';u:' . $this->ids($this->unclaimed);
     }
 
     /**
      * @return array{
+     *     flaggedHolds: list<array<string, mixed>>,
      *     readyToPay: list<array<string, mixed>>,
      *     recentlyVerified: list<array<string, mixed>>,
      *     awaitingProof: list<array<string, mixed>>,
      *     awaitingHandover: list<array<string, mixed>>,
      *     dismissed: list<array<string, mixed>>,
+     *     rejected: list<array<string, mixed>>,
      *     unclaimed: list<array<string, mixed>>,
      *     signature: string
      * }
@@ -70,11 +83,13 @@ final readonly class QueueSnapshot
     public function toArray(): array
     {
         return [
+            'flaggedHolds' => $this->rows($this->flaggedHolds),
             'readyToPay' => $this->rows($this->readyToPay),
             'recentlyVerified' => $this->rows($this->recentlyVerified),
             'awaitingProof' => $this->rows($this->awaitingProof),
             'awaitingHandover' => $this->rows($this->awaitingHandover),
             'dismissed' => $this->rows($this->dismissed),
+            'rejected' => $this->rows($this->rejected),
             'unclaimed' => $this->rows($this->unclaimed),
             'signature' => $this->signature(),
         ];

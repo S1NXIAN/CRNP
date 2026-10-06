@@ -18,9 +18,15 @@ use Carbon\CarbonImmutable;
  * with **no screenshot yet** show as **awaiting proof**, so staff see a customer
  * waiting rather than a blank queue.
  *
+ * A **flagged hold** (`verifying`) is the only thing that interrupts
+ * auto-verify: the entered amount or the ref# mismatched, so both numbers are
+ * shown side by side for one-tap **Approve / Reject**. A **rejected** order is
+ * its own section — the only actions are **Approve** (the undo) or **Void**,
+ * never Restore — carrying the claimed refund beside the order total.
+ *
  * The read is status-bounded queries (`orders/.indexOn status`), and each row
- * is a scalar projection of `orders/{id}` — the proof image lives in the
- * sibling `proofs/{id}` node and never rides here, so the queue is scalar by
+ * is a scalar projection of `orders/{id}` — the proof image lives in the sibling
+ * `proofs/{id}` node and never rides here, so the queue is scalar by
  * construction (PLAN §4 *Quota discipline*, rule 3). Only online orders are in
  * scope: a walk-in is rung up and handed over at the counter, never through the
  * online queue.
@@ -32,8 +38,8 @@ use Carbon\CarbonImmutable;
  *
  * The computed snapshot is served from a coalesced cache entry whose TTL equals
  * {@see self::POLL_SECONDS} (rule 1), so N registers cost one RTDB read per
- * interval; Mark served evicts the entry so the cashier's own tap propagates on
- * the next request rather than after the TTL.
+ * interval; every cashier tap evicts the entry so the cashier's own tap
+ * propagates on the next request rather than after the TTL.
  */
 final readonly class CashierQueue
 {
@@ -51,13 +57,35 @@ final readonly class CashierQueue
         $cooking = $this->verifiedUnserved($at);
 
         return new QueueSnapshot(
+            flaggedHolds: $this->flaggedHolds(),
             readyToPay: $cooking['readyToPay'],
             recentlyVerified: $cooking['readyToPay'],
             awaitingProof: $this->awaitingProof($at),
             awaitingHandover: $cooking['awaitingHandover'],
             dismissed: $this->byStatus(OrderStatus::Dismissed),
+            rejected: $this->rejected(),
             unclaimed: $this->byStatus(OrderStatus::Unclaimed),
         );
+    }
+
+    /**
+     * Orders parked on a flagged hold — entered amount ≠ total or a blank ref#.
+     * The kitchen waits on the cashier's one-tap Approve / Reject.
+     *
+     * @return list<QueueOrder>
+     */
+    private function flaggedHolds(): array
+    {
+        $orders = $this->online(
+            $this->client->query(
+                'orders',
+                RtdbQuery::orderBy('status')->equalTo(OrderStatus::Verifying->value),
+            ),
+        );
+
+        usort($orders, static fn(Order $a, Order $b): int => self::moment($a->flaggedAt) <=> self::moment($b->flaggedAt));
+
+        return array_map(static fn(Order $order): QueueOrder => QueueOrder::fromOrder($order), $orders);
     }
 
     /**
@@ -150,6 +178,26 @@ final readonly class CashierQueue
         usort($awaiting, static fn(Order $a, Order $b): int => self::moment($a->deadlineAt) <=> self::moment($b->deadlineAt));
 
         return array_map(static fn(Order $order): QueueOrder => QueueOrder::fromOrder($order), $awaiting);
+    }
+
+    /**
+     * Rejected online orders — its own state. The only actions are Approve (the
+     * undo) or Void, never Restore; the claimed refund rides beside the total.
+     *
+     * @return list<QueueOrder>
+     */
+    private function rejected(): array
+    {
+        $orders = $this->online(
+            $this->client->query(
+                'orders',
+                RtdbQuery::orderBy('status')->equalTo(OrderStatus::Rejected->value),
+            ),
+        );
+
+        usort($orders, static fn(Order $a, Order $b): int => self::moment($a->placedAt) <=> self::moment($b->placedAt));
+
+        return array_map(static fn(Order $order): QueueOrder => QueueOrder::fromOrder($order), $orders);
     }
 
     /**

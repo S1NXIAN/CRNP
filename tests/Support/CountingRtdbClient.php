@@ -28,6 +28,11 @@ final class CountingRtdbClient implements RtdbClient
      */
     public array $reads = [];
 
+    /**
+     * @var array<string, int>
+     */
+    public array $queries = [];
+
     public function __construct(private readonly RtdbClient $inner) {}
 
     public function get(string $path): mixed
@@ -54,6 +59,8 @@ final class CountingRtdbClient implements RtdbClient
 
     public function query(string $path, RtdbQuery $query): array
     {
+        $this->queries[$path] = ($this->queries[$path] ?? 0) + 1;
+
         return $this->inner->query($path, $query);
     }
 

@@ -12,18 +12,21 @@
     @include('cashier.partials.register-header')
 
     {{--
-        The online pickup queue. Prepaid orders arrive ready-to-pay with no
-        approval tap (the QR went out at placement and the screenshot
-        auto-verifies); verified orders sit in the recently-verified list for
-        at-leisure spot-check, where Reject stays reachable until Mark served;
-        and in-window orders with no screenshot yet show as awaiting proof.
+        The online pickup queue. A flagged hold (entered amount ≠ total or a
+        blank ref#) is the only exception: both numbers sit side by side for
+        one-tap Reject. Prepaid verified orders arrive ready-to-pay with no
+        approval tap and sit in the recently-verified list for at-leisure
+        spot-check, where Reject stays reachable until Mark served. In-window
+        orders with no screenshot yet show as awaiting proof. A Rejected order
+        is its own list: Approve (the undo) or Void, never Restore, with the
+        claimed refund beside the total (#27).
 
         Tickets the server clears off the kitchen board (ready-for + 15 min /
         close) land in the ready — awaiting handover row so nothing disappears
         without a trace; the Dismissed list offers Restore (a fresh 15-minute
         window + audit entry) and Void (ends the order, never clearing
         refundOwed); and Unclaimed orders gain Collect late (served, no second
-        sale). Mark served is the one happy-path tap. The screen polls the
+        sale) (#29). Mark served is the one happy-path tap. The screen polls the
         coalesced state endpoint and reloads the server-rendered rows only when
         the membership signature changes.
     --}}
@@ -35,21 +38,30 @@
     >
         <h1 class="queue__title">Online pickup queue</h1>
 
-        <section class="queue-section" aria-labelledby="queue-handover-heading">
-            <h2 class="queue-section__title" id="queue-handover-heading">Ready — awaiting handover</h2>
-            <p class="queue-section__hint">Cleared off the kitchen board — collect with the order code.</p>
+        <section class="queue-section" aria-labelledby="queue-flagged-heading">
+            <h2 class="queue-section__title" id="queue-flagged-heading">Flagged holds</h2>
+            <p class="queue-section__hint">Entered amount or ref# mismatch — the only thing that interrupts auto-verify.</p>
 
-            @if ($snapshot->awaitingHandover === [])
-                <p class="empty-state">Nothing waiting at the counter.</p>
+            @if ($snapshot->flaggedHolds === [])
+                <p class="empty-state">No flagged holds — the line is clear.</p>
             @else
                 <ul class="queue-list">
-                    @foreach ($snapshot->awaitingHandover as $order)
+                    @foreach ($snapshot->flaggedHolds as $order)
                         <li class="queue-row">
                             <span class="queue-row__code">{{ $order->code }}</span>
-                            <span class="queue-row__total">₱{{ number_format($order->total, 2) }}</span>
-                            <form method="POST" action="{{ route('cashier.orders.serve', ['order' => $order->id]) }}" class="queue-row__action">
+                            <span class="queue-row__figures">
+                                <span class="queue-row__figure">
+                                    <span class="queue-row__figure-label">Entered</span>
+                                    <span class="queue-row__figure-value">₱{{ number_format($order->enteredAmount ?? $order->total, 2) }}</span>
+                                </span>
+                                <span class="queue-row__figure">
+                                    <span class="queue-row__figure-label">Total</span>
+                                    <span class="queue-row__figure-value">₱{{ number_format($order->total, 2) }}</span>
+                                </span>
+                            </span>
+                            <form method="POST" action="{{ route('cashier.orders.reject', ['order' => $order->id]) }}" class="queue-row__action">
                                 @csrf
-                                <button type="submit" class="primary-button">Mark served</button>
+                                <button type="submit" class="link-button">Reject</button>
                             </form>
                         </li>
                     @endforeach
@@ -90,11 +102,10 @@
                         <li class="queue-row">
                             <span class="queue-row__code">{{ $order->code }}</span>
                             <span class="queue-row__total">₱{{ number_format($order->total, 2) }}</span>
-                            <span class="queue-row__action">
-                                {{-- Reject is #27's action; the affordance is
-                                     exposed here but its write is out of scope. --}}
-                                <button type="button" class="link-button" disabled title="Reject arrives with #27">Reject</button>
-                            </span>
+                            <form method="POST" action="{{ route('cashier.orders.reject', ['order' => $order->id]) }}" class="queue-row__action">
+                                @csrf
+                                <button type="submit" class="link-button">Reject</button>
+                            </form>
                         </li>
                     @endforeach
                 </ul>
@@ -119,9 +130,68 @@
             @endif
         </section>
 
+        <section class="queue-section" aria-labelledby="queue-rejected-heading">
+            <h2 class="queue-section__title" id="queue-rejected-heading">Rejected</h2>
+            <p class="queue-section__hint">Payment refused — the claimed amount is owed. Undo it, or Void to end it.</p>
+
+            @if ($snapshot->rejected === [])
+                <p class="empty-state">No rejected payments.</p>
+            @else
+                <ul class="queue-list">
+                    @foreach ($snapshot->rejected as $order)
+                        <li class="queue-row">
+                            <span class="queue-row__code">{{ $order->code }}</span>
+                            <span class="queue-row__figures">
+                                <span class="queue-row__figure">
+                                    <span class="queue-row__figure-label">Claimed</span>
+                                    <span class="queue-row__figure-value">₱{{ number_format($order->refundOwed ?? $order->total, 2) }}</span>
+                                </span>
+                                <span class="queue-row__figure">
+                                    <span class="queue-row__figure-label">Total</span>
+                                    <span class="queue-row__figure-value">₱{{ number_format($order->total, 2) }}</span>
+                                </span>
+                            </span>
+                            <span class="queue-row__actions">
+                                <form method="POST" action="{{ route('cashier.orders.approve', ['order' => $order->id]) }}" class="queue-row__action">
+                                    @csrf
+                                    <button type="submit" class="primary-button">Approve</button>
+                                </form>
+                                <form method="POST" action="{{ route('cashier.orders.void', ['order' => $order->id]) }}" class="queue-row__action">
+                                    @csrf
+                                    <button type="submit" class="link-button">Void</button>
+                                </form>
+                            </span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </section>
+
+        <section class="queue-section" aria-labelledby="queue-handover-heading">
+            <h2 class="queue-section__title" id="queue-handover-heading">Ready — awaiting handover</h2>
+            <p class="queue-section__hint">Cleared off the kitchen board — collect with the order code.</p>
+
+            @if ($snapshot->awaitingHandover === [])
+                <p class="empty-state">Nothing waiting at the counter.</p>
+            @else
+                <ul class="queue-list">
+                    @foreach ($snapshot->awaitingHandover as $order)
+                        <li class="queue-row">
+                            <span class="queue-row__code">{{ $order->code }}</span>
+                            <span class="queue-row__total">₱{{ number_format($order->total, 2) }}</span>
+                            <form method="POST" action="{{ route('cashier.orders.serve', ['order' => $order->id]) }}" class="queue-row__action">
+                                @csrf
+                                <button type="submit" class="primary-button">Mark served</button>
+                            </form>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </section>
+
         <section class="queue-section" aria-labelledby="queue-dismissed-heading">
             <h2 class="queue-section__title" id="queue-dismissed-heading">Dismissed</h2>
-            <p class="queue-section__hint">Payment window lapsed with no proof — Restore re-arms 15 minutes, Void ends the order.</p>
+            <p class="queue-section__hint">Payment window lapsed with no proof — re-arm a fresh 15-minute window, or Void to end the order.</p>
 
             @if ($snapshot->dismissed === [])
                 <p class="empty-state">No dismissed orders.</p>

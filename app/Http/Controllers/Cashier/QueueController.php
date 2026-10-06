@@ -6,8 +6,10 @@ namespace App\Http\Controllers\Cashier;
 
 use App\Cache\CashierQueueCache;
 use App\Http\Controllers\Controller;
+use App\Orders\Actions\ApproveOrder;
 use App\Orders\Actions\CollectLate;
 use App\Orders\Actions\MarkServed;
+use App\Orders\Actions\RejectOrder;
 use App\Orders\Actions\Restore;
 use App\Orders\Actions\VoidOrder;
 use App\Orders\CashierQueue;
@@ -22,22 +24,24 @@ use Illuminate\Http\RedirectResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * The cashier's **online pickup queue** and **Mark served** (PLAN §4 *Cashier
- * POS*).
+ * The cashier's **online pickup queue** and its taps (PLAN §4 *Cashier POS*).
  *
- * The screen shows the ready-to-pay, recently-verified (spot-check, Reject
- * reachable until Mark served), and awaiting-proof sections, the **ready —
- * awaiting handover** row for tickets the server cleared off the board, and the
- * **Dismissed** (Restore / Void) and **Unclaimed** (Collect late) lists (#29).
- * It names the cashier on duty in the register header. Mark served is the one
- * happy-path tap: it flips the order to `served` (the tracker reads READY) and
- * writes the 1:1 `sales/{id}` row with `handledBy`; a stale or duplicate tap is
- * a friendly no-op. The read is served from the coalesced
+ * The screen shows the queue sections — flagged holds (one-tap Approve /
+ * Reject), ready-to-pay, recently-verified (spot-check, Reject reachable until
+ * Mark served), awaiting-proof, and the Rejected list (Approve or Void, never
+ * Restore) — plus the **ready — awaiting handover** row for tickets the server
+ * cleared off the board, and the **Dismissed** (Restore / Void) and
+ * **Unclaimed** (Collect late) lists (#29). It names the cashier on duty in the
+ * register header. Mark served is the one happy-path tap: it flips the order to
+ * `served` (the tracker reads READY) and writes the 1:1 `sales/{id}` row with
+ * `handledBy`; a stale or duplicate tap is a friendly no-op. Reject writes the
+ * rejection record and books `refundOwed`; Approve is the undo; Void ends a
+ * Rejected or Dismissed order. The read is served from the coalesced
  * {@see CashierQueueCache} entry, so N registers cost one RTDB read per poll
  * cadence.
  *
  * The controller validates, authorizes, delegates, and responds — the queue
- * computation lives in {@see CashierQueue} and each write in its action.
+ * computation lives in {@see CashierQueue} and the writes in the action classes.
  */
 final class QueueController extends Controller
 {
@@ -86,6 +90,38 @@ final class QueueController extends Controller
     }
 
     /**
+     * Reject a flagged hold or a spot-checked verified order: write the
+     * rejection record, keep the image, and book `refundOwed`. A stale or
+     * duplicate tap is a friendly no-op.
+     */
+    public function reject(string $order, RejectOrder $reject): RedirectResponse
+    {
+        if ($this->orders->find($order) === null) {
+            throw new NotFoundHttpException("No order with id [{$order}].");
+        }
+
+        $reject($order, $this->cashier());
+
+        return redirect()->route('cashier.queue');
+    }
+
+    /**
+     * Approve a rejected proof — the undo. The ticket rejoins the board by age
+     * with the timer unchanged. Only a rejected order is touched; any other
+     * status is a friendly no-op.
+     */
+    public function approve(string $order, ApproveOrder $approve): RedirectResponse
+    {
+        if ($this->orders->find($order) === null) {
+            throw new NotFoundHttpException("No order with id [{$order}].");
+        }
+
+        $approve($order);
+
+        return redirect()->route('cashier.queue');
+    }
+
+    /**
      * Restore a Dismissed order: re-arm a fresh 15-minute window, flip the
      * tracker back, and write an audit entry. A stale or duplicate tap is a
      * friendly no-op.
@@ -102,8 +138,8 @@ final class QueueController extends Controller
     }
 
     /**
-     * Void a Dismissed order: end it, never clearing `refundOwed`. A stale or
-     * duplicate tap is a friendly no-op.
+     * Void a Rejected or Dismissed order: end it, never clearing `refundOwed`.
+     * A stale or duplicate tap is a friendly no-op.
      */
     public function void(string $order, VoidOrder $void): RedirectResponse
     {

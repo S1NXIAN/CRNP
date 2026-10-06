@@ -63,7 +63,7 @@ function restoreOrder(string $id): TestResponse
     return test()->post(route('cashier.orders.restore', ['order' => $id]));
 }
 
-function voidOrder(string $id): TestResponse
+function voidRetiredOrder(string $id): TestResponse
 {
     return test()->post(route('cashier.orders.void', ['order' => $id]));
 }
@@ -184,7 +184,7 @@ it('voids an order and never clears refundOwed', function (): void {
         'refundOwed' => 150.0,
     ]);
 
-    voidOrder($id)->assertRedirect(route('cashier.queue'));
+    voidRetiredOrder($id)->assertRedirect(route('cashier.queue'));
 
     $order = rtdb()->get("orders/{$id}");
 
@@ -196,7 +196,7 @@ it('voids an order and never clears refundOwed', function (): void {
 it('treats a stale Void on a non-dismissed order as a friendly no-op', function (): void {
     $id = seedRetiredOrder(['code' => 'VOID2', 'status' => OrderStatus::Cooking->value]);
 
-    voidOrder($id)->assertRedirect(route('cashier.queue'));
+    voidRetiredOrder($id)->assertRedirect(route('cashier.queue'));
 
     expect(rtdb()->get("orders/{$id}")['status'])->toBe(OrderStatus::Cooking->value);
 });
@@ -204,7 +204,7 @@ it('treats a stale Void on a non-dismissed order as a friendly no-op', function 
 it('drops a voided order out of the Dismissed list', function (): void {
     $id = seedRetiredOrder(['code' => 'VOID3']);
 
-    voidOrder($id)->assertRedirect(route('cashier.queue'));
+    voidRetiredOrder($id)->assertRedirect(route('cashier.queue'));
 
     $this->get(route('cashier.queue'))->assertOk()->assertDontSee('VOID3');
 });
@@ -307,6 +307,6 @@ it('refuses a customer at the retired-order taps', function (): void {
     $id = seedRetiredOrder(['code' => 'GUARD1']);
 
     restoreOrder($id)->assertForbidden();
-    voidOrder($id)->assertForbidden();
+    voidRetiredOrder($id)->assertForbidden();
     collectLateOrder($id)->assertForbidden();
 });
