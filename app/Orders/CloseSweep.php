@@ -6,6 +6,7 @@ namespace App\Orders;
 
 use App\Rtdb\Contracts\RtdbClient;
 use App\Rtdb\RtdbQuery;
+use App\Stats\Actions\TopThreeRanking;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
@@ -30,11 +31,16 @@ use Carbon\CarbonInterface;
  *
  * The sweep is idempotent: a second run (or a force-close re-run) finds the
  * order no longer `Cooking` and writes nothing, and it never overwrites a sale a
- * settled walk-in already wrote.
+ * settled walk-in already wrote. Each synthesized sale recomputes the **Top 3**
+ * ranking (#31) once for the run, so a close-time Unclaimed sale lands in the
+ * chip without a per-order recompute.
  */
 final readonly class CloseSweep
 {
-    public function __construct(private RtdbClient $client) {}
+    public function __construct(
+        private RtdbClient $client,
+        private TopThreeRanking $ranking,
+    ) {}
 
     /**
      * Decide Unclaimed for every still-uncollected paid order and synthesize its
@@ -74,6 +80,12 @@ final readonly class CloseSweep
             $unclaimed[] = $order->id;
         }
 
+        // Recompute Top 3 once for the run, after any synthesized sales are in
+        // place, so a close-time Unclaimed sale lands in the chip (#31).
+        if ($unclaimed !== []) {
+            ($this->ranking)();
+        }
+
         return $unclaimed;
     }
 
@@ -89,6 +101,7 @@ final readonly class CloseSweep
         return [
             'code' => $order->code,
             'type' => $order->type,
+            'lines' => array_map(static fn(LineItem $line): array => $line->toNode(), $order->lines),
             'total' => $order->total,
             'payments' => array_map(static fn(Payment $payment): array => $payment->toNode(), $order->payments),
             'soldAt' => $at,

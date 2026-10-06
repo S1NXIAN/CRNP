@@ -6,11 +6,13 @@ namespace App\Orders\Actions;
 
 use App\Cache\CashierQueueCache;
 use App\Orders\HandledBy;
+use App\Orders\LineItem;
 use App\Orders\Order;
 use App\Orders\OrderStatus;
 use App\Orders\OrderTracker;
 use App\Orders\Payment;
 use App\Rtdb\Contracts\RtdbClient;
+use App\Stats\Actions\TopThreeRanking;
 use InvalidArgumentException;
 
 /**
@@ -32,6 +34,9 @@ use InvalidArgumentException;
  * evicted, so the cashier's own tap propagates on the next request rather than
  * after the TTL. `settledAt` is stamped with the served instant so the daily
  * proof-cleanup sweep (#25) expires the screenshot 7 days later.
+ *
+ * The sale write also recomputes the **Top 3** ranking (#31) eagerly, so the
+ * product-card chip reflects this sale on the next menu read.
  */
 final readonly class MarkServed
 {
@@ -39,6 +44,7 @@ final readonly class MarkServed
         private RtdbClient $client,
         private OrderTracker $tracker,
         private CashierQueueCache $queue,
+        private TopThreeRanking $ranking,
     ) {}
 
     public function __invoke(string $orderId, HandledBy $handledBy): void
@@ -68,15 +74,21 @@ final readonly class MarkServed
         // `sales/{id}` is 1:1 with the order key — the shared key makes a second
         // sale structurally impossible. The row is the same shape the close
         // sweep (#25) synthesizes, plus `handledBy`: an online order records its
-        // tender as #23/#24 left it on the order node.
+        // tender as #23/#24 left it on the order node. `lines` ride along so the
+        // Top 3 ranking (#31) can tally units per product without re-reading the
+        // order.
         $this->client->set("sales/{$orderId}", [
             'code' => $order->code,
             'type' => $order->type,
+            'lines' => array_map(static fn(LineItem $line): array => $line->toNode(), $order->lines),
             'total' => $order->total,
             'payments' => array_map(static fn(Payment $payment): array => $payment->toNode(), $order->payments),
             'soldAt' => $servedAt,
             'handledBy' => $handledBy->toNode(),
         ]);
+
+        // Recompute Top 3 eagerly over the rolling window on this sale write.
+        ($this->ranking)();
 
         $this->tracker->forget($orderId);
         $this->queue->forget();

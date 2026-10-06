@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Orders\Actions;
 
 use App\Orders\HandledBy;
+use App\Orders\LineItem;
 use App\Orders\Order;
 use App\Orders\OrderStatus;
 use App\Orders\Payment;
 use App\Orders\SplitTender;
 use App\Rtdb\Contracts\RtdbClient;
+use App\Stats\Actions\TopThreeRanking;
 use InvalidArgumentException;
 
 /**
@@ -25,10 +27,15 @@ use InvalidArgumentException;
  * The status guard makes a stale or duplicate settle a friendly no-op. The
  * `sales/{id}` row is keyed by the same order id (1:1 with the order), so a
  * second sale is structurally impossible, and both rows carry `handledBy`.
+ *
+ * The sale write also recomputes the **Top 3** ranking (#31) eagerly.
  */
 final readonly class SettleWalkIn
 {
-    public function __construct(private RtdbClient $client) {}
+    public function __construct(
+        private RtdbClient $client,
+        private TopThreeRanking $ranking,
+    ) {}
 
     public function __invoke(string $orderId, float $cashTyped, ?string $gcashRef, HandledBy $handledBy): void
     {
@@ -68,14 +75,19 @@ final readonly class SettleWalkIn
         ]);
 
         // `sales/{id}` is 1:1 with the order key — the shared key makes a second
-        // sale structurally impossible.
+        // sale structurally impossible. `lines` ride along so the Top 3 ranking
+        // (#31) can tally units per product without re-reading the order.
         $this->client->set("sales/{$orderId}", [
             'code' => $order->code,
             'type' => $order->type,
+            'lines' => array_map(static fn(LineItem $line): array => $line->toNode(), $order->lines),
             'total' => $order->total,
             'payments' => $payments,
             'soldAt' => $settledAt,
             'handledBy' => $handledBy->toNode(),
         ]);
+
+        // Recompute Top 3 eagerly over the rolling window on this sale write.
+        ($this->ranking)();
     }
 }
