@@ -8,14 +8,7 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
 </head>
 <body>
-    <header class="site-header">
-        <span class="site-title">{{ config('app.name') }} · Admin</span>
-        <nav class="site-account" aria-label="Admin">
-            <a href="{{ route('admin.dashboard') }}">Dashboard</a>
-            <a href="{{ route('admin.rentals.index') }}">Inventory</a>
-            <a href="{{ route('admin.staff.index') }}">Staff</a>
-        </nav>
-    </header>
+    @include('admin.partials.nav')
 
     <main class="site-main">
         <h1>Business settings</h1>

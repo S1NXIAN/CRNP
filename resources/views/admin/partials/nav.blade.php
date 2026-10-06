@@ -1,16 +1,48 @@
+{{--
+    The one admin header: every admin screen includes this, so the nav — and the
+    sign-out — has a single source of truth. The active link is derived from the
+    current route, so a screen cannot forget to pass `$active`.
+--}}
 @php
-    /** @var string $active */
-    $active = $active ?? '';
+    use Illuminate\Support\Facades\Route;
+
+    $current = Route::currentRouteName() ?? '';
+
+    $links = [
+        'dashboard' => ['admin.dashboard', 'Dashboard'],
+        'reports' => ['admin.reports.sales', 'Reports'],
+        'activity' => ['admin.activity', 'Activity'],
+        'products' => ['admin.products.index', 'Products'],
+        'categories' => ['admin.categories.index', 'Categories'],
+        'inventory' => ['admin.rentals.index', 'Inventory'],
+        'staff' => ['admin.staff.index', 'Staff'],
+        'settings' => ['admin.settings.edit', 'Settings'],
+    ];
+
+    $prefixes = [
+        'admin.dashboard' => ['admin.dashboard'],
+        'admin.reports.sales' => ['admin.reports.'],
+        'admin.activity' => ['admin.activity'],
+        'admin.products.index' => ['admin.products.'],
+        'admin.categories.index' => ['admin.categories.'],
+        'admin.rentals.index' => ['admin.rentals.'],
+        'admin.staff.index' => ['admin.staff.'],
+        'admin.settings.edit' => ['admin.settings.'],
+    ];
 @endphp
 <header class="site-header">
     <span class="site-title">{{ config('app.name') }} · Admin</span>
     <nav class="site-account" aria-label="Admin">
-        <a href="{{ route('admin.dashboard') }}" @if ($active === 'dashboard') aria-current="page" @endif>Dashboard</a>
-        <a href="{{ route('admin.reports.sales') }}" @if ($active === 'reports') aria-current="page" @endif>Reports</a>
-        <a href="{{ route('admin.activity') }}" @if ($active === 'activity') aria-current="page" @endif>Activity</a>
-        <a href="{{ route('admin.products.index') }}">Products</a>
-        <a href="{{ route('admin.rentals.index') }}">Inventory</a>
-        <a href="{{ route('admin.staff.index') }}">Staff</a>
-        <a href="{{ route('admin.settings.edit') }}">Settings</a>
+        @foreach ($links as [$route, $label])
+            @php
+                $isActive = collect($prefixes[$route] ?? [$route])
+                    ->contains(fn (string $prefix): bool => str_starts_with($current, $prefix));
+            @endphp
+            <a href="{{ route($route) }}" @if ($isActive) aria-current="page" @endif>{{ $label }}</a>
+        @endforeach
     </nav>
+    <form method="POST" action="{{ route('auth.switch-account') }}" class="site-account__switch">
+        @csrf
+        <button type="submit" class="link-button">Sign out</button>
+    </form>
 </header>

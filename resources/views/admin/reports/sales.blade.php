@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
 </head>
 <body>
-    @include('admin.partials.nav', ['active' => 'reports'])
+    @include('admin.partials.nav')
 
     <main class="site-main">
         <h1>Sales report</h1>

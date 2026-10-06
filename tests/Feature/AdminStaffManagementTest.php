@@ -113,3 +113,25 @@ it('exposes no public staff signup route', function (): void {
         expect($uri)->toStartWith('admin/');
     }
 });
+
+it('offers sign-out on every admin screen', function (): void {
+    // The admin nav has a single source of truth (admin.partials.nav); every
+    // admin screen must include it so a signed-in admin can always get out.
+    $screens = [
+        'admin.dashboard',
+        'admin.reports.sales',
+        'admin.activity',
+        'admin.products.index',
+        'admin.categories.index',
+        'admin.rentals.index',
+        'admin.staff.index',
+        'admin.settings.edit',
+    ];
+
+    foreach ($screens as $route) {
+        $this->get(route($route))
+            ->assertOk()
+            ->assertSee('Sign out')
+            ->assertSee(route('auth.switch-account'));
+    }
+});

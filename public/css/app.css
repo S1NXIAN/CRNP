@@ -711,6 +711,10 @@
         display: inline-flex;
     }
 
+    .site-account__switch {
+        display: inline-flex;
+    }
+
     .announcement-banner {
         padding: var(--space-3);
         background: var(--color-brand);
