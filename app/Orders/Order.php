@@ -42,6 +42,7 @@ final readonly class Order
         public ?float $enteredAmount = null,
         public ?float $refundOwed = null,
         public ?string $flaggedAt = null,
+        public ?string $verifiedAt = null,
     ) {}
 
     /**
@@ -78,6 +79,7 @@ final readonly class Order
         $enteredAmount = $node['enteredAmount'] ?? null;
         $refundOwed = $node['refundOwed'] ?? null;
         $flaggedAt = $node['flaggedAt'] ?? null;
+        $verifiedAt = $node['verifiedAt'] ?? null;
 
         return new self(
             id: $id,
@@ -101,6 +103,7 @@ final readonly class Order
             enteredAmount: is_numeric($enteredAmount) ? (float) $enteredAmount : null,
             refundOwed: is_numeric($refundOwed) ? (float) $refundOwed : null,
             flaggedAt: is_string($flaggedAt) && $flaggedAt !== '' ? $flaggedAt : null,
+            verifiedAt: is_string($verifiedAt) && $verifiedAt !== '' ? $verifiedAt : null,
         );
     }
 

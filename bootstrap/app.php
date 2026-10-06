@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Application;
+use App\Http\Middleware\EnsureKitchenSecret;
 use App\Http\Middleware\EnsureStaffRole;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -17,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // any staff write) and refuses a Google account absent from the list.
         $middleware->alias([
             'staff.role' => EnsureStaffRole::class,
+            'kitchen.secret' => EnsureKitchenSecret::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

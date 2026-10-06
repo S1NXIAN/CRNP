@@ -1745,6 +1745,235 @@
         display: grid;
         gap: var(--space-1);
     }
+
+    /* The kitchen board: read-only by design. NOW is oldest-first with age
+       timers (red at 12 min) and a NEW badge; LATER holds dimmed scheduled
+       pickups with live countdowns. Only transform/opacity animate, and the
+       NEW flash is skipped under prefers-reduced-motion. */
+    .kitchen {
+        display: grid;
+        gap: var(--space-4);
+        padding: var(--space-4);
+    }
+
+    .kitchen__head {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+    }
+
+    .kitchen__title {
+        font-size: 1.5rem;
+    }
+
+    .kitchen__reconnect {
+        margin-left: auto;
+        padding: var(--space-1) var(--space-3);
+        color: var(--color-brand-ink);
+        font-weight: 700;
+        background: var(--color-brand);
+        border-radius: var(--radius-sm);
+    }
+
+    .kitchen__lanes {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: var(--space-4);
+        align-items: start;
+    }
+
+    @media (min-width: 60rem) {
+        .kitchen__lanes {
+            grid-template-columns: 2fr 1fr;
+        }
+    }
+
+    .kitchen-lane {
+        display: grid;
+        gap: var(--space-3);
+    }
+
+    .kitchen-lane__title {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        font-size: 1.25rem;
+        letter-spacing: 0.08em;
+    }
+
+    .kitchen-lane__count {
+        padding: 0 var(--space-2);
+        color: var(--color-text-muted);
+        font-size: 1rem;
+        background: var(--color-surface-raised);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+    }
+
+    .kitchen-list {
+        display: grid;
+        gap: var(--space-3);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .kitchen-card {
+        display: grid;
+        gap: var(--space-3);
+        padding: var(--space-4);
+        background: var(--color-surface-raised);
+        border: 2px solid var(--color-border);
+        border-radius: var(--radius-lg);
+    }
+
+    /* LATER: full-size but dimmed, so the cook sees what is coming without
+       mistaking it for cookable. */
+    .kitchen-card--later {
+        opacity: 0.55;
+    }
+
+    /* A scheduled ticket that has just joined NOW is highlighted, so the cook
+       sees the promotion — the NEW flash is not reused for it. */
+    .kitchen-card--promoted {
+        outline: 2px solid var(--color-brand);
+        outline-offset: 2px;
+    }
+
+    .kitchen-card--red {
+        border-color: var(--color-brand);
+    }
+
+    .kitchen-card--late {
+        border-color: var(--color-brand);
+        box-shadow: inset 0 0 0 1px var(--color-brand);
+    }
+
+    .kitchen-card__head {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+    }
+
+    .kitchen-card__code {
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+    }
+
+    .kitchen-badge {
+        padding: var(--space-1) var(--space-2);
+        font-size: 0.875rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        border-radius: var(--radius-sm);
+    }
+
+    .kitchen-badge--new {
+        color: var(--color-brand-ink);
+        background: var(--color-brand);
+    }
+
+    /* The NEW flash: opacity only, once per badge, well under three flashes a
+       second; the class is dropped after ~5 s and the badge stays steady. */
+    .kitchen-badge--new.is-flashing {
+        animation: kitchen-new-flash 1s ease-in-out 5;
+    }
+
+    @keyframes kitchen-new-flash {
+        50% {
+            opacity: 0.35;
+        }
+    }
+
+    .kitchen-badge--late {
+        color: var(--color-brand-ink);
+        background: var(--color-brand);
+    }
+
+    .kitchen-card__lines {
+        display: grid;
+        gap: var(--space-1);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .kitchen-card__line {
+        display: flex;
+        gap: var(--space-2);
+        font-size: 1.25rem;
+    }
+
+    .kitchen-card__qty {
+        font-weight: 700;
+    }
+
+    .kitchen-card__clocks {
+        display: flex;
+        gap: var(--space-4);
+    }
+
+    .kitchen-card__clock {
+        display: grid;
+        gap: 2px;
+    }
+
+    .kitchen-card__clock-label {
+        color: var(--color-text-muted);
+        font-size: 0.75rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .kitchen-card__clock-value {
+        font-size: 1.5rem;
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+    }
+
+    .kitchen-card__clock--age.is-red .kitchen-card__clock-value {
+        color: var(--color-brand);
+    }
+
+    .kitchen-allday {
+        display: grid;
+        gap: var(--space-2);
+        padding: var(--space-3);
+        background: var(--color-surface-raised);
+        border-radius: var(--radius-md);
+    }
+
+    .kitchen-allday__title {
+        font-size: 1rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .kitchen-allday__list {
+        display: grid;
+        gap: var(--space-1);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .kitchen-allday__row {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--space-3);
+    }
+
+    .kitchen-allday__qty {
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .kitchen-badge--new.is-flashing {
+            animation: none;
+        }
+    }
 }
 
 @layer utilities {

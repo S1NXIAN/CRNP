@@ -202,6 +202,18 @@
                 Rotating replaces the secret, so the old link stops working
                 immediately.
             </p>
+
+            @if ($settings->kitchenSecret !== '')
+                <p class="settings-panel__copy">
+                    Board link:
+                    <a href="{{ route('kitchen.board.secret', ['secret' => $settings->kitchenSecret]) }}">
+                        {{ route('kitchen.board.secret', ['secret' => $settings->kitchenSecret]) }}
+                    </a>
+                </p>
+            @else
+                <p class="settings-panel__copy">No secret set yet — rotate one to open the board.</p>
+            @endif
+
             <form method="POST" action="{{ route('admin.settings.kitchen-secret') }}">
                 @csrf
                 <button type="submit" class="primary-button">Rotate secret</button>
