@@ -1101,8 +1101,40 @@
         color: var(--color-text-muted);
     }
 
+    .queue-row__figures {
+        display: flex;
+        gap: var(--space-3);
+    }
+
+    .queue-row__figure {
+        display: grid;
+        gap: 0.125rem;
+    }
+
+    .queue-row__figure-label {
+        color: var(--color-text-muted);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .queue-row__figure-value {
+        font-weight: 600;
+    }
+
     .queue-row__action {
         margin-left: auto;
+    }
+
+    .queue-row__actions {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        margin-left: auto;
+    }
+
+    .queue-row__actions .queue-row__action {
+        margin-left: 0;
     }
 
     /* The receipt: server-rendered, printable, with the order code and the

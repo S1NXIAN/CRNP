@@ -101,6 +101,9 @@ Route::middleware(['auth', 'staff.role:cashier'])->group(function (): void {
     Route::get('/cashier/queue', [QueueController::class, 'index'])->name('cashier.queue');
     Route::get('/cashier/queue/state', [QueueController::class, 'state'])->name('cashier.queue.state');
     Route::post('/cashier/orders/{order}/serve', [QueueController::class, 'serve'])->name('cashier.orders.serve');
+    Route::post('/cashier/orders/{order}/reject', [QueueController::class, 'reject'])->name('cashier.orders.reject');
+    Route::post('/cashier/orders/{order}/approve', [QueueController::class, 'approve'])->name('cashier.orders.approve');
+    Route::post('/cashier/orders/{order}/void', [QueueController::class, 'void'])->name('cashier.orders.void');
 
     // Walk-in ring-up: tap tiles → one typed cash number → receipt. The order
     // draws its code at ring-up and only reaches the kitchen board at settle.

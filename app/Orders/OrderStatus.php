@@ -18,8 +18,9 @@ namespace App\Orders;
  * payment window). #24 moves it to `Verifying` / `Cooking` (auto-verify or a
  * flagged hold's Approve) and #26 to `Served`; the expiry sweep (#25) owns
  * `Dismissed` — the window lapsed with zero proof and nothing in flight — and
- * the close sweep (#25) owns `Unclaimed` — paid, cooked, never collected. #29
- * adds Restore / Collect late and #27 owns `Rejected`. #23 only creates
+ * the close sweep (#25) owns `Unclaimed` — paid, cooked, never collected. #27
+ * owns `Rejected` — its own state, reachable only by Approve (the undo) or
+ * `Voided`; #29 adds Restore / Collect late. #23 only creates
  * `AwaitingPayment` and renders whatever the order node says, degrading
  * gracefully for the later transitions.
  */
@@ -32,6 +33,7 @@ enum OrderStatus: string
     case Served = 'served';
     case Dismissed = 'dismissed';
     case Rejected = 'rejected';
+    case Voided = 'voided';
     case Unclaimed = 'unclaimed';
 
     /**
@@ -67,6 +69,7 @@ enum OrderStatus: string
             self::Served => 'READY',
             self::Dismissed => 'Order dismissed — no payment received',
             self::Rejected => 'Payment needs checking — see the counter',
+            self::Voided => 'Voided',
             self::Unclaimed => 'Unclaimed',
         };
     }
