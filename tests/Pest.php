@@ -125,3 +125,50 @@ function seedStaff(string $email, StaffRole $role, string $name = 'Staff'): stri
 
     return $id;
 }
+
+/**
+ * Arrange a category node exactly as the admin create action would.
+ */
+function seedCategory(string $id, string $name, int $order = 0): string
+{
+    rtdb()->seed("categories/{$id}", ['name' => $name, 'order' => $order]);
+
+    return $id;
+}
+
+/**
+ * Arrange a product node directly — for tests that need a starting menu without
+ * driving the create form.
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function seedProduct(string $id, array $overrides = []): string
+{
+    rtdb()->seed("products/{$id}", [
+        'name' => 'Milktea',
+        'description' => 'Classic',
+        'price' => 120.0,
+        'categoryId' => 'drinks',
+        'imageBase64' => '',
+        'hidden' => false,
+        ...$overrides,
+    ]);
+
+    return $id;
+}
+
+/**
+ * The single stored product, keyed by its generated id.
+ *
+ * @return array{id: string, node: array<string, mixed>}
+ */
+function onlyProduct(): array
+{
+    $products = rtdb()->get('products');
+
+    expect($products)->toBeArray()->toHaveCount(1);
+
+    $id = (string) array_key_first($products);
+
+    return ['id' => $id, 'node' => $products[$id]];
+}

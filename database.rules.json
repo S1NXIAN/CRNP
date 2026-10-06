@@ -12,7 +12,10 @@
       ".indexOn": ["updatedAt", "soldAt"]
     },
     "products": {
-      ".indexOn": ["category", "updatedAt"]
+      ".indexOn": ["category", "categoryId", "updatedAt"]
+    },
+    "categories": {
+      ".indexOn": ["order", "updatedAt"]
     },
     "reservations": {
       ".indexOn": ["phone", "date", "updatedAt"]
