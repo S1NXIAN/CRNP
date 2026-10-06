@@ -24,6 +24,11 @@ declarative (what the system does), never build order.
 Before writing any RTDB read/write, open the existing data layer and extend
 it — never invent a parallel shape.
 
+### Operations
+
+The three scheduled sweeps and their manual fallbacks (for a down scheduler)
+live in `docs/agents/operations.md`.
+
 ### Documentation standards
 
 Any edit to agent-facing docs (`AGENTS.md`, `docs/`, extension `README.md`) MUST follow
