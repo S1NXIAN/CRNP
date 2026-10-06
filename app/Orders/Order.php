@@ -39,6 +39,7 @@ final readonly class Order
         public bool $proofInFlight = false,
         public ?string $uploadStartedAt = null,
         public ?string $proofReceivedAt = null,
+        public ?string $verifiedAt = null,
     ) {}
 
     /**
@@ -72,6 +73,7 @@ final readonly class Order
         $proofInFlight = $node['proofInFlight'] ?? false;
         $uploadStartedAt = $node['uploadStartedAt'] ?? null;
         $proofReceivedAt = $node['proofReceivedAt'] ?? null;
+        $verifiedAt = $node['verifiedAt'] ?? null;
 
         return new self(
             id: $id,
@@ -92,6 +94,7 @@ final readonly class Order
             proofInFlight: $proofInFlight === true,
             uploadStartedAt: is_string($uploadStartedAt) && $uploadStartedAt !== '' ? $uploadStartedAt : null,
             proofReceivedAt: is_string($proofReceivedAt) && $proofReceivedAt !== '' ? $proofReceivedAt : null,
+            verifiedAt: is_string($verifiedAt) && $verifiedAt !== '' ? $verifiedAt : null,
         );
     }
 

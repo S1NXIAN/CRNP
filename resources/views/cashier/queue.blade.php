@@ -16,10 +16,16 @@
         approval tap (the QR went out at placement and the screenshot
         auto-verifies); verified orders sit in the recently-verified list for
         at-leisure spot-check, where Reject stays reachable until Mark served;
-        and in-window orders with no screenshot yet show as awaiting proof. Mark
-        served is the one happy-path tap. The screen polls the coalesced state
-        endpoint and reloads the server-rendered rows only when the membership
-        signature changes.
+        and in-window orders with no screenshot yet show as awaiting proof.
+
+        Tickets the server clears off the kitchen board (ready-for + 15 min /
+        close) land in the ready — awaiting handover row so nothing disappears
+        without a trace; the Dismissed list offers Restore (a fresh 15-minute
+        window + audit entry) and Void (ends the order, never clearing
+        refundOwed); and Unclaimed orders gain Collect late (served, no second
+        sale). Mark served is the one happy-path tap. The screen polls the
+        coalesced state endpoint and reloads the server-rendered rows only when
+        the membership signature changes.
     --}}
     <main
         class="site-main queue"
@@ -28,6 +34,28 @@
         data-signature="{{ $snapshot->signature() }}"
     >
         <h1 class="queue__title">Online pickup queue</h1>
+
+        <section class="queue-section" aria-labelledby="queue-handover-heading">
+            <h2 class="queue-section__title" id="queue-handover-heading">Ready — awaiting handover</h2>
+            <p class="queue-section__hint">Cleared off the kitchen board — collect with the order code.</p>
+
+            @if ($snapshot->awaitingHandover === [])
+                <p class="empty-state">Nothing waiting at the counter.</p>
+            @else
+                <ul class="queue-list">
+                    @foreach ($snapshot->awaitingHandover as $order)
+                        <li class="queue-row">
+                            <span class="queue-row__code">{{ $order->code }}</span>
+                            <span class="queue-row__total">₱{{ number_format($order->total, 2) }}</span>
+                            <form method="POST" action="{{ route('cashier.orders.serve', ['order' => $order->id]) }}" class="queue-row__action">
+                                @csrf
+                                <button type="submit" class="primary-button">Mark served</button>
+                            </form>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </section>
 
         <section class="queue-section" aria-labelledby="queue-ready-heading">
             <h2 class="queue-section__title" id="queue-ready-heading">Ready to pay</h2>
@@ -85,6 +113,56 @@
                         <li class="queue-row">
                             <span class="queue-row__code">{{ $order->code }}</span>
                             <span class="queue-row__total">₱{{ number_format($order->total, 2) }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </section>
+
+        <section class="queue-section" aria-labelledby="queue-dismissed-heading">
+            <h2 class="queue-section__title" id="queue-dismissed-heading">Dismissed</h2>
+            <p class="queue-section__hint">Payment window lapsed with no proof — Restore re-arms 15 minutes, Void ends the order.</p>
+
+            @if ($snapshot->dismissed === [])
+                <p class="empty-state">No dismissed orders.</p>
+            @else
+                <ul class="queue-list">
+                    @foreach ($snapshot->dismissed as $order)
+                        <li class="queue-row">
+                            <span class="queue-row__code">{{ $order->code }}</span>
+                            <span class="queue-row__total">₱{{ number_format($order->total, 2) }}</span>
+                            <span class="queue-row__action queue-row__action--group">
+                                <form method="POST" action="{{ route('cashier.orders.restore', ['order' => $order->id]) }}" class="inline-form">
+                                    @csrf
+                                    <button type="submit" class="primary-button">Restore</button>
+                                </form>
+                                <form method="POST" action="{{ route('cashier.orders.void', ['order' => $order->id]) }}" class="inline-form" onsubmit="return confirm('Void this order? This cannot be undone.');">
+                                    @csrf
+                                    <button type="submit" class="link-button">Void</button>
+                                </form>
+                            </span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </section>
+
+        <section class="queue-section" aria-labelledby="queue-unclaimed-heading">
+            <h2 class="queue-section__title" id="queue-unclaimed-heading">Unclaimed</h2>
+            <p class="queue-section__hint">Paid but never collected — money kept; Collect late serves it with no second sale.</p>
+
+            @if ($snapshot->unclaimed === [])
+                <p class="empty-state">No unclaimed orders.</p>
+            @else
+                <ul class="queue-list">
+                    @foreach ($snapshot->unclaimed as $order)
+                        <li class="queue-row">
+                            <span class="queue-row__code">{{ $order->code }}</span>
+                            <span class="queue-row__total">₱{{ number_format($order->total, 2) }}</span>
+                            <form method="POST" action="{{ route('cashier.orders.collect-late', ['order' => $order->id]) }}" class="queue-row__action">
+                                @csrf
+                                <button type="submit" class="primary-button">Collect late</button>
+                            </form>
                         </li>
                     @endforeach
                 </ul>

@@ -19,9 +19,11 @@ namespace App\Orders;
  * flagged hold's Approve) and #26 to `Served`; the expiry sweep (#25) owns
  * `Dismissed` — the window lapsed with zero proof and nothing in flight — and
  * the close sweep (#25) owns `Unclaimed` — paid, cooked, never collected. #29
- * adds Restore / Collect late and #27 owns `Rejected`. #23 only creates
- * `AwaitingPayment` and renders whatever the order node says, degrading
- * gracefully for the later transitions.
+ * adds Restore / Void / Collect late and #27 owns `Rejected`. `Voided` is the
+ * terminal state a Dismissed order reaches through Void (or a Rejected one
+ * through #27's Void) — the order ends, and any `refundOwed` survives it. #23
+ * only creates `AwaitingPayment` and renders whatever the order node says,
+ * degrading gracefully for the later transitions.
  */
 enum OrderStatus: string
 {
@@ -33,6 +35,7 @@ enum OrderStatus: string
     case Dismissed = 'dismissed';
     case Rejected = 'rejected';
     case Unclaimed = 'unclaimed';
+    case Voided = 'voided';
 
     /**
      * Whether the kitchen board mirrors this status. Only a settled/verified,
@@ -68,6 +71,7 @@ enum OrderStatus: string
             self::Dismissed => 'Order dismissed — no payment received',
             self::Rejected => 'Payment needs checking — see the counter',
             self::Unclaimed => 'Unclaimed',
+            self::Voided => 'Order voided',
         };
     }
 }

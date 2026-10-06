@@ -18,12 +18,17 @@ use Carbon\CarbonImmutable;
  * with **no screenshot yet** show as **awaiting proof**, so staff see a customer
  * waiting rather than a blank queue.
  *
- * The read is two status-bounded queries (`orders/.indexOn status`), and each
- * row is a scalar projection of `orders/{id}` — the proof image lives in the
+ * The read is status-bounded queries (`orders/.indexOn status`), and each row
+ * is a scalar projection of `orders/{id}` — the proof image lives in the
  * sibling `proofs/{id}` node and never rides here, so the queue is scalar by
  * construction (PLAN §4 *Quota discipline*, rule 3). Only online orders are in
  * scope: a walk-in is rung up and handed over at the counter, never through the
  * online queue.
+ *
+ * #29 adds three sections: the **ready — awaiting handover** row for tickets
+ * the server cleared off the board (paid, verified, unserved, past ready-for +
+ * grace), the **Dismissed** list (window lapsed with zero proof; Restore /
+ * Void), and the **Unclaimed** list (paid, never collected; Collect late).
  *
  * The computed snapshot is served from a coalesced cache entry whose TTL equals
  * {@see self::POLL_SECONDS} (rule 1), so N registers cost one RTDB read per
@@ -42,30 +47,70 @@ final readonly class CashierQueue
 
     public function snapshot(): QueueSnapshot
     {
-        $verified = $this->verifiedUnserved();
         $at = CarbonImmutable::instance(now('UTC'));
+        $cooking = $this->verifiedUnserved($at);
 
         return new QueueSnapshot(
-            readyToPay: $verified,
-            recentlyVerified: $verified,
+            readyToPay: $cooking['readyToPay'],
+            recentlyVerified: $cooking['readyToPay'],
             awaitingProof: $this->awaitingProof($at),
+            awaitingHandover: $cooking['awaitingHandover'],
+            dismissed: $this->byStatus(OrderStatus::Dismissed),
+            unclaimed: $this->byStatus(OrderStatus::Unclaimed),
         );
     }
 
     /**
      * Prepaid, verified, unserved online orders — the ready-to-pay and
-     * recently-verified sections share this set. Auto-verification is what puts
-     * an order here, so there is no approval tap; Mark served is the one
-     * happy-path tap off it.
+     * recently-verified sections share this set, minus the tickets the server has
+     * already cleared off the board into the handover row. Auto-verification is
+     * what puts an order here, so there is no approval tap; Mark served is the
+     * one happy-path tap off it.
      *
-     * @return list<QueueOrder>
+     * @return array{readyToPay: list<QueueOrder>, awaitingHandover: list<QueueOrder>}
      */
-    private function verifiedUnserved(): array
+    private function verifiedUnserved(CarbonImmutable $at): array
     {
         $orders = $this->online(
             $this->client->query(
                 'orders',
                 RtdbQuery::orderBy('status')->equalTo(OrderStatus::Cooking->value),
+            ),
+        );
+
+        $ready = [];
+        $handover = [];
+
+        foreach ($orders as $order) {
+            if (ReadyFor::isAwaitingHandover($order, $at)) {
+                $handover[] = $order;
+            } else {
+                $ready[] = $order;
+            }
+        }
+
+        usort($ready, static fn(Order $a, Order $b): int => self::moment($a->placedAt) <=> self::moment($b->placedAt));
+        usort($handover, static fn(Order $a, Order $b): int => self::moment($a->placedAt) <=> self::moment($b->placedAt));
+
+        return [
+            'readyToPay' => array_map(static fn(Order $order): QueueOrder => QueueOrder::fromOrder($order), $ready),
+            'awaitingHandover' => array_map(static fn(Order $order): QueueOrder => QueueOrder::fromOrder($order), $handover),
+        ];
+    }
+
+    /**
+     * The online orders in one retired state — Dismissed (Restore / Void) or
+     * Unclaimed (Collect late) — keyed by the order code's placement age so the
+     * oldest sits first.
+     *
+     * @return list<QueueOrder>
+     */
+    private function byStatus(OrderStatus $status): array
+    {
+        $orders = $this->online(
+            $this->client->query(
+                'orders',
+                RtdbQuery::orderBy('status')->equalTo($status->value),
             ),
         );
 

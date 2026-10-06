@@ -98,9 +98,14 @@ Route::middleware(['auth', 'staff.role:cashier'])->group(function (): void {
     // until Mark served), and in-window orders with no screenshot show as
     // awaiting proof. The read is coalesced behind a cache entry, and Mark
     // served is the one happy-path tap — a stale or duplicate tap is a no-op.
+    // #29 adds the Dismissed (Restore / Void) and Unclaimed (Collect late) taps;
+    // every one is status-guarded.
     Route::get('/cashier/queue', [QueueController::class, 'index'])->name('cashier.queue');
     Route::get('/cashier/queue/state', [QueueController::class, 'state'])->name('cashier.queue.state');
     Route::post('/cashier/orders/{order}/serve', [QueueController::class, 'serve'])->name('cashier.orders.serve');
+    Route::post('/cashier/orders/{order}/restore', [QueueController::class, 'restore'])->name('cashier.orders.restore');
+    Route::post('/cashier/orders/{order}/void', [QueueController::class, 'void'])->name('cashier.orders.void');
+    Route::post('/cashier/orders/{order}/collect-late', [QueueController::class, 'collectLate'])->name('cashier.orders.collect-late');
 
     // Walk-in ring-up: tap tiles → one typed cash number → receipt. The order
     // draws its code at ring-up and only reaches the kitchen board at settle.
