@@ -20,6 +20,8 @@ it('declares an index for every field the data layer queries', function (): void
         ['orders', 'status'],
         ['orders', 'deadlineAt'],
         ['orders', 'updatedAt'],
+        ['orders', 'settledAt'],
+        ['proofs', 'rejectedAt'],
         ['reservations', 'phone'],
         ['reservations', 'date'],
         ['products', 'category'],
