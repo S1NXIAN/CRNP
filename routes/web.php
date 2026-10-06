@@ -11,10 +11,12 @@ use App\Http\Controllers\Auth\GoogleSignInController;
 use App\Http\Controllers\Auth\SignInPromptController;
 use App\Http\Controllers\Auth\SwitchAccountController;
 use App\Http\Controllers\Cashier\RegisterController;
+use App\Http\Controllers\Cashier\ReservationController;
 use App\Http\Controllers\Customer\AboutController;
 use App\Http\Controllers\Customer\AddOnPrefsController;
 use App\Http\Controllers\Customer\FavoriteToggleController;
 use App\Http\Controllers\Customer\MenuController;
+use App\Http\Controllers\Customer\OccupancyController;
 use App\Http\Controllers\Customer\ProductPageController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +26,10 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', MenuController::class)->name('home');
 Route::get('/menu/{product}', ProductPageController::class)->name('menu.product');
 Route::get('/about', AboutController::class)->name('about');
+
+// The public read-only occupancy view: seats taken vs capacity per slot for the
+// week ahead, confirmed bookings only, aggregate only — it books nothing.
+Route::get('/occupancy', OccupancyController::class)->name('occupancy');
 
 // Gated per-account actions: the heart and the saved add-on selection prompt
 // the Google button while signed out (browsing never does) and sync through
@@ -52,6 +58,18 @@ Route::post('/auth/switch-account', SwitchAccountController::class)
 // the next request. `/cashier` is for cashiers, `/admin` for admins only.
 Route::middleware(['auth', 'staff.role:cashier'])->group(function (): void {
     Route::get('/cashier', RegisterController::class)->name('cashier.register');
+
+    // Reservation entry is lookup-first: the phone typeahead prefills a
+    // returning customer; a new customer gets a guided two-step capture. The
+    // server-run conflict and duplicate check blocks a double-booking with a
+    // reason before the write and again on confirm.
+    Route::get('/cashier/reservations', [ReservationController::class, 'index'])->name('cashier.reservations.index');
+    Route::get('/cashier/reservations/new', [ReservationController::class, 'create'])->name('cashier.reservations.create');
+    Route::get('/cashier/reservations/lookup', [ReservationController::class, 'lookup'])->name('cashier.reservations.lookup');
+    Route::post('/cashier/reservations/details', [ReservationController::class, 'details'])->name('cashier.reservations.details');
+    Route::post('/cashier/reservations', [ReservationController::class, 'store'])->name('cashier.reservations.store');
+    Route::post('/cashier/reservations/{reservation}/confirm', [ReservationController::class, 'confirm'])->name('cashier.reservations.confirm');
+    Route::post('/cashier/reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])->name('cashier.reservations.cancel');
 });
 
 Route::middleware(['auth', 'staff.role:admin'])->prefix('admin')->name('admin.')->group(function (): void {

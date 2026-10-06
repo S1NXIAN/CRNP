@@ -253,3 +253,50 @@ function onlyProduct(): array
 
     return ['id' => $id, 'node' => $products[$id]];
 }
+
+/**
+ * Arrange a reservation node exactly as the create action would.
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function seedReservation(string $id, array $overrides = []): string
+{
+    rtdb()->seed("reservations/{$id}", [
+        'type' => 'dine_in',
+        'date' => '2026-10-08',
+        'time' => '18:00',
+        'party' => 2,
+        'name' => 'Ana Cruz',
+        'phone' => '09171234567',
+        'status' => 'confirmed',
+        'preferredType' => 'dine_in',
+        ...$overrides,
+    ]);
+
+    return $id;
+}
+
+/**
+ * The distinct form field names a person actually supplies on a screen — hidden
+ * inputs (CSRF, method spoof, wizard carry-over) and submit controls excluded.
+ *
+ * @return list<string>
+ */
+function visibleFieldNames(string $html): array
+{
+    preg_match_all('/<(?:input|select|textarea)\b[^>]*>/i', $html, $matches);
+
+    $names = [];
+
+    foreach ($matches[0] as $tag) {
+        if (preg_match('/type="hidden"/i', $tag) === 1) {
+            continue;
+        }
+
+        if (preg_match('/name="([^"]+)"/i', $tag, $name) === 1) {
+            $names[$name[1]] = true;
+        }
+    }
+
+    return array_keys($names);
+}

@@ -200,6 +200,25 @@
         font-weight: 600;
     }
 
+    .register-header__nav {
+        display: flex;
+        gap: var(--space-3);
+        margin-left: var(--space-3);
+    }
+
+    .register-header__nav a {
+        min-height: var(--tap-target-touch);
+        display: inline-flex;
+        align-items: center;
+        color: var(--color-text);
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .register-header__nav a[aria-current="page"] {
+        color: var(--color-brand);
+    }
+
     .register-header__duty {
         display: flex;
         align-items: baseline;
@@ -908,6 +927,206 @@
             grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
             align-items: start;
         }
+    }
+
+    /* Reservation entry — the guided two-step screens and the calendar/list. */
+    .guided-screen {
+        display: grid;
+        gap: var(--space-3);
+        max-width: 32rem;
+        padding: var(--space-4);
+        background: var(--color-surface-raised);
+        border-radius: var(--radius-lg);
+    }
+
+    .guided-screen__step {
+        color: var(--color-text-muted);
+        font-size: 0.8125rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .guided-screen__copy {
+        color: var(--color-text-muted);
+    }
+
+    .guided-form {
+        display: grid;
+        gap: var(--space-3);
+        justify-items: start;
+    }
+
+    .field__hint {
+        color: var(--color-text-muted);
+        font-size: 0.8125rem;
+    }
+
+    /* Typeahead: the phone prefills a returning customer; a new customer is
+       captured with tap-only type chips, so no screen exceeds the input budget. */
+    .chip-set {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        margin: 0;
+        padding: 0;
+        border: 0;
+    }
+
+    .chip-set legend {
+        width: 100%;
+        margin-bottom: var(--space-1);
+    }
+
+    .chip input {
+        position: absolute;
+        opacity: 0;
+    }
+
+    .chip span {
+        display: inline-flex;
+        align-items: center;
+        min-height: var(--tap-target-touch);
+        padding: 0 var(--space-3);
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+    }
+
+    .chip input:checked + span {
+        background: var(--color-brand);
+        border-color: var(--color-brand);
+        color: var(--color-brand-ink);
+        font-weight: 600;
+    }
+
+    .chip input:focus-visible + span {
+        outline: 2px solid var(--color-brand);
+        outline-offset: 2px;
+    }
+
+    .reservation-heading {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+    }
+
+    .reservation-list {
+        display: grid;
+        gap: var(--space-4);
+    }
+
+    .reservation-day {
+        display: grid;
+        gap: var(--space-2);
+    }
+
+    .reservation-day__title {
+        font-size: 1.125rem;
+    }
+
+    .reservation-phone {
+        display: block;
+        color: var(--color-text-muted);
+        font-size: 0.8125rem;
+    }
+
+    .status-tag {
+        display: inline-block;
+        padding: 0 var(--space-2);
+        border-radius: var(--radius-sm);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        border: 1px solid var(--color-border);
+    }
+
+    .status-tag--pending {
+        border-color: var(--color-brand);
+        color: var(--color-brand);
+    }
+
+    .status-tag--confirmed {
+        background: var(--color-brand);
+        border-color: var(--color-brand);
+        color: var(--color-brand-ink);
+    }
+
+    .status-tag--cancelled {
+        color: var(--color-text-muted);
+        text-decoration: line-through;
+    }
+
+    /* The public occupancy view — aggregate only: seats taken vs capacity per
+       slot for the week ahead, no names, no booking form. */
+    .occupancy-hero {
+        display: grid;
+        gap: var(--space-2);
+    }
+
+    .occupancy-week {
+        display: grid;
+        gap: var(--space-3);
+        grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    }
+
+    .occupancy-day {
+        display: grid;
+        gap: var(--space-2);
+        padding: var(--space-3);
+        background: var(--color-surface-raised);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+    }
+
+    .occupancy-day__title {
+        font-size: 1rem;
+    }
+
+    .occupancy-day__empty {
+        color: var(--color-text-muted);
+        font-size: 0.875rem;
+    }
+
+    .occupancy-slot {
+        display: grid;
+        gap: var(--space-1);
+    }
+
+    .occupancy-slot__time {
+        font-size: 0.875rem;
+        color: var(--color-text-muted);
+    }
+
+    .occupancy-slot__counts {
+        display: grid;
+        gap: var(--space-1);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .occupancy-count {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--space-2);
+        padding: var(--space-1) var(--space-2);
+        background: var(--color-surface);
+        border-radius: var(--radius-sm);
+    }
+
+    .occupancy-count__seats {
+        font-weight: 600;
+    }
+
+    .occupancy-count--full {
+        border: 1px solid var(--color-brand);
+    }
+
+    .occupancy-count--full .occupancy-count__seats {
+        color: var(--color-brand);
     }
 }
 

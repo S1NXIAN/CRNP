@@ -10,7 +10,7 @@ flowchart TD
     A["Sign in with Google — own staff account<br/>/cashier (role-guarded) · role read per request<br/>header names the cashier on duty<br/>Switch account = sign out → sign in<br/>every tap stamped handledBy"] --> B{"Task?"}
     B --> C["Online pickup queue — prepaid, no tender to settle<br/>order code · screenshot auto-verified<br/>flag = amount/ref mismatch → Approve / Reject<br/>recently-verified list: at-leisure spot-check<br/>awaiting-proof row: in-window, no screenshot"]
     B --> D["Walk-in ring-up: tap tiles<br/>promo price + totals compute<br/>order code drawn at ring-up (on receipt)"]
-    B --> E["New reservation — type phone<br/>typeahead prefills name/party/type<br/>new customer: 2 steps (≤3 + ≤2)<br/>dine-in / function room / catering"]
+    B --> E["New reservation — type phone<br/>typeahead prefills name/party/preferred type<br/>returning: phone → date/time → confirm (≤3 inputs)<br/>new customer: 2 steps (≤3 + ≤2)<br/>dine-in / function room / catering"]
     B --> Y["Rentals — handover / return<br/>Hand over → stock falls · Confirm return → stock rises<br/>overdue = quiet staff row, no auto-penalty"]
     C -->|"flag: mismatch"| V{"Approve or Reject?"}
     V -->|"Reject"| RJ["Rejected — its own state<br/>rejection record + image kept 7 days<br/>refund owed = entered amount, 'claimed'<br/>ticket leaves NOW · tracker: 'needs checking'"]
@@ -33,6 +33,7 @@ flowchart TD
     X -.->|"Restore: re-arms 15-min window<br/>+ audit entry"| C
     X -.->|"Void"| VD
     E --> J{"Date-time conflict<br/>or duplicate?"}
-    J -->|"no"| L2["Confirmed → shared calendar"]
-    J -->|"yes"| L["Rejected — blocked with reason"]
+    J -->|"no"| L2["Stored pending → calendar/list<br/>confirmed · cancelled statuses shown"]
+    J -->|"yes"| L["Blocked with a reason — nothing written"]
+    L2 -.->|"Confirm: server re-checks<br/>against fresh data"| J
 ```
