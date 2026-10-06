@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Auth\RtdbUserProvider;
 use App\Rtdb\Contracts\RtdbClient;
 use App\Rtdb\InMemoryRtdbClient;
 use App\Rtdb\RestRtdbClient;
 use App\Rtdb\ServiceAccountTokenProvider;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -43,6 +45,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Laravel's session guard remembers a signed-in customer by the Google
+        // `sub`; this provider resolves that identifier back to `users/{uid}`
+        // through the one persistence seam, so no SQL user table is needed.
+        Auth::provider('rtdb', function (): RtdbUserProvider {
+            return new RtdbUserProvider($this->app->make(RtdbClient::class));
+        });
     }
 }

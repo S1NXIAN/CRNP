@@ -60,9 +60,11 @@ return [
     */
 
     'providers' => [
-        // Staff and customers are read from Firebase RTDB through RtdbClient,
-        // never from a SQL table. The RTDB-backed provider is installed with
-        // the auth/roles slice (#19); until then the guard is never resolved.
+        // Customers sign in with Google and are keyed by the Google `sub`; the
+        // `rtdb` provider (registered in AppServiceProvider) resolves that
+        // identifier back to `users/{uid}` through RtdbClient. Staff accounts
+        // and role guards resolve against `staff/{uid}` in the auth/roles slice
+        // (#19). No Eloquent or SQL user table exists anywhere.
         'users' => [
             'driver' => 'rtdb',
         ],

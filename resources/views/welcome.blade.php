@@ -13,6 +13,17 @@
             <img src="{{ asset('images/logo.png') }}" alt="{{ config('app.name') }} logo">
         </span>
         <span class="site-title">{{ config('app.name') }}</span>
+        <nav class="site-account" aria-label="Account">
+            @auth
+                <span class="site-account__name">{{ auth()->user()?->name ?? 'Signed in' }}</span>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="link-button">Sign out</button>
+                </form>
+            @else
+                @include('auth.partials.google-button')
+            @endauth
+        </nav>
     </header>
 
     <main class="site-main">
