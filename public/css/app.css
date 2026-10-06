@@ -1346,6 +1346,204 @@
     .occupancy-count--full .occupancy-count__seats {
         color: var(--color-brand);
     }
+
+    /* Cart: inline steppers and add-on picks with computed totals. */
+    .cart-heading {
+        font-size: 1.5rem;
+    }
+
+    .cart-list {
+        display: grid;
+        gap: var(--space-3);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .cart-list--summary {
+        gap: var(--space-1);
+    }
+
+    .cart-line {
+        display: grid;
+        gap: var(--space-2);
+        padding: var(--space-3);
+        background: var(--color-surface-raised);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+    }
+
+    .cart-line__head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--space-2);
+    }
+
+    .cart-line__name {
+        font-weight: 600;
+    }
+
+    .cart-line__price {
+        font-variant-numeric: tabular-nums;
+    }
+
+    .cart-line__form {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-3);
+    }
+
+    .stepper {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-1);
+        border: 1px solid var(--color-border);
+        border-radius: 999px;
+    }
+
+    .stepper__button {
+        width: var(--tap-target-touch);
+        height: var(--tap-target-touch);
+        border: none;
+        background: transparent;
+        color: var(--color-text);
+        font-size: 1.25rem;
+        cursor: pointer;
+    }
+
+    .stepper__button:hover,
+    .stepper__button:focus-visible {
+        color: var(--color-brand);
+    }
+
+    .stepper__value {
+        min-width: 2ch;
+        text-align: center;
+        font-weight: 600;
+    }
+
+    .cart-total {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--space-2);
+        font-size: 1.125rem;
+        font-weight: 600;
+    }
+
+    .cart-total__amount {
+        font-variant-numeric: tabular-nums;
+    }
+
+    .checkout-summary,
+    .checkout-form {
+        display: grid;
+        gap: var(--space-3);
+    }
+
+    /* Order tracker: a live status screen with the branded GCash frame. */
+    .tracker {
+        display: grid;
+        gap: var(--space-3);
+        max-width: 34rem;
+        margin-inline: auto;
+    }
+
+    .tracker__head {
+        display: grid;
+        gap: var(--space-1);
+        text-align: center;
+    }
+
+    .tracker__code-label {
+        color: var(--color-text-muted);
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .tracker__code {
+        font-size: 2.5rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+    }
+
+    .tracker__status {
+        padding: var(--space-2) var(--space-3);
+        background: var(--color-surface-raised);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        text-align: center;
+        font-weight: 600;
+    }
+
+    .tracker__pickup {
+        text-align: center;
+        color: var(--color-text-muted);
+    }
+
+    .payment-frame {
+        display: grid;
+        gap: var(--space-2);
+        justify-items: center;
+        padding: var(--space-4);
+        background: var(--color-surface-raised);
+        border: 2px solid var(--color-brand);
+        border-radius: var(--radius-lg);
+    }
+
+    .payment-frame__title {
+        font-size: 1.125rem;
+    }
+
+    .payment-frame__qr {
+        width: min(20rem, 100%);
+        height: auto;
+        background: #ffffff;
+        border-radius: var(--radius-sm);
+    }
+
+    .payment-frame__number {
+        display: grid;
+        gap: var(--space-1);
+        text-align: center;
+    }
+
+    .payment-frame__number-label {
+        color: var(--color-text-muted);
+        font-size: 0.8125rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .payment-frame__number-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .payment-frame__deadline {
+        color: var(--color-text-muted);
+    }
+
+    .payment-frame__deadline-value {
+        color: var(--color-text);
+        font-weight: 600;
+    }
+
+    .tracker__total {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        font-weight: 600;
+    }
+
+    .tracker__hint {
+        color: var(--color-text-muted);
+        font-size: 0.875rem;
+    }
 }
 
 @layer utilities {

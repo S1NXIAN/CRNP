@@ -71,6 +71,24 @@
                     </form>
                 @endif
 
+                {{-- The cart entry point: pick add-ons and a quantity, and the
+                     line total computes itself. Add to cart prompts the Google
+                     button while signed out. --}}
+                @if ($gate->canOrder)
+                    <form class="add-to-cart" method="POST" action="{{ route('cart.update') }}">
+                        @csrf
+                        <input type="hidden" name="product" value="{{ $product->id }}">
+                        @foreach ($selectedAddOns as $addOnName)
+                            <input type="hidden" name="addOns[]" value="{{ $addOnName }}">
+                        @endforeach
+                        <label class="field field--inline">
+                            <span class="field__label">Quantity</span>
+                            <input class="field__input field__input--narrow" type="number" name="quantity" value="1" min="1" max="99">
+                        </label>
+                        <button type="submit" class="primary-button">Add to cart</button>
+                    </form>
+                @endif
+
                 @include('menu.partials.order-gate', ['gate' => $gate])
             </div>
 

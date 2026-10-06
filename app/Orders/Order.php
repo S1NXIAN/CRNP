@@ -33,6 +33,9 @@ final readonly class Order
         public ?HandledBy $handledBy,
         public ?string $placedAt,
         public ?string $settledAt,
+        public ?string $pickupAt = null,
+        public ?string $deadlineAt = null,
+        public ?string $customerUid = null,
     ) {}
 
     /**
@@ -60,6 +63,9 @@ final readonly class Order
         $placedAt = $node['placedAt'] ?? null;
         $settledAt = $node['settledAt'] ?? null;
         $handledBy = $node['handledBy'] ?? null;
+        $pickupAt = $node['pickupAt'] ?? null;
+        $deadlineAt = $node['deadlineAt'] ?? null;
+        $customerUid = $node['customerUid'] ?? null;
 
         return new self(
             id: $id,
@@ -74,12 +80,24 @@ final readonly class Order
             handledBy: is_array($handledBy) ? HandledBy::fromNode($handledBy) : null,
             placedAt: is_string($placedAt) ? $placedAt : null,
             settledAt: is_string($settledAt) ? $settledAt : null,
+            pickupAt: is_string($pickupAt) && $pickupAt !== '' ? $pickupAt : null,
+            deadlineAt: is_string($deadlineAt) && $deadlineAt !== '' ? $deadlineAt : null,
+            customerUid: is_string($customerUid) && $customerUid !== '' ? $customerUid : null,
         );
     }
 
     public function isPending(): bool
     {
         return $this->status === OrderStatus::Pending;
+    }
+
+    /**
+     * Whether the order tracker treats this order as the customer's active one
+     * (reopenable with zero typing).
+     */
+    public function isActive(): bool
+    {
+        return $this->status->isActive();
     }
 
     /**

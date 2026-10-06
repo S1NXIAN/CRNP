@@ -9,7 +9,11 @@ use App\Rtdb\Contracts\RtdbClient;
 use App\Rtdb\InMemoryRtdbClient;
 use App\Rtdb\RestRtdbClient;
 use App\Rtdb\ServiceAccountTokenProvider;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Middleware\TrustProxies;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -50,6 +54,31 @@ class AppServiceProvider extends ServiceProvider
         // through the one persistence seam, so no SQL user table is needed.
         Auth::provider('rtdb', function (): RtdbUserProvider {
             return new RtdbUserProvider($this->app->make(RtdbClient::class));
+        });
+
+        // The real client IP sits behind the configured proxies, so the checkout
+        // and login rate limits count per customer, not per proxy socket
+        // (PLAN §4 *Auth & roles* — trusted proxy ranges configured).
+        $proxies = config('trustedproxy.proxies');
+
+        if (is_string($proxies) && $proxies !== '') {
+            TrustProxies::at($proxies);
+        }
+
+        // Named rate limiters, numbers from PLAN §4 *Auth & roles*: checkout
+        // 10/min per signed-in user, 30/min per real IP for anonymous traffic.
+        RateLimiter::for('checkout', function (Request $request): Limit {
+            $user = $request->user();
+
+            if ($user instanceof \Illuminate\Contracts\Auth\Authenticatable) {
+                $identifier = $user->getAuthIdentifier();
+
+                return Limit::perMinute(10)->by(
+                    'checkout:user:' . (is_scalar($identifier) ? (string) $identifier : ''),
+                );
+            }
+
+            return Limit::perMinute(30)->by('checkout:ip:' . (string) $request->ip());
         });
     }
 }
