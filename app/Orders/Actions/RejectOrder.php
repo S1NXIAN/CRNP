@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Orders\Actions;
 
 use App\Cache\CashierQueueCache;
+use App\Cache\KitchenBoardCache;
 use App\Orders\HandledBy;
 use App\Orders\Order;
 use App\Orders\OrderStatus;
@@ -30,8 +31,9 @@ use InvalidArgumentException;
  * spot-checked verified order (`cooking`) may be rejected, so a stale or
  * duplicate tap on a served, dismissed, or already-rejected order is a friendly
  * no-op rather than a last-write-wins flip. The order's own coalesced tracker
- * entry and the queue's coalesced entry are evicted, so the cashier's tap
- * propagates on the next request rather than after the TTL.
+ * entry, the queue's coalesced entry, and the kitchen board's coalesced entry
+ * are evicted, so the cashier's tap propagates on the next request rather than
+ * after the TTL — **Reject drops the ticket off the board the same instant**.
  */
 final readonly class RejectOrder
 {
@@ -39,6 +41,7 @@ final readonly class RejectOrder
         private RtdbClient $client,
         private OrderTracker $tracker,
         private CashierQueueCache $queue,
+        private KitchenBoardCache $board,
     ) {}
 
     public function __invoke(string $orderId, HandledBy $handledBy): void
@@ -53,9 +56,18 @@ final readonly class RejectOrder
 
         $rejectedAt = now('UTC')->toIso8601ZuluString();
 
+        // The image is evidence: keep the node and anchor the retention clock so
+        // the #25 cleanup deletes it 7 days after this rejection.
+        $proof = $this->client->get("proofs/{$orderId}");
+
         // The entered amount is the "claimed" figure — what the customer typed,
-        // not what the GCash app decided is owed.
-        $enteredAmount = $order->enteredAmount ?? round($order->total, 2);
+        // not what the GCash app decided is owed. A flagged hold carries it on
+        // the order node, but a spot-checked **verified** order cleared it
+        // (`enteredAmount = null`) and left the figure on the proof node, so the
+        // proof's `amount` is the fallback before the total.
+        $enteredAmount = $order->enteredAmount
+            ?? self::proofAmount($proof)
+            ?? round($order->total, 2);
 
         $rejection = new Rejection(
             orderId: $order->id,
@@ -76,16 +88,27 @@ final readonly class RejectOrder
             'rejection' => $rejection->toNode(),
         ]);
 
-        // The image is evidence: keep the node and anchor the retention clock so
-        // the #25 cleanup deletes it 7 days after this rejection.
-        $proof = $this->client->get("proofs/{$orderId}");
-
         if (is_array($proof)) {
             $this->client->update("proofs/{$orderId}", ['rejectedAt' => $rejectedAt]);
         }
 
         $this->tracker->forget($orderId);
         $this->queue->forget();
+        $this->board->forget();
+    }
+
+    /**
+     * The entered amount stored on the proof node, or null when there is none.
+     */
+    private static function proofAmount(mixed $proof): ?float
+    {
+        if (! is_array($proof)) {
+            return null;
+        }
+
+        $amount = $proof['amount'] ?? null;
+
+        return is_numeric($amount) ? round((float) $amount, 2) : null;
     }
 
     private function order(string $orderId): Order

@@ -392,3 +392,60 @@ it('honors prefers-reduced-motion and keeps the NEW flash under three per second
         ->assertOk()
         ->assertSee('prefers-reduced-motion', false);
 });
+
+it('evicts the board the same instant a proof is rejected, without waiting out the TTL', function (): void {
+    $id = kitchenOrder(['code' => 'DROP1', 'verifiedAt' => '2026-10-06T03:55:00Z']);
+
+    // Warm the coalesced board entry.
+    $this->get(kitchenUrl())->assertOk()->assertSee('DROP1');
+
+    app(\App\Orders\Actions\RejectOrder::class)($id, new HandledBy('u1', 'Maria'));
+
+    // No time travel: Reject evicts the board entry, so the ticket is gone on
+    // the very next read rather than lingering for the 5 s TTL.
+    $this->get(kitchenUrl())->assertOk()->assertDontSee('DROP1');
+});
+
+it('evicts the board the same instant a flagged hold is approved, without waiting out the TTL', function (): void {
+    $id = kitchenOrder([
+        'code' => 'ADD1',
+        'status' => OrderStatus::Verifying->value,
+        'enteredAmount' => 90.0,
+        'flaggedAt' => '2026-10-06T03:55:00Z',
+    ]);
+
+    // Warm the coalesced board entry (the hold is not on it yet).
+    $this->get(kitchenUrl())->assertOk()->assertDontSee('ADD1');
+
+    app(\App\Orders\Actions\ApproveOrder::class)($id);
+
+    // No time travel: Approve evicts the board entry, so the promoted ticket
+    // appears on the very next read rather than after the 5 s TTL.
+    $this->get(kitchenUrl())->assertOk()->assertSee('ADD1');
+});
+
+it('renders each line\'s add-ons on the kitchen ticket', function (): void {
+    kitchenOrder([
+        'code' => 'ONION1',
+        'verifiedAt' => '2026-10-06T03:55:00Z',
+        'lines' => [[
+            'productId' => 'p1',
+            'name' => 'Milktea',
+            'unitPrice' => 100.0,
+            'quantity' => 2,
+            'addOns' => [
+                ['name' => 'Extra pearls', 'price' => 20.0],
+                ['name' => 'Less sugar', 'price' => 0.0],
+            ],
+        ]],
+    ]);
+
+    $html = $this->get(kitchenUrl())->assertOk()->getContent();
+    $state = $this->get(kitchenUrl() . '/state')->assertOk()->json();
+
+    // The add-on names ride on the ticket under the line.
+    expect($html)->toBeString()
+        ->and($html)->toContain('Extra pearls')
+        ->and($html)->toContain('Less sugar')
+        ->and($state['now'][0]['lines'][0]['addOns'][0]['name'])->toBe('Extra pearls');
+});

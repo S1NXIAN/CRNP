@@ -26,7 +26,7 @@ it — never invent a parallel shape.
 
 ### Operations
 
-The three scheduled sweeps and their manual fallbacks (for a down scheduler)
+The four scheduled sweeps and their manual fallbacks (for a down scheduler)
 live in `docs/agents/operations.md`.
 
 ### Documentation standards

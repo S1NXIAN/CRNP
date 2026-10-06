@@ -31,6 +31,7 @@ final class RestRtdbClient implements RtdbClient
         private readonly ServiceAccountTokenProvider $tokens,
     ) {}
 
+    #[\Override]
     public function get(string $path): mixed
     {
         $response = $this->request()->get($this->url($path));
@@ -38,6 +39,7 @@ final class RestRtdbClient implements RtdbClient
         return $this->readBody($path, $response);
     }
 
+    #[\Override]
     public function set(string $path, array $data): mixed
     {
         $response = $this->request()->put($this->url($path), $this->stampUpdatedAt($data));
@@ -45,6 +47,7 @@ final class RestRtdbClient implements RtdbClient
         return $this->writeBody($path, $response);
     }
 
+    #[\Override]
     public function update(string $path, array $data): mixed
     {
         $response = $this->request()->patch($this->url($path), $this->stampUpdatedAt($data));
@@ -52,6 +55,7 @@ final class RestRtdbClient implements RtdbClient
         return $this->writeBody($path, $response);
     }
 
+    #[\Override]
     public function delete(string $path): void
     {
         $response = $this->request()->delete($this->url($path));
@@ -59,6 +63,7 @@ final class RestRtdbClient implements RtdbClient
         $this->writeBody($path, $response);
     }
 
+    #[\Override]
     public function query(string $path, RtdbQuery $query): array
     {
         $response = $this->request()->get($this->url($path), $query->toQueryParams());
@@ -88,11 +93,13 @@ final class RestRtdbClient implements RtdbClient
         return $rows;
     }
 
+    #[\Override]
     public function cached(string $key, string $path, int $ttlSeconds): mixed
     {
         return Cache::remember($key, $ttlSeconds, fn(): mixed => $this->get($path));
     }
 
+    #[\Override]
     public function forget(string $key): void
     {
         Cache::forget($key);

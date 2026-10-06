@@ -376,7 +376,9 @@ it('flags a hold when the rental proof amount mismatches', function (): void {
 
     $node = rtdb()->get("rentalBookings/{$id}");
 
-    expect($node['status'])->toBe(RentalStatus::AwaitingPayment->value)
+    // A mismatch is its own flagged-hold status, so the counter can resolve it
+    // and the lapse sweep can retire it — never stuck on awaiting_payment.
+    expect($node['status'])->toBe(RentalStatus::Verifying->value)
         ->and($node['enteredAmount'])->toBe(250.0)
         ->and($node['gcashRef'])->toBe('GC1234567890');
 });
@@ -427,6 +429,91 @@ it('lowers stock on hand over and raises it on confirm return', function (): voi
         ->and(rtdb()->get('rentalBookings/b1')['status'])->toBe(RentalStatus::Returned->value);
 });
 
+// --- Flagged rental proofs (counter resolves the exception) ---------------
+
+it('surfaces a flagged rental booking with one-tap Confirm and Cancel', function (): void {
+    seedStaff('cashier@example.com', StaffRole::Cashier, 'Maria Santos');
+    signIn('cashier@example.com', 'Maria Santos');
+
+    seedRentalItem('r1', ['units' => 3]);
+    seedRentalBooking('b1', [
+        'itemId' => 'r1',
+        'status' => RentalStatus::Verifying->value,
+        'enteredAmount' => 250.0,
+        'gcashRef' => 'GC999',
+    ]);
+
+    $this->get(route('cashier.rentals.index'))
+        ->assertOk()
+        ->assertSee('Flagged proofs')
+        ->assertSee('RNT1')
+        ->assertSee('Confirm')
+        ->assertSee('Cancel');
+});
+
+it('confirms a flagged rental proof to confirmed with stock untouched', function (): void {
+    seedStaff('cashier@example.com', StaffRole::Cashier, 'Maria Santos');
+    signIn('cashier@example.com', 'Maria Santos');
+
+    seedRentalItem('r1', ['units' => 3]);
+    seedRentalBooking('b1', [
+        'itemId' => 'r1',
+        'status' => RentalStatus::Verifying->value,
+        'enteredAmount' => 250.0,
+        'gcashRef' => 'GC999',
+    ]);
+
+    $this->post(route('cashier.rentals.confirm-proof', ['booking' => 'b1']))->assertRedirect();
+
+    $booking = rtdb()->get('rentalBookings/b1');
+
+    expect($booking['status'])->toBe(RentalStatus::Confirmed->value)
+        ->and($booking['verifiedAt'])->toBeString()
+        ->and($booking['enteredAmount'])->toBeNull()
+        ->and($booking['handledBy']['name'])->toBe('Maria Santos')
+        // The units were never handed over, so stock is untouched.
+        ->and(rtdb()->get('rentals/r1')['units'])->toBe(3);
+});
+
+it('cancels a flagged rental booking with stock untouched', function (): void {
+    seedStaff('cashier@example.com', StaffRole::Cashier, 'Maria Santos');
+    signIn('cashier@example.com', 'Maria Santos');
+
+    seedRentalItem('r1', ['units' => 3]);
+    seedRentalBooking('b1', [
+        'itemId' => 'r1',
+        'status' => RentalStatus::Verifying->value,
+        'enteredAmount' => 250.0,
+        'gcashRef' => 'GC999',
+    ]);
+
+    $this->post(route('cashier.rentals.cancel', ['booking' => 'b1']))->assertRedirect();
+
+    expect(rtdb()->get('rentalBookings/b1')['status'])->toBe(RentalStatus::Cancelled->value)
+        ->and(rtdb()->get('rentals/r1')['units'])->toBe(3);
+});
+
+it('lapses a flagged rental booking whose deadline passes unresolved', function (): void {
+    seedRentalItem('r1', ['units' => 5]);
+    seedRentalBooking('b1', [
+        'itemId' => 'r1',
+        'qty' => 2,
+        'status' => RentalStatus::Verifying->value,
+        'deadlineAt' => '2026-10-06T02:15:00Z',
+        'enteredAmount' => 250.0,
+        'proofReceivedAt' => '2026-10-06T02:14:00Z',
+    ]);
+
+    $this->travel(16)->minutes();
+
+    $this->artisan('rentals:lapse')->assertSuccessful();
+
+    // A flagged booking has proofReceivedAt set, so only the explicit flagged
+    // status lets the sweep retire it — stock stays untouched.
+    expect(rtdb()->get('rentalBookings/b1')['status'])->toBe(RentalStatus::Lapsed->value)
+        ->and(rtdb()->get('rentals/r1')['units'])->toBe(5);
+});
+
 it('shows a quiet overdue staff row for a rental past its return-due date, with no penalty', function (): void {
     seedStaff('cashier@example.com', StaffRole::Cashier, 'Maria Santos');
     signIn('cashier@example.com', 'Maria Santos');
@@ -449,8 +536,6 @@ it('shows a quiet overdue staff row for a rental past its return-due date, with 
     expect(rtdb()->get('rentalBookings/b1'))->not->toHaveKey('penalty')
         ->and(rtdb()->get('rentals/r1')['units'])->toBe(3);
 });
-
-// --- Admin ----------------------------------------------------------------
 
 it('lets an admin create a rental item with a server-resized image', function (): void {
     seedStaff('owner@example.com', StaffRole::Admin, 'Owner Santos');
@@ -662,6 +747,23 @@ it('wires the rental tracker to the same auto-upload proof client as an order', 
         ->and($html)->toContain('if (attempt < 1)')
         ->and($html)->toContain('Upload failed — tap to retry')
         ->and($html)->toContain('markInFlight()');
+});
+
+it('gives the rental tracker poll a pause control (WCAG 2.2 SC 2.2.2)', function (): void {
+    signIn('ada@example.com', 'Ada Lovelace', 'sub-ada');
+    seedRentalItem('r1', ['units' => 5]);
+    bookRental('r1', '2026-10-08', '2026-10-10', 2);
+
+    $bookings = rtdb()->get('rentalBookings');
+    $id = (string) array_key_first($bookings);
+
+    $html = $this->get(route('rentals.track', ['booking' => $id]))->assertOk()->getContent();
+
+    expect($html)->toBeString()
+        ->and($html)->toContain('id="tracker-pause"')
+        ->and($html)->toContain('Pause updates')
+        ->and($html)->toContain('aria-pressed="false"')
+        ->and($html)->toContain('setPaused(!paused)');
 });
 
 it('coalesces rental tracker polls so N screens cost one read per cadence', function (): void {

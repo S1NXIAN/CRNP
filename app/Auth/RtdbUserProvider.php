@@ -20,6 +20,7 @@ final class RtdbUserProvider implements UserProvider
 {
     public function __construct(private readonly RtdbClient $client) {}
 
+    #[\Override]
     public function retrieveById($identifier): ?Authenticatable
     {
         if (! is_string($identifier) || $identifier === '') {
@@ -35,11 +36,13 @@ final class RtdbUserProvider implements UserProvider
      * Google sign-in carries no password or remember-me token, so these two
      * lookups never resolve a user.
      */
+    #[\Override]
     public function retrieveByToken($identifier, #[\SensitiveParameter] $token): ?Authenticatable
     {
         return null;
     }
 
+    #[\Override]
     public function updateRememberToken(Authenticatable $user, #[\SensitiveParameter] $token): void
     {
         // Sessions remember the customer; there is no token to persist.
@@ -48,6 +51,7 @@ final class RtdbUserProvider implements UserProvider
     /**
      * @param  array<string, mixed>  $credentials
      */
+    #[\Override]
     public function retrieveByCredentials(#[\SensitiveParameter] array $credentials): ?Authenticatable
     {
         return null;
@@ -56,6 +60,7 @@ final class RtdbUserProvider implements UserProvider
     /**
      * @param  array<string, mixed>  $credentials
      */
+    #[\Override]
     public function validateCredentials(Authenticatable $user, #[\SensitiveParameter] array $credentials): bool
     {
         return false;
@@ -64,6 +69,7 @@ final class RtdbUserProvider implements UserProvider
     /**
      * @param  array<string, mixed>  $credentials
      */
+    #[\Override]
     public function rehashPasswordIfRequired(Authenticatable $user, #[\SensitiveParameter] array $credentials, bool $force = false): void
     {
         // No passwords exist in this system.

@@ -6,6 +6,9 @@ namespace App\Http\Controllers\Cashier;
 
 use App\Catalog\Catalog;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Cashier\AddWalkInItemRequest;
+use App\Http\Requests\Cashier\OpenWalkInRequest;
+use App\Http\Requests\Cashier\SettleWalkInRequest;
 use App\Orders\Actions\AddItemToWalkIn;
 use App\Orders\Actions\OpenWalkIn;
 use App\Orders\Actions\RemoveItemFromWalkIn;
@@ -13,12 +16,10 @@ use App\Orders\Actions\SettleWalkIn;
 use App\Orders\HandledBy;
 use App\Orders\Order;
 use App\Orders\Orders;
-use App\Orders\SplitTender;
 use App\Staff\Staff;
 use App\Staff\StaffDirectory;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -37,9 +38,9 @@ final class WalkInController extends Controller
         private readonly StaffDirectory $directory,
     ) {}
 
-    public function store(OpenWalkIn $openWalkIn): RedirectResponse
+    public function store(OpenWalkInRequest $request, OpenWalkIn $openWalkIn): RedirectResponse
     {
-        $id = $openWalkIn($this->cashier());
+        $id = $openWalkIn($this->cashier(), $request->table());
 
         return redirect()->route('cashier.walkins.show', ['walkin' => $id]);
     }
@@ -53,7 +54,7 @@ final class WalkInController extends Controller
         ]);
     }
 
-    public function addItem(Request $request, string $walkin, AddItemToWalkIn $addItem): RedirectResponse
+    public function addItem(AddWalkInItemRequest $request, string $walkin, AddItemToWalkIn $addItem): RedirectResponse
     {
         // Status-guarded: a stale tile tap on a settled order is a friendly
         // no-op, never a 500 from an action that only accepts a pending order.
@@ -61,13 +62,7 @@ final class WalkInController extends Controller
             return redirect()->route('cashier.walkins.show', ['walkin' => $walkin]);
         }
 
-        /** @var array{product: string, quantity: int|string} $validated */
-        $validated = $request->validate([
-            'product' => ['required', 'string'],
-            'quantity' => ['required', 'integer', 'min:1', 'max:99'],
-        ]);
-
-        $addItem($walkin, $validated['product'], (int) $validated['quantity']);
+        $addItem($walkin, $request->productId(), $request->quantity());
 
         return redirect()->route('cashier.walkins.show', ['walkin' => $walkin]);
     }
@@ -83,7 +78,7 @@ final class WalkInController extends Controller
         return redirect()->route('cashier.walkins.show', ['walkin' => $walkin]);
     }
 
-    public function settle(Request $request, string $walkin, SettleWalkIn $settle): RedirectResponse
+    public function settle(SettleWalkInRequest $request, string $walkin, SettleWalkIn $settle): RedirectResponse
     {
         $order = $this->find($walkin);
 
@@ -93,21 +88,7 @@ final class WalkInController extends Controller
             return redirect()->route('cashier.walkins.receipt', ['walkin' => $walkin]);
         }
 
-        $cashInput = $request->input('cash');
-        $cashTyped = is_numeric($cashInput) ? (float) $cashInput : 0.0;
-
-        $rules = ['cash' => ['required', 'numeric', 'min:0']];
-
-        // The ref# is required exactly when the typed cash leaves a GCash leg,
-        // so the boundary refuses a split without evidence before any write.
-        if (SplitTender::for($order->total, $cashTyped)->requiresGcashRef) {
-            $rules['gcashRef'] = ['required', 'string', 'max:64'];
-        }
-
-        /** @var array{cash: numeric-string|int|float, gcashRef?: string} $validated */
-        $validated = $request->validate($rules);
-
-        $settle($walkin, (float) $validated['cash'], $validated['gcashRef'] ?? null, $this->cashier());
+        $settle($walkin, $request->cash(), $request->reference(), $this->cashier());
 
         return redirect()->route('cashier.walkins.receipt', ['walkin' => $walkin]);
     }

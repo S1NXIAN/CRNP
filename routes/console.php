@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\Schedule;
 | Scheduled sweeps
 |--------------------------------------------------------------------------
 |
-| The three sweeps from PLAN §4 *Data layer*, all evaluated in the diner's
-| timezone (`Asia/Manila`; the server clock is UTC):
+| The four sweeps from PLAN §4 *Data layer* and §4 *Rentals*, all evaluated in
+| the diner's timezone (`Asia/Manila`; the server clock is UTC):
 |
 | - **Expiry** — every minute against `deadlineAt`, dismissing only zero-proof,
 |   not-mid-upload orders.

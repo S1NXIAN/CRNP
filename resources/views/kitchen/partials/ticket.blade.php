@@ -43,6 +43,13 @@
                 <li class="kitchen-card__line">
                     <span class="kitchen-card__qty">{{ $line->quantity }}×</span>
                     <span class="kitchen-card__name">{{ $line->name }}</span>
+                    @if ($line->addOns !== [])
+                        <ul class="kitchen-card__addons">
+                            @foreach ($line->addOns as $addOn)
+                                <li class="kitchen-card__addon">{{ $addOn->name }}</li>
+                            @endforeach
+                        </ul>
+                    @endif
                 </li>
             @endforeach
         </ul>

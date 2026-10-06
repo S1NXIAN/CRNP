@@ -20,6 +20,43 @@
             <p class="notice" role="status">{{ session('status') }}</p>
         @endif
 
+        <section class="queue-section" aria-labelledby="rentals-flagged-heading">
+            <h2 class="queue-section__title" id="rentals-flagged-heading">Flagged proofs</h2>
+            <p class="queue-section__hint">Entered amount or ref# mismatch — Confirm accepts the booking (units reserved), Cancel ends it. Stock stays put either way.</p>
+
+            @if ($counter->flagged === [])
+                <p class="empty-state">No flagged rental proofs — the line is clear.</p>
+            @else
+                <ul class="queue-list">
+                    @foreach ($counter->flagged as $booking)
+                        <li class="queue-row">
+                            <span class="queue-row__code">{{ $booking->code }}</span>
+                            <span class="queue-row__figures">
+                                <span class="queue-row__figure">
+                                    <span class="queue-row__figure-label">Entered</span>
+                                    <span class="queue-row__figure-value">₱{{ number_format($booking->enteredAmount ?? $booking->total, 2) }}</span>
+                                </span>
+                                <span class="queue-row__figure">
+                                    <span class="queue-row__figure-label">Total</span>
+                                    <span class="queue-row__figure-value">₱{{ number_format($booking->total, 2) }}</span>
+                                </span>
+                            </span>
+                            <span class="queue-row__actions">
+                                <form method="POST" action="{{ route('cashier.rentals.confirm-proof', ['booking' => $booking->id]) }}" class="queue-row__action">
+                                    @csrf
+                                    <button type="submit" class="primary-button">Confirm</button>
+                                </form>
+                                <form method="POST" action="{{ route('cashier.rentals.cancel', ['booking' => $booking->id]) }}" class="queue-row__action" onsubmit="return confirm('Cancel this rental booking? This cannot be undone.');">
+                                    @csrf
+                                    <button type="submit" class="link-button">Cancel</button>
+                                </form>
+                            </span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </section>
+
         <section class="queue-section" aria-labelledby="rentals-handover-heading">
             <h2 class="queue-section__title" id="rentals-handover-heading">To hand over</h2>
             <p class="queue-section__hint">Paid and confirmed — the tap releases the units (stock falls).</p>

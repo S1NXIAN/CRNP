@@ -53,9 +53,13 @@ final readonly class ConfirmRentalReturn
         $units = is_numeric($item['units'] ?? null) ? (int) $item['units'] : 0;
 
         $this->client->update("rentals/{$booking->itemId}", ['units' => $units + $booking->qty]);
+        $returnedAt = now('UTC')->toIso8601ZuluString();
         $this->client->update("rentalBookings/{$bookingId}", [
             'status' => RentalStatus::Returned->value,
-            'returnedAt' => now('UTC')->toIso8601ZuluString(),
+            'returnedAt' => $returnedAt,
+            // The terminal instant the proof-cleanup sweep (#25) keys off to
+            // expire the booking's screenshot 7 days on.
+            'terminalAt' => $returnedAt,
             'handledBy' => $handledBy->toNode(),
         ]);
 

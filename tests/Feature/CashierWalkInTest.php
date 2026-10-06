@@ -86,6 +86,29 @@ it('keeps the walk-in off the kitchen board until it is settled', function (): v
         ->and(app(Orders::class)->kitchen())->toHaveKey($orderId);
 });
 
+it('optionally carries a table name and prints it on the receipt', function (): void {
+    seedProduct('p1', ['price' => 200.0]);
+
+    // A ring-up with no table stays optional — the common counter order.
+    $plain = openWalkIn();
+    expect(rtdb()->get("orders/{$plain}")['table'])->toBeNull();
+
+    // A ring-up may carry a table name.
+    $this->post(route('cashier.walkins.store'), ['table' => 'Table 4'])->assertRedirect();
+
+    $orders = rtdb()->get('orders');
+    $tabled = (string) array_key_last($orders);
+
+    expect(rtdb()->get("orders/{$tabled}")['table'])->toBe('Table 4');
+
+    addItem($tabled, 'p1');
+    $this->post(route('cashier.walkins.settle', ['walkin' => $tabled]), ['cash' => '200']);
+
+    $this->get(route('cashier.walkins.receipt', ['walkin' => $tabled]))
+        ->assertOk()
+        ->assertSee('Table 4');
+});
+
 it('settles cash at or above the total as all-cash with computed change', function (): void {
     seedProduct('p1', ['price' => 200.0]);
 
@@ -164,6 +187,30 @@ it('prints a receipt with the breakdown and order code', function (): void {
         ->assertSee('GCash')
         ->assertSee('₱100.00')
         ->assertSee('Print receipt');
+});
+
+it('prints the add-ons under each line on the receipt', function (): void {
+    seedProduct('p1', [
+        'name' => 'Milktea',
+        'price' => 200.0,
+        'addOns' => [
+            ['name' => 'Extra pearls', 'price' => 20.0],
+            ['name' => 'Less sugar', 'price' => 0.0],
+        ],
+    ]);
+
+    $orderId = openWalkIn();
+    addItem($orderId, 'p1');
+
+    $this->post(route('cashier.walkins.settle', ['walkin' => $orderId]), ['cash' => '220']);
+
+    $this->get(route('cashier.walkins.receipt', ['walkin' => $orderId]))
+        ->assertOk()
+        ->assertSee('Extra pearls')
+        ->assertSee('Less sugar')
+        // The add-on price prints beside its name.
+        ->assertSee('₱20.00')
+        ->assertSee('₱220.00');
 });
 
 it('recomputes the total when an item is removed', function (): void {

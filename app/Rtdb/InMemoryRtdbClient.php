@@ -27,11 +27,13 @@ final class InMemoryRtdbClient implements RtdbClient
      */
     private array $store = [];
 
+    #[\Override]
     public function get(string $path): mixed
     {
         return $this->read($this->segments($path));
     }
 
+    #[\Override]
     public function set(string $path, array $data): mixed
     {
         $this->write($this->segments($path), $this->stampUpdatedAt($data));
@@ -39,6 +41,7 @@ final class InMemoryRtdbClient implements RtdbClient
         return $this->get($path);
     }
 
+    #[\Override]
     public function update(string $path, array $data): mixed
     {
         $segments = $this->segments($path);
@@ -50,6 +53,7 @@ final class InMemoryRtdbClient implements RtdbClient
         return $this->get($path);
     }
 
+    #[\Override]
     public function delete(string $path): void
     {
         $segments = $this->segments($path);
@@ -68,6 +72,7 @@ final class InMemoryRtdbClient implements RtdbClient
         }
     }
 
+    #[\Override]
     public function query(string $path, RtdbQuery $query): array
     {
         $node = $this->read($this->segments($path));
@@ -124,11 +129,13 @@ final class InMemoryRtdbClient implements RtdbClient
         return $rows;
     }
 
+    #[\Override]
     public function cached(string $key, string $path, int $ttlSeconds): mixed
     {
         return Cache::remember($key, $ttlSeconds, fn(): mixed => $this->get($path));
     }
 
+    #[\Override]
     public function forget(string $key): void
     {
         Cache::forget($key);

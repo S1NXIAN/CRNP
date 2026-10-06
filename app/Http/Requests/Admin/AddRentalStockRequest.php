@@ -17,6 +17,7 @@ final class AddRentalStockRequest extends FormRequest
         return true;
     }
 
+    #[\Override]
     protected function prepareForValidation(): void
     {
         // The date defaults today when the admin does not change it.

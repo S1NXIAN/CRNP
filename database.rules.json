@@ -21,7 +21,7 @@
       ".indexOn": ["phone", "date", "updatedAt"]
     },
     "rentalBookings": {
-      ".indexOn": ["status", "uid", "dateFrom", "deadlineAt", "updatedAt"]
+      ".indexOn": ["status", "uid", "dateFrom", "deadlineAt", "terminalAt", "updatedAt"]
     },
     "rentals": {
       ".indexOn": ["updatedAt"]

@@ -29,6 +29,7 @@ class SaveProductRequest extends FormRequest
         return true;
     }
 
+    #[\Override]
     protected function prepareForValidation(): void
     {
         $addOns = $this->input('addOns');

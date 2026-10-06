@@ -131,7 +131,35 @@ it('drops the ticket off the kitchen board the same instant', function (): void 
     rejectOrder($id)->assertRedirect(route('cashier.queue'));
 
     // The board mirrors verified, unserved only — a rejected ticket is gone.
+    // Reject evicts the board's coalesced entry, so it drops the same instant
+    // rather than after the 5 s TTL.
     expect(app(Orders::class)->kitchen())->not->toHaveKey($id);
+});
+
+it('books refundOwed as the proof\'s stored amount when a verified order is spot-check rejected', function (): void {
+    // A verified order cleared `enteredAmount` (it is on the proof node), so the
+    // claimed figure must come from the proof's `amount`, never the full total.
+    $id = seedCashierOrder([
+        'status' => OrderStatus::Cooking->value,
+        'enteredAmount' => null,
+        'verifiedAt' => '2026-10-06T03:55:00Z',
+        'verification' => ['verifiedAt' => '2026-10-06T03:55:00Z', 'amount' => 400.0, 'ref' => 'GC999'],
+    ]);
+    rtdb()->seed("proofs/{$id}", [
+        'orderId' => $id,
+        'imageBase64' => 'data:image/jpeg;base64,PROOFBYTES',
+        'amount' => 350.0,
+        'ref' => 'GC999',
+    ]);
+
+    rejectOrder($id)->assertRedirect(route('cashier.queue'));
+
+    $order = rtdb()->get("orders/{$id}");
+
+    expect($order['refundOwed'])->toBe(350.0)
+        ->and($order['enteredAmount'])->toBe(350.0)
+        ->and($order['rejection']['enteredAmount'])->toBe(350.0)
+        ->and($order['rejection']['orderTotal'])->toBe(400.0);
 });
 
 it('moves a rejected order out of the flagged holds into the rejected list', function (): void {
@@ -237,13 +265,25 @@ it('rejoins the ticket by age on Approve without restarting the timer', function
     expect(app(Orders::class)->kitchen())->toHaveKey($id);
 });
 
-it('does not approve a flagged hold — only a Rejected order may be approved', function (): void {
+it('approves a flagged hold — promotes it to cooking, clears the flags, and stamps verifiedAt', function (): void {
     $id = seedCashierOrder();
+
+    // No ticket on the board while the hold waits on the cashier's tap.
+    expect(app(Orders::class)->kitchen())->not->toHaveKey($id);
 
     approveOrder($id)->assertRedirect(route('cashier.queue'));
 
-    // A flagged hold is not the undo's target, so the tap is a friendly no-op.
-    expect(rtdb()->get("orders/{$id}")['status'])->toBe(OrderStatus::Verifying->value);
+    $order = rtdb()->get("orders/{$id}");
+
+    // A flagged hold is approvable: it promotes to `cooking`, the flag markers
+    // are cleared, and the approval instant is the age origin the board reads.
+    expect($order['status'])->toBe(OrderStatus::Cooking->value)
+        ->and($order['enteredAmount'])->toBeNull()
+        ->and($order['flaggedAt'])->toBeNull()
+        ->and($order['verifiedAt'])->toBe('2026-10-06T04:00:00Z');
+
+    // The kitchen ticket appears the same instant.
+    expect(app(Orders::class)->kitchen())->toHaveKey($id);
 });
 
 it('treats a stale Approve on an order that was never rejected as a no-op', function (): void {
@@ -299,13 +339,14 @@ it('offers Approve and Void — never Restore — on a Rejected order', function
         ->assertDontSee('Restore');
 });
 
-it('exposes Reject on a flagged hold', function (): void {
+it('offers both Approve and Reject on a flagged hold', function (): void {
     seedCashierOrder(['code' => 'FLAG1']);
 
     $this->get(route('cashier.queue'))
         ->assertOk()
         ->assertSee('Flagged holds')
         ->assertSee('FLAG1')
+        ->assertSee('Approve')
         ->assertSee('Reject');
 });
 

@@ -14,8 +14,8 @@
     {{--
         The online pickup queue. A flagged hold (entered amount ≠ total or a
         blank ref#) is the only exception: both numbers sit side by side for
-        one-tap Reject. Prepaid verified orders arrive ready-to-pay with no
-        approval tap and sit in the recently-verified list for at-leisure
+        one-tap Approve / Reject. Prepaid verified orders arrive ready-to-pay
+        with no approval tap and sit in the recently-verified list for at-leisure
         spot-check, where Reject stays reachable until Mark served. In-window
         orders with no screenshot yet show as awaiting proof. A Rejected order
         is its own list: Approve (the undo) or Void, never Restore, with the
@@ -40,7 +40,7 @@
 
         <section class="queue-section" aria-labelledby="queue-flagged-heading">
             <h2 class="queue-section__title" id="queue-flagged-heading">Flagged holds</h2>
-            <p class="queue-section__hint">Entered amount or ref# mismatch — the only thing that interrupts auto-verify.</p>
+            <p class="queue-section__hint">Entered amount or ref# mismatch — the cashier resolves it with one tap.</p>
 
             @if ($snapshot->flaggedHolds === [])
                 <p class="empty-state">No flagged holds — the line is clear.</p>
@@ -59,10 +59,16 @@
                                     <span class="queue-row__figure-value">₱{{ number_format($order->total, 2) }}</span>
                                 </span>
                             </span>
-                            <form method="POST" action="{{ route('cashier.orders.reject', ['order' => $order->id]) }}" class="queue-row__action">
-                                @csrf
-                                <button type="submit" class="link-button">Reject</button>
-                            </form>
+                            <span class="queue-row__actions">
+                                <form method="POST" action="{{ route('cashier.orders.approve', ['order' => $order->id]) }}" class="queue-row__action">
+                                    @csrf
+                                    <button type="submit" class="primary-button">Approve</button>
+                                </form>
+                                <form method="POST" action="{{ route('cashier.orders.reject', ['order' => $order->id]) }}" class="queue-row__action">
+                                    @csrf
+                                    <button type="submit" class="link-button">Reject</button>
+                                </form>
+                            </span>
                         </li>
                     @endforeach
                 </ul>

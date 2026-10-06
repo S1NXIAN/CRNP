@@ -32,6 +32,7 @@ final readonly class RentalCode
         return new self($code);
     }
 
+    #[\Override]
     public function __toString(): string
     {
         return $this->value;

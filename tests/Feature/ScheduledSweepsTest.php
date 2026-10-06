@@ -333,6 +333,67 @@ it('leaves the order, rejection record, and sale intact when a proof expires', f
         ->and(rtdb()->get("sales/{$id}")['total'])->toBe(200.0);
 });
 
+it('deletes a rental proof seven days after the booking reached a terminal state', function (): void {
+    $this->travelTo(new DateTimeImmutable('2026-10-06 23:59:00', new DateTimeZone('Asia/Manila')));
+
+    // A returned booking whose proof lives at proofs/rental-{id}. The booking
+    // carries no settledAt/rejectedAt — only its terminalAt anchors the clock.
+    seedRentalBooking('r1', [
+        'status' => 'returned',
+        'returnedAt' => '2026-09-28T04:00:00Z',
+        'terminalAt' => '2026-09-28T04:00:00Z',
+    ]);
+    rtdb()->seed('proofs/rental-r1', [
+        'bookingId' => 'r1',
+        'imageBase64' => 'data:image/jpeg;base64,PROOF',
+        'amount' => 150.0,
+        'ref' => 'GC1234567890',
+    ]);
+
+    $this->artisan('proofs:cleanup')->assertSuccessful();
+
+    expect(rtdb()->get('proofs/rental-r1'))->toBeNull()
+        // The booking record is left intact.
+        ->and(rtdb()->get('rentalBookings/r1')['status'])->toBe('returned');
+});
+
+it('keeps a rental proof younger than seven days', function (): void {
+    $this->travelTo(new DateTimeImmutable('2026-10-06 23:59:00', new DateTimeZone('Asia/Manila')));
+
+    seedRentalBooking('r1', [
+        'status' => 'lapsed',
+        'lapsedAt' => '2026-10-01T04:00:00Z',
+        'terminalAt' => '2026-10-01T04:00:00Z',
+    ]);
+    rtdb()->seed('proofs/rental-r1', [
+        'bookingId' => 'r1',
+        'imageBase64' => 'data:image/jpeg;base64,PROOF',
+    ]);
+
+    $this->artisan('proofs:cleanup')->assertSuccessful();
+
+    expect(rtdb()->get('proofs/rental-r1'))->toBeArray();
+});
+
+it('expires a rental proof seven days after a cancelled booking', function (): void {
+    $this->travelTo(new DateTimeImmutable('2026-10-06 23:59:00', new DateTimeZone('Asia/Manila')));
+
+    seedRentalBooking('r1', [
+        'status' => 'cancelled',
+        'cancelledAt' => '2026-09-28T04:00:00Z',
+        'terminalAt' => '2026-09-28T04:00:00Z',
+    ]);
+    rtdb()->seed('proofs/rental-r1', [
+        'bookingId' => 'r1',
+        'imageBase64' => 'data:image/jpeg;base64,PROOF',
+    ]);
+
+    $this->artisan('proofs:cleanup')->assertSuccessful();
+
+    expect(rtdb()->get('proofs/rental-r1'))->toBeNull()
+        ->and(rtdb()->get('rentalBookings/r1')['status'])->toBe('cancelled');
+});
+
 // --- Scheduler & timezone -------------------------------------------------
 
 it('runs the three sweeps on the Laravel scheduler in Asia/Manila', function (): void {
