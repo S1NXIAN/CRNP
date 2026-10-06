@@ -20,9 +20,11 @@ namespace App\Orders;
  * `Dismissed` — the window lapsed with zero proof and nothing in flight — and
  * the close sweep (#25) owns `Unclaimed` — paid, cooked, never collected. #27
  * owns `Rejected` — its own state, reachable only by Approve (the undo) or
- * `Voided`; #29 adds Restore / Collect late. #23 only creates
- * `AwaitingPayment` and renders whatever the order node says, degrading
- * gracefully for the later transitions.
+ * `Voided`; #29 adds Restore / Void / Collect late. `Voided` is the terminal
+ * state a Rejected or Dismissed order reaches through Void — the order ends,
+ * and any `refundOwed` survives it. #23 only creates `AwaitingPayment` and
+ * renders whatever the order node says, degrading gracefully for the later
+ * transitions.
  */
 enum OrderStatus: string
 {
@@ -69,7 +71,7 @@ enum OrderStatus: string
             self::Served => 'READY',
             self::Dismissed => 'Order dismissed — no payment received',
             self::Rejected => 'Payment needs checking — see the counter',
-            self::Voided => 'Voided',
+            self::Voided => 'Order voided',
             self::Unclaimed => 'Unclaimed',
         };
     }
