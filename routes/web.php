@@ -24,6 +24,7 @@ use App\Http\Controllers\Customer\OccupancyController;
 use App\Http\Controllers\Customer\OrderTrackerController;
 use App\Http\Controllers\Customer\ProductPageController;
 use App\Http\Controllers\Customer\ProofController;
+use App\Http\Controllers\Kitchen\KitchenBoardController;
 use Illuminate\Support\Facades\Route;
 
 // The public site: the menu and product pages serve from the coalesced catalog
@@ -124,6 +125,18 @@ Route::middleware(['auth', 'staff.role:cashier'])->group(function (): void {
     Route::post('/cashier/reservations', [ReservationController::class, 'store'])->name('cashier.reservations.store');
     Route::post('/cashier/reservations/{reservation}/confirm', [ReservationController::class, 'confirm'])->name('cashier.reservations.confirm');
     Route::post('/cashier/reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])->name('cashier.reservations.cancel');
+});
+
+// The kitchen read-only board: a kiosk-level, shared-secret URL with no login
+// and zero cook interaction. The gate is the secret from settings (#20), which
+// accepts either a path segment or a query string; rotating the secret kills
+// the old URL. The board serves NOW/LATER from the coalesced snapshot, so ten
+// kiosks cost one RTDB read per 5 s interval.
+Route::middleware('kitchen.secret')->group(function (): void {
+    Route::get('/kitchen', [KitchenBoardController::class, 'board'])->name('kitchen.board');
+    Route::get('/kitchen/state', [KitchenBoardController::class, 'state'])->name('kitchen.state');
+    Route::get('/kitchen/{secret}', [KitchenBoardController::class, 'board'])->name('kitchen.board.secret');
+    Route::get('/kitchen/{secret}/state', [KitchenBoardController::class, 'state'])->name('kitchen.state.secret');
 });
 
 Route::middleware(['auth', 'staff.role:admin'])->prefix('admin')->name('admin.')->group(function (): void {

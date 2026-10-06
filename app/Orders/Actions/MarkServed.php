@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Orders\Actions;
 
 use App\Cache\CashierQueueCache;
+use App\Cache\KitchenBoardCache;
 use App\Orders\HandledBy;
 use App\Orders\Order;
 use App\Orders\OrderStatus;
@@ -32,6 +33,9 @@ use InvalidArgumentException;
  * evicted, so the cashier's own tap propagates on the next request rather than
  * after the TTL. `settledAt` is stamped with the served instant so the daily
  * proof-cleanup sweep (#25) expires the screenshot 7 days later.
+ *
+ * The kitchen board's coalesced entry (#28) is evicted too, so Mark served
+ * clears the ticket off the board the same instant.
  */
 final readonly class MarkServed
 {
@@ -39,6 +43,7 @@ final readonly class MarkServed
         private RtdbClient $client,
         private OrderTracker $tracker,
         private CashierQueueCache $queue,
+        private KitchenBoardCache $board,
     ) {}
 
     public function __invoke(string $orderId, HandledBy $handledBy): void
@@ -80,5 +85,6 @@ final readonly class MarkServed
 
         $this->tracker->forget($orderId);
         $this->queue->forget();
+        $this->board->forget();
     }
 }
