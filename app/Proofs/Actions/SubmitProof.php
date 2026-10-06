@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Proofs\Actions;
 
+use App\Cache\KitchenBoardCache;
 use App\Orders\Order;
 use App\Orders\OrderStatus;
 use App\Orders\OrderTracker;
@@ -28,7 +29,8 @@ use InvalidArgumentException;
  *
  * Only an order still in a payment state accepts a proof, and the tracker's
  * coalesced entry is evicted so the verdict reaches the customer's next poll
- * without waiting out the cadence.
+ * without waiting out the cadence. A match puts the ticket on the board the
+ * same instant, so the kitchen board's coalesced entry is evicted too.
  */
 final readonly class SubmitProof
 {
@@ -36,6 +38,7 @@ final readonly class SubmitProof
         private RtdbClient $client,
         private ImageCompressor $compressor,
         private OrderTracker $tracker,
+        private KitchenBoardCache $board,
     ) {}
 
     public function __invoke(string $orderId, float $amount, ?string $ref, string $image): void
@@ -57,6 +60,7 @@ final readonly class SubmitProof
         $this->client->update("orders/{$orderId}", $this->verdict($order, $amount, $ref, $receivedAt));
 
         $this->tracker->forget($orderId);
+        $this->board->forget();
     }
 
     /**

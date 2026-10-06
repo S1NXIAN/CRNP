@@ -137,3 +137,29 @@ it('starts a stateful PKCE Google redirect', function (): void {
     $response->assertSessionHas('state');
     $response->assertSessionHas('code_verifier');
 });
+
+it('rate-limits the login routes to five per five minutes per forwarded IP', function (): void {
+    // Five sign-in attempts pass; the sixth inside the window returns 429.
+    for ($attempt = 1; $attempt <= 5; $attempt++) {
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.7'])
+            ->get(route('auth.google.redirect'))
+            ->assertRedirect();
+    }
+
+    $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.7'])
+        ->get(route('auth.google.redirect'))
+        ->assertStatus(429);
+});
+
+it('counts the login limit per forwarded IP so one proxy does not lock everyone out', function (): void {
+    for ($attempt = 1; $attempt <= 5; $attempt++) {
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.7'])
+            ->get(route('auth.google.redirect'))
+            ->assertRedirect();
+    }
+
+    // A different client behind the same proxy has its own bucket.
+    $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.9'])
+        ->get(route('auth.google.redirect'))
+        ->assertRedirect();
+});

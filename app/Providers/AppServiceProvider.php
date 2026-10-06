@@ -23,6 +23,7 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Register any application services.
      */
+    #[\Override]
     public function register(): void
     {
         $this->app->singleton(RtdbClient::class, function (): RtdbClient {
@@ -78,7 +79,8 @@ class AppServiceProvider extends ServiceProvider
         }
 
         // Named rate limiters, numbers from PLAN §4 *Auth & roles*: checkout
-        // 10/min per signed-in user, 30/min per real IP for anonymous traffic.
+        // 10/min per signed-in user, 30/min per real IP for anonymous traffic,
+        // and login 5 per 5 min per forwarded IP + email/sub.
         RateLimiter::for('checkout', function (Request $request): Limit {
             $user = $request->user();
 
@@ -91,6 +93,17 @@ class AppServiceProvider extends ServiceProvider
             }
 
             return Limit::perMinute(30)->by('checkout:ip:' . (string) $request->ip());
+        });
+
+        // Login: 5 attempts per 5 minutes per forwarded IP + the email/sub when
+        // known. The IP is the *forwarded* one (trusted proxies configured
+        // above), so customers behind one proxy are counted separately and a
+        // bad login loop cannot lock the whole counter out mid-shift.
+        RateLimiter::for('login', function (Request $request): Limit {
+            $identity = $request->input('email') ?? $request->input('sub');
+            $suffix = is_scalar($identity) && (string) $identity !== '' ? ':' . (string) $identity : '';
+
+            return Limit::perMinutes(5, 5)->by('login:ip:' . (string) $request->ip() . $suffix);
         });
     }
 }

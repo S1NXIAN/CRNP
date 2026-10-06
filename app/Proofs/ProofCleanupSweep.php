@@ -14,16 +14,18 @@ use Carbon\CarbonInterface;
  *
  * Runs daily at end-of-day (`Asia/Manila`). A GCash screenshot is evidence, not
  * a durable record: the sweep **deletes** the `proofs/{id}` node **7 days** after
- * a terminal order's `settledAt`, or 7 days after a rejected proof's
- * `rejectedAt` (watchdog evidence). The order row, the rejection record, and the
- * sale are left untouched — only the image bytes go, so the ledger keeps its
- * scalar history and the image storage stays inside the free tier.
+ * a terminal order's `settledAt`, 7 days after a rejected proof's `rejectedAt`
+ * (watchdog evidence), and 7 days after a **rental booking's** `terminalAt`
+ * (`proofs/rental-{id}`; the booking row is left intact). The order row, the
+ * rejection record, the rental booking, and the sale are left untouched — only
+ * the image bytes go, so the ledger keeps its scalar history and the image
+ * storage stays inside the free tier.
  *
- * Both reads are bounded by an index **and by an age window** (PLAN §4 *Quota
- * discipline*, rule 3): each run touches only the nodes that crossed the 7-day
- * threshold since the last run, never every proof ever stored. A daily cadence
- * means the one-day window is ample; the documented manual fallback widens it to
- * recover from a scheduler outage.
+ * All three reads are bounded by an index **and by an age window** (PLAN §4
+ * *Quota discipline*, rule 3): each run touches only the nodes that crossed the
+ * 7-day threshold since the last run, never every proof ever stored. A daily
+ * cadence means the one-day window is ample; the documented manual fallback
+ * widens it to recover from a scheduler outage.
  */
 final readonly class ProofCleanupSweep
 {
@@ -83,19 +85,35 @@ final readonly class ProofCleanupSweep
             }
         }
 
+        // Rental proofs: 7 days after the booking reached a terminal state
+        // (returned / lapsed / cancelled), keyed off its `terminalAt`. The node
+        // lives at `proofs/rental-{id}`; the booking record is left intact.
+        $rental = $this->client->query(
+            'rentalBookings',
+            RtdbQuery::orderBy('terminalAt')->range($floor, $ceiling),
+        );
+
+        foreach ($rental as $id => $row) {
+            $proofId = "rental-{$id}";
+
+            if ($this->deleteProof($proofId)) {
+                $deleted[] = $proofId;
+            }
+        }
+
         return array_values(array_unique($deleted));
     }
 
     /**
-     * Delete the proof node for an order id, reporting whether one existed.
+     * Delete the proof node for a proof id, reporting whether one existed.
      */
-    private function deleteProof(string $orderId): bool
+    private function deleteProof(string $proofId): bool
     {
-        if ($this->client->get("proofs/{$orderId}") === null) {
+        if ($this->client->get("proofs/{$proofId}") === null) {
             return false;
         }
 
-        $this->client->delete("proofs/{$orderId}");
+        $this->client->delete("proofs/{$proofId}");
 
         return true;
     }

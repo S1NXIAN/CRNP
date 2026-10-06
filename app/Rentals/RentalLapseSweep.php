@@ -14,10 +14,14 @@ use Carbon\CarbonInterface;
  * lapses with stock untouched").
  *
  * Runs every minute against the indexed `deadlineAt = placedAt + 15 min` and
- * lapses **only** bookings that are **zero-proof *and* not mid-upload** — an
- * upload sent with no terminal response holds the booking across 15:00, so a
- * customer is never lapsed for a connection they could not see failing. Because
- * stock only moves at handover, a lapse **leaves stock untouched**.
+ * lapses bookings that are either **zero-proof and not mid-upload** — an upload
+ * sent with no terminal response holds the booking across 15:00, so a customer
+ * is never lapsed for a connection they could not see failing — **or a flagged
+ * hold** (`verifying`): a proof whose amount/ref mismatched reaches the counter,
+ * but if no human resolves it before the deadline the booking lapses rather than
+ * being stuck forever (a flagged booking has `proofReceivedAt` set, so the
+ * zero-proof test alone would never lapse it). Because stock only moves at
+ * handover, a lapse **leaves stock untouched**.
  *
  * The read is floored rather than opened to the epoch, so the every-minute
  * query stays bounded to recently-lapsed windows (PLAN §4 *Quota discipline*,
@@ -66,6 +70,8 @@ final readonly class RentalLapseSweep
             $this->client->update("rentalBookings/{$booking->id}", [
                 'status' => RentalStatus::Lapsed->value,
                 'lapsedAt' => $timestamp,
+                // The terminal instant the proof-cleanup sweep keys off.
+                'terminalAt' => $timestamp,
             ]);
 
             $this->tracker->forget($booking->id);
@@ -77,12 +83,20 @@ final readonly class RentalLapseSweep
     }
 
     /**
-     * Zero proof **and** nothing in flight, still awaiting payment.
+     * A zero-proof, not-mid-upload booking, or a flagged hold whose deadline has
+     * passed and no human resolved it.
      */
     private function shouldLapse(RentalBooking $booking): bool
     {
+        if ($booking->proofInFlight) {
+            return false;
+        }
+
+        if ($booking->status === RentalStatus::Verifying) {
+            return true;
+        }
+
         return $booking->status === RentalStatus::AwaitingPayment
-            && $booking->proofReceivedAt === null
-            && ! $booking->proofInFlight;
+            && $booking->proofReceivedAt === null;
     }
 }

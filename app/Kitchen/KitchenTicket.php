@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Kitchen;
 
+use App\Catalog\AddOn;
 use App\Orders\LineItem;
 
 /**
@@ -100,7 +101,14 @@ final readonly class KitchenTicket
             'red' => $this->red,
             'new' => $this->new,
             'lines' => array_map(
-                static fn(LineItem $line): array => ['name' => $line->name, 'quantity' => $line->quantity],
+                static fn(LineItem $line): array => [
+                    'name' => $line->name,
+                    'quantity' => $line->quantity,
+                    'addOns' => array_map(
+                        static fn(AddOn $addOn): array => ['name' => $addOn->name],
+                        $line->addOns,
+                    ),
+                ],
                 $this->lines,
             ),
         ];

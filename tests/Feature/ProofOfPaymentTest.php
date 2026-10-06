@@ -213,7 +213,9 @@ it('lands a flagged hold when the entered amount does not match the total', func
         ->and($order['gcashRef'])->toBe('GC1234567890')
         ->and($order)->not->toHaveKey('verification');
 
-    // The kitchen waits on the cashier's Approve — no ticket yet.
+    // The kitchen waits on the cashier's one-tap Approve / Reject: a flagged
+    // hold is approvable (Approve promotes it to cooking and the ticket appears),
+    // but until the tap there is no ticket on the board.
     expect(app(Orders::class)->kitchen())->not->toHaveKey($id);
 });
 
@@ -304,6 +306,39 @@ it('refuses a proof once the order has left the payment states', function (): vo
     submitProof($id, proofUpload(), '400.00', 'GC1234567890')->assertForbidden();
 
     expect(rtdb()->get("proofs/{$id}"))->toBeNull();
+});
+
+it('evicts the kitchen board the same instant a proof auto-verifies', function (): void {
+    seedSettings([
+        'hours' => weekdayHours(),
+        'gcash' => ['number' => '0917 123 4567', 'qr' => 'data:image/jpeg;base64,QRDATA'],
+        'kitchenSecret' => 'k-secret-123',
+    ]);
+
+    signIn('ada@example.com', 'Ada Lovelace', 'sub-ada');
+    $id = seedProofOrder('sub-ada', 400.0);
+
+    // Warm the coalesced board entry: the awaiting-payment order is not on it.
+    $this->get('/kitchen/k-secret-123')->assertOk()->assertDontSee('PRF1');
+
+    submitProof($id, proofUpload(), '400.00', 'GC1234567890')->assertNoContent();
+
+    // No time travel: SubmitProof evicts the board entry, so the new ticket
+    // appears on the very next read rather than after the 5 s TTL.
+    $this->get('/kitchen/k-secret-123')->assertOk()->assertSee('PRF1');
+});
+
+it('gives the order tracker poll a pause control (WCAG 2.2 SC 2.2.2)', function (): void {
+    signIn('ada@example.com', 'Ada Lovelace', 'sub-ada');
+    $id = seedProofOrder('sub-ada', 400.0);
+
+    $html = $this->get(route('orders.show', ['order' => $id]))->assertOk()->getContent();
+
+    expect($html)->toBeString()
+        ->and($html)->toContain('id="tracker-pause"')
+        ->and($html)->toContain('Pause updates')
+        ->and($html)->toContain('aria-pressed="false"')
+        ->and($html)->toContain('setPaused(!paused)');
 });
 
 it('wires the client to auto-upload on selection with the proof ceiling and one retry', function (): void {

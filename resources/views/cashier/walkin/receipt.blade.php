@@ -17,6 +17,12 @@
                     <span class="receipt__code-label">Order code</span>
                     <span class="receipt__code-value">{{ $order->code }}</span>
                 </p>
+                @if ($order->table !== null)
+                    <p class="receipt__table">
+                        <span class="receipt__code-label">Table</span>
+                        <span class="receipt__code-value">{{ $order->table }}</span>
+                    </p>
+                @endif
             </header>
 
             <table class="receipt__lines">
@@ -26,6 +32,12 @@
                             <td>{{ $line->quantity }} × {{ $line->name }}</td>
                             <td class="receipt__amount">₱{{ number_format($line->lineTotal(), 2) }}</td>
                         </tr>
+                        @foreach ($line->addOns as $addOn)
+                            <tr class="receipt__addon">
+                                <td>+ {{ $addOn->name }}</td>
+                                <td class="receipt__amount">₱{{ number_format($addOn->price, 2) }}</td>
+                            </tr>
+                        @endforeach
                     @endforeach
                 </tbody>
             </table>

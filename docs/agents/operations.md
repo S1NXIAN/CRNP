@@ -14,8 +14,9 @@ run racing a scheduled tick cannot double-write.
 
 The **rental lapse** sweep (#34) is the rental stream's own expiry: it lapses
 unpaid rental bookings past their 15-minute `deadlineAt`, holding any booking
-whose proof upload is mid-flight. Stock is untouched by a lapse — rental units
-only move at handover.
+whose proof upload is mid-flight, and also lapses an unresolved **flagged hold**
+(a proof amount/ref mismatch the counter never resolved) so it is not stuck
+forever. Stock is untouched by a lapse — rental units only move at handover.
 
 The **weekly export-backup** (PLAN §4 *Quota discipline*, rule 4) runs on the
 same scheduler — `weeklyOn(1, '03:00')` in `Asia/Manila`. Its manual fallback is

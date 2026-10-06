@@ -31,6 +31,7 @@ it('declares an index for every field the data layer queries', function (): void
         ['rentalBookings', 'status'],
         ['rentalBookings', 'uid'],
         ['rentalBookings', 'deadlineAt'],
+        ['rentalBookings', 'terminalAt'],
         ['sales', 'updatedAt'],
         ['sales', 'soldAt'],
         ['staff', 'email'],

@@ -20,14 +20,18 @@ use Illuminate\Support\Str;
  * `pending` (off the kitchen board) until it is settled, so no food is cooked
  * for a walk-in who leaves the counter (PLAN §4 *Cashier POS*). The creating
  * cashier is stamped `handledBy`.
+ *
+ * A walk-in may optionally carry a **table name** (parent story 164); a blank
+ * one is stored as null, so the common counter order types nothing.
  */
 final readonly class OpenWalkIn
 {
     public function __construct(private RtdbClient $client) {}
 
-    public function __invoke(HandledBy $handledBy): string
+    public function __invoke(HandledBy $handledBy, ?string $table = null): string
     {
         $id = (string) Str::ulid();
+        $table = $table !== null && trim($table) !== '' ? trim($table) : null;
 
         $this->client->set("orders/{$id}", [
             'code' => OrderCode::draw()->value,
@@ -37,6 +41,7 @@ final readonly class OpenWalkIn
             'total' => 0.0,
             'payments' => [],
             'change' => 0.0,
+            'table' => $table,
             'placedAt' => now('UTC')->toIso8601ZuluString(),
             'handledBy' => $handledBy->toNode(),
         ]);

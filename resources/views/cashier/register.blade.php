@@ -21,6 +21,11 @@
 
             <form method="POST" action="{{ route('cashier.walkins.store') }}">
                 @csrf
+                <label class="field">
+                    <span class="field__label">Table name (optional)</span>
+                    <input class="field__input" type="text" name="table" value="{{ old('table') }}" maxlength="60" placeholder="e.g. Table 4">
+                    @error('table')<span class="field__error">{{ $message }}</span>@enderror
+                </label>
                 <button type="submit" class="primary-button">New walk-in</button>
             </form>
         </section>

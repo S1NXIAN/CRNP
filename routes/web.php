@@ -103,8 +103,10 @@ Route::post('/checkout', [CheckoutController::class, 'store'])
 // only ordering, favoriting, and preference sync route a visitor here.
 Route::get('/login', SignInPromptController::class)->name('login');
 Route::get('/auth/google/redirect', [GoogleSignInController::class, 'redirect'])
+    ->middleware('throttle:login')
     ->name('auth.google.redirect');
 Route::get('/auth/google/callback', [GoogleSignInController::class, 'callback'])
+    ->middleware('throttle:login')
     ->name('auth.google.callback');
 Route::post('/logout', [GoogleSignInController::class, 'logout'])->name('logout');
 
@@ -158,9 +160,12 @@ Route::middleware(['auth', 'staff.role:cashier'])->group(function (): void {
     Route::post('/cashier/reservations/{reservation}/confirm', [ReservationController::class, 'confirm'])->name('cashier.reservations.confirm');
     Route::post('/cashier/reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])->name('cashier.reservations.cancel');
 
-    // Rental counter: Hand over lowers stock, Confirm return raises it, and a
-    // quiet overdue row sits past the return-due date with no penalty.
+    // Rental counter: Hand over lowers stock, Confirm return raises it, a
+    // flagged proof offers one-tap Confirm / Cancel, and a quiet overdue row
+    // sits past the return-due date with no penalty.
     Route::get('/cashier/rentals', [RentalController::class, 'index'])->name('cashier.rentals.index');
+    Route::post('/cashier/rentals/{booking}/confirm-proof', [RentalController::class, 'confirmProof'])->name('cashier.rentals.confirm-proof');
+    Route::post('/cashier/rentals/{booking}/cancel', [RentalController::class, 'cancel'])->name('cashier.rentals.cancel');
     Route::post('/cashier/rentals/{booking}/hand-over', [RentalController::class, 'handOver'])->name('cashier.rentals.hand-over');
     Route::post('/cashier/rentals/{booking}/confirm-return', [RentalController::class, 'confirmReturn'])->name('cashier.rentals.confirm-return');
 });

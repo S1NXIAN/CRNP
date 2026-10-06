@@ -36,7 +36,7 @@ final readonly class StartRentalProofUpload
             throw new InvalidArgumentException("No rental booking with id [{$bookingId}].");
         }
 
-        if ($booking->status !== RentalStatus::AwaitingPayment) {
+        if (! in_array($booking->status, [RentalStatus::AwaitingPayment, RentalStatus::Verifying], true)) {
             throw RentalProofNotAccepted::for($bookingId, $booking->status);
         }
 

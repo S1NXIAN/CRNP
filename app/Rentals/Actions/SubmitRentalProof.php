@@ -22,10 +22,11 @@ use InvalidArgumentException;
  * sibling `proofs/rental-{id}` node — never on the booking node, so list and
  * tracker reads stay scalar. When the entered amount equals the booking total
  * **and** a ref# is present the booking **auto-verifies** (`confirmed`, the
- * units reserved); anything else flags a hold (the entered amount and ref#) for
- * the counter, exactly like an order.
+ * units reserved); anything else flags a **flagged hold** (`verifying`, the
+ * entered amount and ref#) for the counter's one-tap Confirm / Cancel, exactly
+ * like an order.
  *
- * Only a booking still in the payment state accepts a proof, and the tracker's
+ * Only a booking still in a payment state accepts a proof, and the tracker's
  * coalesced entry is evicted so the verdict reaches the next poll. The proof
  * node carries no `sales` row — rentals are their own stream.
  */
@@ -92,6 +93,7 @@ final readonly class SubmitRentalProof
         }
 
         return [
+            'status' => RentalStatus::Verifying->value,
             'enteredAmount' => $amount,
             'gcashRef' => $ref,
             'flaggedAt' => $receivedAt,
@@ -110,7 +112,7 @@ final readonly class SubmitRentalProof
 
         // Status-guarded: a proof is only accepted while the booking is still in
         // the payment state, so a stale upload cannot resurrect a settled one.
-        if ($booking->status !== RentalStatus::AwaitingPayment) {
+        if (! in_array($booking->status, [RentalStatus::AwaitingPayment, RentalStatus::Verifying], true)) {
             throw RentalProofNotAccepted::for($bookingId, $booking->status);
         }
 

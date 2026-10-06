@@ -35,16 +35,19 @@ final class RtdbUser implements Authenticatable
         );
     }
 
+    #[\Override]
     public function getAuthIdentifierName(): string
     {
         return 'sub';
     }
 
+    #[\Override]
     public function getAuthIdentifier(): string
     {
         return $this->sub;
     }
 
+    #[\Override]
     public function getAuthPasswordName(): string
     {
         return 'password';
@@ -54,16 +57,19 @@ final class RtdbUser implements Authenticatable
      * There is no password anywhere in the system; the field is null so the
      * guard never stores or checks a credential.
      */
+    #[\Override]
     public function getAuthPassword(): ?string
     {
         return null;
     }
 
+    #[\Override]
     public function getRememberToken(): ?string
     {
         return null;
     }
 
+    #[\Override]
     public function setRememberToken($value): void
     {
         // Sessions remember the customer; there is no remember-me token to set.
@@ -72,6 +78,7 @@ final class RtdbUser implements Authenticatable
     /**
      * An empty name tells the guard to skip remember-token bookkeeping.
      */
+    #[\Override]
     public function getRememberTokenName(): string
     {
         return '';

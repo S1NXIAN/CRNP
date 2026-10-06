@@ -116,6 +116,11 @@
             This screen refreshes itself. Keep it open — it flips to READY the
             instant the counter marks your order served.
         </p>
+
+        {{-- WCAG 2.2 SC 2.2.2: auto-updating content carries a pause control. --}}
+        <p class="tracker__controls">
+            <button type="button" class="link-button" id="tracker-pause" aria-pressed="false">Pause updates</button>
+        </p>
     </main>
 
     <script>
@@ -131,6 +136,23 @@
             var holdTotal = document.getElementById('hold-total');
             var proofPanel = document.querySelector('[data-proof-upload]');
             var proofStates = ['awaiting_payment', 'verifying'];
+            var pause = document.getElementById('tracker-pause');
+            var paused = false;
+
+            // WCAG 2.2 SC 2.2.2: auto-updating content carries a pause control.
+            // Pausing halts the poll loop; resuming restarts it immediately.
+            function setPaused(next) {
+                paused = next;
+                if (pause) {
+                    pause.textContent = paused ? 'Resume updates' : 'Pause updates';
+                    pause.setAttribute('aria-pressed', paused ? 'true' : 'false');
+                }
+                if (!paused) { window.setTimeout(poll, 0); }
+            }
+
+            if (pause) {
+                pause.addEventListener('click', function () { setPaused(!paused); });
+            }
 
             function pesos(value) {
                 return '₱' + Number(value).toFixed(2);
@@ -156,6 +178,8 @@
             // payment state; once it verifies/flags the server drops it, and
             // the client hides it the same instant on the poll.
             function poll() {
+                if (paused) { return; }
+
                 fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
                     .then(function (response) { return response.ok ? response.json() : null; })
                     .then(function (state) {

@@ -1,6 +1,6 @@
 @php
     /** @var \App\Rentals\RentalTrackerState $state */
-    $canAttachProof = $state->status === 'awaiting_payment';
+    $canAttachProof = in_array($state->status, ['awaiting_payment', 'verifying'], true);
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -88,6 +88,11 @@
             This screen refreshes itself. Keep it open — the counter hands the
             units over once your payment verifies.
         </p>
+
+        {{-- WCAG 2.2 SC 2.2.2: auto-updating content carries a pause control. --}}
+        <p class="tracker__controls">
+            <button type="button" class="link-button" id="tracker-pause" aria-pressed="false">Pause updates</button>
+        </p>
     </main>
 
     <script>
@@ -99,11 +104,30 @@
             var seconds = parseInt(root.getAttribute('data-poll-seconds'), 10) || 5;
             var status = document.getElementById('tracker-status');
             var proofPanel = document.querySelector('[data-proof-upload]');
+            var pause = document.getElementById('tracker-pause');
+            var paused = false;
 
-            // The proof surface is live only while the booking is still awaiting
-            // payment; once it verifies the server flips it to confirmed and the
-            // client hides the panel the same instant on the poll.
+            // WCAG 2.2 SC 2.2.2: auto-updating content carries a pause control.
+            // Pausing halts the poll loop; resuming restarts it immediately.
+            function setPaused(next) {
+                paused = next;
+                if (pause) {
+                    pause.textContent = paused ? 'Resume updates' : 'Pause updates';
+                    pause.setAttribute('aria-pressed', paused ? 'true' : 'false');
+                }
+                if (!paused) { window.setTimeout(poll, 0); }
+            }
+
+            if (pause) {
+                pause.addEventListener('click', function () { setPaused(!paused); });
+            }
+
+            // The proof surface is live only while the booking is still in a
+            // payment state; once it verifies/flags the server keeps it live for
+            // a flag, and the client hides it the same instant it leaves.
             function poll() {
+                if (paused) { return; }
+
                 fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
                     .then(function (response) { return response.ok ? response.json() : null; })
                     .then(function (state) {
@@ -111,7 +135,7 @@
                         status.textContent = state.label;
                         status.setAttribute('data-status', state.status);
 
-                        if (proofPanel && state.status !== 'awaiting_payment') {
+                        if (proofPanel && ['awaiting_payment', 'verifying'].indexOf(state.status) === -1) {
                             proofPanel.hidden = true;
                         }
                     })

@@ -11,7 +11,7 @@ flowchart TD
     A -.->|"About"| AB["About / branches page"]
     D -.->|"Reservations"| V["Public occupancy view — read-only<br/>seats taken vs capacity per slot<br/>no names · books nothing"]
     D -.->|"Rentals"| RC["Rental catalog — read-only<br/>price/day · per-date availability"]
-    RC --> RD["Book: date range + qty steppers<br/>total computes → sign in → QR auto-sent<br/>prepaid · 15-min window · unpaid lapses"]
+    RC --> RD["Book: date range + qty steppers<br/>total computes → sign in → QR auto-sent<br/>prepaid · 15-min window · unpaid lapses<br/>proof flag (amount/ref mismatch) → counter<br/>one-tap Confirm / Cancel"]
     RD --> RH["Counter handover — stock falls<br/>return by due date — stock rises"]
     D --> E["Filter: tap category chip"]
     E --> D
