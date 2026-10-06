@@ -20,6 +20,47 @@ const RTDB_BASE_URL = 'https://crnp-test.firebaseio.com';
 const RTDB_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
 /**
+ * Create a temp file that is removed when the test process exits.
+ *
+ * Tests that hand a real file to an UploadedFile or an RSA key path must not
+ * leak it: a proof-image fixture is hundreds of KB, and an unlinked fixture
+ * per test filled the tmpfs after a few runs. Registering every path here
+ * keeps cleanup in one place, so a new test cannot reintroduce the leak.
+ */
+function testTempFile(string $prefix, string $suffix = ''): string
+{
+    static $paths = [];
+    static $registered = false;
+
+    if (! $registered) {
+        register_shutdown_function(static function () use (&$paths): void {
+            foreach ($paths as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+        });
+        $registered = true;
+    }
+
+    $created = (string) tempnam(sys_get_temp_dir(), $prefix);
+    $paths[] = $created;
+
+    if ($suffix === '') {
+        return $created;
+    }
+
+    $path = $created . $suffix;
+
+    if (is_file($created)) {
+        rename($created, $path);
+        $paths[] = $path;
+    }
+
+    return $path;
+}
+
+/**
  * A one-line service-account JSON with a freshly minted RSA key, so the REST
  * client can sign a real RS256 assertion without any committed secret.
  */
@@ -43,7 +84,7 @@ function fakeServiceAccountPath(): string
     $privateKey = '';
     openssl_pkey_export($key, $privateKey);
 
-    $path = (string) tempnam(sys_get_temp_dir(), 'crnp-sa-');
+    $path = testTempFile('crnp-sa-');
 
     file_put_contents($path, json_encode([
         'type' => 'service_account',

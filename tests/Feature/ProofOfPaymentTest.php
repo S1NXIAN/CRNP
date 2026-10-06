@@ -57,7 +57,7 @@ function proofNoisyJpeg(int $width, int $height): string
 
 function proofUpload(int $width = 2000, int $height = 1500): UploadedFile
 {
-    $path = tempnam(sys_get_temp_dir(), 'crnp-proof-') . '.jpg';
+    $path = testTempFile('crnp-proof-', '.jpg');
 
     file_put_contents($path, proofNoisyJpeg($width, $height));
 
