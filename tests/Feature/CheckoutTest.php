@@ -177,6 +177,23 @@ it('throttles place order at 10 per minute per signed-in user', function (): voi
     placeOrder('attempt-11')->assertStatus(429);
 });
 
+it('recovers the checkout limit inside its one-minute window', function (): void {
+    signIn('ada@example.com', 'Ada Lovelace', 'sub-ada');
+
+    // No cart: each attempt is refused by validation but still counted.
+    for ($i = 0; $i < 10; $i++) {
+        placeOrder("recover-{$i}")->assertStatus(302);
+    }
+
+    placeOrder('recover-over')->assertStatus(429);
+
+    // The limit decays inside its window: once the minute elapses the same
+    // customer is served again, so a burst never locks the counter out.
+    $this->travel(61)->seconds();
+
+    placeOrder('recover-after')->assertStatus(302);
+});
+
 it('counts anonymous checkout traffic per real forwarded IP', function (): void {
     // Behind one proxy, two customers must land in separate buckets.
     $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.1']);
