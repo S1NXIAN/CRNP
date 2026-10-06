@@ -10,6 +10,7 @@ use App\Staff\StaffDirectory;
 use App\Staff\StaffRole;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Tests\Support\CountingRtdbClient;
 use Tests\TestCase;
 
 uses(TestCase::class)->in('Feature', 'Unit');
@@ -96,6 +97,23 @@ function rtdb(): RtdbClient
 }
 
 /**
+ * Wrap the bound in-memory client in a read-counting double so a test can
+ * assert that a page view did not re-read the heavy catalog node.
+ *
+ * Seed the data first, then call this — the counter wraps the same underlying
+ * store, so seeded nodes stay visible while `get()` calls are counted.
+ */
+function useCountingRtdb(): CountingRtdbClient
+{
+    $inner = app(RtdbClient::class);
+    $counter = new CountingRtdbClient($inner);
+
+    app()->instance(RtdbClient::class, $counter);
+
+    return $counter;
+}
+
+/**
  * The business-settings seam the admin surface and the customer site share.
  */
 function settings(): \App\Settings\SettingsRepository
@@ -104,13 +122,58 @@ function settings(): \App\Settings\SettingsRepository
 }
 
 /**
- * Arrange the `settings` node without stamping `updatedAt`.
+ * Arrange the `settings` node without stamping `updatedAt`, then evict the
+ * cached read so a test can seed, read, and re-seed within one case.
  *
  * @param  array<string, mixed>  $settings
  */
 function seedSettings(array $settings = []): void
 {
     rtdb()->seed('settings', $settings);
+
+    settings()->evict();
+}
+
+/**
+ * Arrange the `stats/top3` node the way #31 will write it: a ranked list of
+ * `{productId}` rows. Reading it is #22's job; computing it is #31's.
+ *
+ * @param  list<string>  $productIds
+ */
+function seedTopThree(array $productIds): void
+{
+    rtdb()->seed('stats/top3', [
+        'rankings' => array_map(
+            static fn(string $id): array => ['productId' => $id],
+            $productIds,
+        ),
+    ]);
+}
+
+/**
+ * Arrange a favorite exactly as the toggle action writes it.
+ */
+function seedFavorite(string $uid, string $productId): void
+{
+    rtdb()->update("users/{$uid}/favorites", [$productId => true]);
+}
+
+/**
+ * The weekly opening window used by the customer-site tests, in Asia/Manila.
+ *
+ * @return array<string, array{open: string, close: string}>
+ */
+function weekdayHours(): array
+{
+    return [
+        'mon' => ['open' => '09:00', 'close' => '21:00'],
+        'tue' => ['open' => '09:00', 'close' => '21:00'],
+        'wed' => ['open' => '09:00', 'close' => '21:00'],
+        'thu' => ['open' => '09:00', 'close' => '21:00'],
+        'fri' => ['open' => '09:00', 'close' => '21:00'],
+        'sat' => ['open' => '09:00', 'close' => '21:00'],
+        'sun' => ['open' => '09:00', 'close' => '21:00'],
+    ];
 }
 
 /**
