@@ -39,6 +39,9 @@ final readonly class Order
         public bool $proofInFlight = false,
         public ?string $uploadStartedAt = null,
         public ?string $proofReceivedAt = null,
+        public ?float $enteredAmount = null,
+        public ?float $refundOwed = null,
+        public ?string $flaggedAt = null,
     ) {}
 
     /**
@@ -72,6 +75,9 @@ final readonly class Order
         $proofInFlight = $node['proofInFlight'] ?? false;
         $uploadStartedAt = $node['uploadStartedAt'] ?? null;
         $proofReceivedAt = $node['proofReceivedAt'] ?? null;
+        $enteredAmount = $node['enteredAmount'] ?? null;
+        $refundOwed = $node['refundOwed'] ?? null;
+        $flaggedAt = $node['flaggedAt'] ?? null;
 
         return new self(
             id: $id,
@@ -92,6 +98,9 @@ final readonly class Order
             proofInFlight: $proofInFlight === true,
             uploadStartedAt: is_string($uploadStartedAt) && $uploadStartedAt !== '' ? $uploadStartedAt : null,
             proofReceivedAt: is_string($proofReceivedAt) && $proofReceivedAt !== '' ? $proofReceivedAt : null,
+            enteredAmount: is_numeric($enteredAmount) ? (float) $enteredAmount : null,
+            refundOwed: is_numeric($refundOwed) ? (float) $refundOwed : null,
+            flaggedAt: is_string($flaggedAt) && $flaggedAt !== '' ? $flaggedAt : null,
         );
     }
 
