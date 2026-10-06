@@ -13,12 +13,22 @@ namespace App\Orders;
  * settle it becomes `Cooking` — the kitchen ticket appears the same instant —
  * and the counter hands it over. `Served` is the terminal state the online
  * pickup queue reaches via Mark served (#26).
+ *
+ * An **online** order is `AwaitingPayment` from placement (the 15-minute
+ * payment window). #24 moves it to `Verifying` / `Cooking` (auto-verify or a
+ * flagged hold's Approve) and #26 to `Served`; #25/#29 own `Dismissed` and
+ * #27 owns `Rejected`. #23 only creates `AwaitingPayment` and renders whatever
+ * the order node says, degrading gracefully for the later transitions.
  */
 enum OrderStatus: string
 {
     case Pending = 'pending';
+    case AwaitingPayment = 'awaiting_payment';
+    case Verifying = 'verifying';
     case Cooking = 'cooking';
     case Served = 'served';
+    case Dismissed = 'dismissed';
+    case Rejected = 'rejected';
 
     /**
      * Whether the kitchen board mirrors this status. Only a settled/verified,
@@ -27,5 +37,30 @@ enum OrderStatus: string
     public function kitchenVisible(): bool
     {
         return $this === self::Cooking;
+    }
+
+    /**
+     * Whether the order tracker treats this as the customer's active order.
+     */
+    public function isActive(): bool
+    {
+        return in_array($this, [self::AwaitingPayment, self::Verifying, self::Cooking], true);
+    }
+
+    /**
+     * The tracker's customer-facing label. The later states carry their full
+     * sentence so the tracker can render whatever the order node says.
+     */
+    public function label(): string
+    {
+        return match ($this) {
+            self::Pending => 'Pending',
+            self::AwaitingPayment => 'Awaiting payment',
+            self::Verifying => 'Verifying',
+            self::Cooking => 'Cooking',
+            self::Served => 'READY',
+            self::Dismissed => 'Order dismissed — no payment received',
+            self::Rejected => 'Payment needs checking — see the counter',
+        };
     }
 }

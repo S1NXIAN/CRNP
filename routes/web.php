@@ -15,9 +15,12 @@ use App\Http\Controllers\Cashier\ReservationController;
 use App\Http\Controllers\Cashier\WalkInController;
 use App\Http\Controllers\Customer\AboutController;
 use App\Http\Controllers\Customer\AddOnPrefsController;
+use App\Http\Controllers\Customer\CartController;
+use App\Http\Controllers\Customer\CheckoutController;
 use App\Http\Controllers\Customer\FavoriteToggleController;
 use App\Http\Controllers\Customer\MenuController;
 use App\Http\Controllers\Customer\OccupancyController;
+use App\Http\Controllers\Customer\OrderTrackerController;
 use App\Http\Controllers\Customer\ProductPageController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,11 +37,33 @@ Route::get('/occupancy', OccupancyController::class)->name('occupancy');
 
 // Gated per-account actions: the heart and the saved add-on selection prompt
 // the Google button while signed out (browsing never does) and sync through
-// `users/{uid}`, so they follow the customer across devices.
+// `users/{uid}`, so they follow the customer across devices. The cart is gated
+// the same way — building one requires a live session.
 Route::middleware('auth')->group(function (): void {
     Route::post('/menu/{product}/favorite', FavoriteToggleController::class)->name('favorites.toggle');
     Route::post('/menu/{product}/add-ons', AddOnPrefsController::class)->name('prefs.add-ons');
+
+    // Cart: inline steppers and add-on picks; totals recompute server-side.
+    Route::get('/cart', [CartController::class, 'show'])->name('cart.show');
+    Route::post('/cart', [CartController::class, 'update'])->name('cart.update');
+    Route::delete('/cart/{product}', [CartController::class, 'destroy'])->name('cart.destroy');
+
+    // Order tracker: a live status screen bound to the session and
+    // `users/{uid}`, reopenable with zero typing; the code is shown, never typed.
+    Route::get('/orders', [OrderTrackerController::class, 'reopen'])->name('orders.tracker');
+    Route::get('/orders/{order}', [OrderTrackerController::class, 'show'])->name('orders.show');
+    Route::get('/orders/{order}/state', [OrderTrackerController::class, 'state'])->name('orders.state');
 });
+
+// Checkout: pickup time (default ASAP, earliest now + 15 min) then Place order.
+// The POST is validated and throttled (10/min per user, 30/min per real IP for
+// anonymous) and carries a client-generated idempotency key. Sign-in is
+// enforced in the controller, not by `auth`, so the throttle counts anonymous
+// traffic before the sign-in redirect (PLAN §4 *Auth & roles*).
+Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
+Route::post('/checkout', [CheckoutController::class, 'store'])
+    ->middleware('throttle:checkout')
+    ->name('checkout.store');
 
 // The one sign-in surface: a Google button, never a form. Browsing stays open;
 // only ordering, favoriting, and preference sync route a visitor here.

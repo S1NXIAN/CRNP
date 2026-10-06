@@ -27,6 +27,25 @@ final readonly class Orders
     }
 
     /**
+     * The account's active order, from `users/{uid}/activeOrderId` (#23).
+     *
+     * The tracker reopens this with zero typing; a terminal order (served,
+     * dismissed, rejected) is not active, so the customer falls back to the menu.
+     */
+    public function activeFor(string $uid): ?Order
+    {
+        $activeId = $this->client->get("users/{$uid}/activeOrderId");
+
+        if (! is_string($activeId) || $activeId === '') {
+            return null;
+        }
+
+        $order = $this->find($activeId);
+
+        return $order !== null && $order->isActive() ? $order : null;
+    }
+
+    /**
      * The orders the kitchen board shows — settled/verified and not yet served,
      * keyed by id.
      *

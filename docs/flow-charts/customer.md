@@ -18,12 +18,14 @@ flowchart TD
     D --> F["Product page → Add to cart<br/>steppers · add-ons · computed totals"]
     F -.->|"heart while signed out"| G
     F -.->|"favorite / add-on picks saved<br/>to users/{uid} — sync across devices"| PS["Per-account prefs<br/>favorites + last add-on selection"]
-    F --> H{"Place order — signed in?"}
+    PS -.->|"last pick pre-checked"| CT
+    F --> CT["Cart — inline steppers + add-on picks<br/>last pick pre-checked from users/{uid}<br/>totals recompute server-side"]
+    CT --> H{"Place order — signed in?"}
     H -->|"no"| G["Sign in with Google<br/>one tap · session remembered"]
-    G --> I["Pickup time — default ASAP<br/>earliest = now + 15 min"]
+    G --> I["Checkout — pickup time<br/>default ASAP · earliest = now + 15 min"]
     H -->|"yes"| I
     I --> J["Place order — POST to Laravel<br/>validated · throttled · idempotency key<br/>→ order code + GCash number + QR auto-sent<br/>15-min payment window (deadlineAt) starts"]
-    J --> T["Order tracker — live status screen<br/>session/account-bound · order code shown, never typed<br/>5–10 s poll: awaiting payment → verifying → cooking → READY"]
+    J --> T["Order tracker — live status screen<br/>session/account-bound · order code shown, never typed<br/>reopen from the account with zero typing<br/>5–10 s poll: awaiting payment → verifying → cooking → READY"]
     T --> M["Pay GCash → OS screenshot → Attach<br/>newest thumbnail · auto-uploads<br/>failed → 'Upload failed — tap to retry'<br/>+ amount (prefilled) + ref#"]
     M --> AV{"Auto-verified<br/>amount + ref match?"}
     AV -->|"yes"| N["Same instant → kitchen ticket:<br/>order code + age timer<br/>scheduled pickup: dimmed in LATER,<br/>promoted at pickup − 15 min"]
