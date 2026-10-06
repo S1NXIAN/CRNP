@@ -37,7 +37,6 @@ final readonly class GoogleOAuth
     {
         return $this->oauthProvider()
             ->scopes(self::SCOPES)
-            ->enablePKCE()
             ->redirect();
     }
 
@@ -49,9 +48,24 @@ final readonly class GoogleOAuth
         return $this->provider()->user();
     }
 
+    /**
+     * The Google driver with PKCE enabled.
+     *
+     * PKCE has two legs and both must enable it: the redirect stores the
+     * verifier in the session, and the callback sends it back on the token
+     * exchange. Socialite only includes `code_verifier` when usesPKCE() is true,
+     * so enabling it on the redirect alone leaves the callback to fail with
+     * Google's "Missing code verifier".
+     */
     private function provider(): SocialiteProvider
     {
-        return $this->socialite->driver('google');
+        $provider = $this->socialite->driver('google');
+
+        if ($provider instanceof AbstractProvider) {
+            $provider->enablePKCE();
+        }
+
+        return $provider;
     }
 
     private function oauthProvider(): AbstractProvider

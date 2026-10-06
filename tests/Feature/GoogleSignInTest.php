@@ -138,6 +138,51 @@ it('starts a stateful PKCE Google redirect', function (): void {
     $response->assertSessionHas('code_verifier');
 });
 
+it('sends the PKCE code verifier back on the callback token exchange', function (): void {
+    // The regression: enablePKCE() ran only on the redirect leg, so the callback
+    // built a provider with PKCE off, never sent `code_verifier`, and Google
+    // answered "Missing code verifier". Drive the real controller callback with
+    // a mocked Guzzle transport and assert the token request carries it.
+    $history = [];
+    $mock = new GuzzleHttp\Handler\MockHandler([
+        new GuzzleHttp\Psr7\Response(200, [], json_encode(['access_token' => 'test-token', 'expires_in' => 3600])),
+        new GuzzleHttp\Psr7\Response(200, [], json_encode([
+            'sub' => '110082736',
+            'name' => 'Ada Lovelace',
+            'email' => 'ada@example.com',
+        ])),
+    ]);
+
+    $stack = GuzzleHttp\HandlerStack::create($mock);
+    $stack->push(GuzzleHttp\Middleware::history($history));
+
+    config()->set('services.google', [
+        'client_id' => 'test-client-id',
+        'client_secret' => 'test-client-secret',
+        'redirect' => 'http://localhost:8000/auth/google/callback',
+        'guzzle' => ['handler' => $stack],
+    ]);
+
+    // The redirect leg stores these; the callback reads them back.
+    $state = 'state-from-google';
+    $verifier = 'pkce-code-verifier-from-the-redirect';
+
+    $this->withSession(['state' => $state, 'code_verifier' => $verifier])
+        ->get(route('auth.google.callback', ['code' => 'auth-code', 'state' => $state]))
+        ->assertRedirect(route('home'));
+
+    $tokenRequest = collect($history)->first(
+        static fn(array $entry): bool => str_contains((string) $entry['request']->getUri(), 'oauth2/v4/token'),
+    );
+
+    expect($tokenRequest)->not->toBeNull();
+
+    parse_str((string) $tokenRequest['request']->getBody(), $body);
+
+    expect($body)->toHaveKey('code_verifier')
+        ->and($body['code_verifier'])->toBe($verifier);
+});
+
 it('rate-limits the login routes to five per five minutes per forwarded IP', function (): void {
     // Five sign-in attempts pass; the sixth inside the window returns 429.
     for ($attempt = 1; $attempt <= 5; $attempt++) {
