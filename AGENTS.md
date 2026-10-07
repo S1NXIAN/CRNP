@@ -16,7 +16,8 @@ Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
 Spec edits that change a role's flow **update that role's chart before
 committing** — same commit, no exceptions; a stale chart is a bug. Charts:
-`docs/flow-charts/` → customer · cashier · kitchen · admin. Chart text stays
+`docs/flow-charts/` → customer (ordering · payment · reservations & rentals) ·
+cashier (online pickup · counter tasks) · kitchen · admin. Chart text stays
 declarative (what the system does), never build order.
 
 ### Data layer

@@ -61,10 +61,14 @@ Domain vocabulary (glossary: [CONTEXT.md](../CONTEXT.md)):
   **handover / return** move the stock, and the kitchen board never
   sees them (§4 *Rentals* spec).
 
-Per-role flowcharts: [customer](flow-charts/customer.md) ·
-[cashier](flow-charts/cashier.md) ·
-[kitchen](flow-charts/kitchen.md) ·
-[admin](flow-charts/admin.md).
+Per-role flowcharts: customer →
+[ordering](flow-charts/customer-ordering.html) ·
+[payment](flow-charts/customer-payment.html) ·
+[reservations & rentals](flow-charts/customer-rentals.html); cashier →
+[online pickup](flow-charts/cashier.html) ·
+[counter tasks](flow-charts/cashier-counter.html);
+[kitchen](flow-charts/kitchen.html) ·
+[admin](flow-charts/admin.html).
 
 ### Customer side — feature list
 

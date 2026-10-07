@@ -80,7 +80,7 @@ The beats are also proven in isolation by `CheckoutTest` (browse/cart/place/QR),
 
 ## Flowcharts
 
-Each of the four charts in `docs/flow-charts/` was read against the shipped
+Each of the charts in `docs/flow-charts/` was read against the shipped
 code; every documented behaviour is present (routes, views, actions and
 services), so no chart is stale. The behaviours are proven by the tests listed
 above plus `KitchenBoardTest` (NOW/LATER, promotion, NEW/LATE, all-day, heartbeat),
