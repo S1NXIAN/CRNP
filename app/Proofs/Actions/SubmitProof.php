@@ -6,13 +6,13 @@ namespace App\Proofs\Actions;
 
 use App\Cache\KitchenBoardCache;
 use App\Orders\Order;
+use App\Orders\Orders;
 use App\Orders\OrderStatus;
 use App\Orders\OrderTracker;
 use App\Proofs\ProofNotAccepted;
 use App\Rtdb\Contracts\RtdbClient;
 use App\Support\Image\ImageCompressor;
 use App\Support\Image\ImagePreset;
-use InvalidArgumentException;
 
 /**
  * Accepts a customer's GCash proof of payment and auto-verifies it (PLAN §4
@@ -36,6 +36,7 @@ final readonly class SubmitProof
 {
     public function __construct(
         private RtdbClient $client,
+        private Orders $orders,
         private ImageCompressor $compressor,
         private OrderTracker $tracker,
         private KitchenBoardCache $board,
@@ -102,12 +103,7 @@ final readonly class SubmitProof
 
     private function order(string $orderId): Order
     {
-        $node = $this->client->get("orders/{$orderId}");
-        $order = is_array($node) ? Order::fromNode($orderId, $node) : null;
-
-        if ($order === null) {
-            throw new InvalidArgumentException("No order with id [{$orderId}].");
-        }
+        $order = $this->orders->require($orderId);
 
         // Status-guarded: a proof is only accepted while the order is still in a
         // payment state, so a stale upload cannot resurrect a settled order.

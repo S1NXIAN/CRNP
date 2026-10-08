@@ -6,7 +6,7 @@ namespace App\Orders\Actions;
 
 use App\Orders\HandledBy;
 use App\Orders\LineItem;
-use App\Orders\Order;
+use App\Orders\Orders;
 use App\Orders\OrderStatus;
 use App\Orders\Payment;
 use App\Orders\SplitTender;
@@ -34,18 +34,13 @@ final readonly class SettleWalkIn
 {
     public function __construct(
         private RtdbClient $client,
+        private Orders $orders,
         private TopThreeRanking $ranking,
     ) {}
 
     public function __invoke(string $orderId, float $cashTyped, ?string $gcashRef, HandledBy $handledBy): void
     {
-        $node = $this->client->get("orders/{$orderId}");
-
-        $order = is_array($node) ? Order::fromNode($orderId, $node) : null;
-
-        if ($order === null) {
-            throw new InvalidArgumentException("No order with id [{$orderId}].");
-        }
+        $order = $this->orders->require($orderId);
 
         // Status-guarded: a stale or duplicate tap never flips a settled order.
         if ($order->status !== OrderStatus::Pending) {

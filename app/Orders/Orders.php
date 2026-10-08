@@ -27,6 +27,19 @@ final readonly class Orders
     }
 
     /**
+     * The order at $id, or a thrown {@see OrderNotFound}.
+     *
+     * The single load-and-parse seam every action routes through: {@see find()}'s
+     * nullable read, promoted to a failure when a caller supplies an id that must
+     * exist. A controller's 404 stays its own concern — this throw is for the
+     * action layer.
+     */
+    public function require(string $id): Order
+    {
+        return $this->find($id) ?? throw OrderNotFound::for($id);
+    }
+
+    /**
      * The account's active order, from `users/{uid}/activeOrderId` (#23).
      *
      * The tracker reopens this with zero typing; a terminal order (served,

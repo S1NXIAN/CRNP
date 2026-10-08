@@ -6,11 +6,10 @@ namespace App\Orders\Actions;
 
 use App\Cache\CashierQueueCache;
 use App\Cache\KitchenBoardCache;
-use App\Orders\Order;
+use App\Orders\Orders;
 use App\Orders\OrderStatus;
 use App\Orders\OrderTracker;
 use App\Rtdb\Contracts\RtdbClient;
-use InvalidArgumentException;
 
 /**
  * **Approve** — the flagged-hold tap and the undo of a rejection (PLAN §4
@@ -39,6 +38,7 @@ final readonly class ApproveOrder
 {
     public function __construct(
         private RtdbClient $client,
+        private Orders $orders,
         private OrderTracker $tracker,
         private CashierQueueCache $queue,
         private KitchenBoardCache $board,
@@ -46,7 +46,7 @@ final readonly class ApproveOrder
 
     public function __invoke(string $orderId): void
     {
-        $order = $this->order($orderId);
+        $order = $this->orders->require($orderId);
 
         // A flagged hold is approvable: the cashier accepts the entered amount /
         // missing ref# and the ticket reaches the kitchen. The flag markers are
@@ -86,17 +86,5 @@ final readonly class ApproveOrder
         $this->tracker->forget($orderId);
         $this->queue->forget();
         $this->board->forget();
-    }
-
-    private function order(string $orderId): Order
-    {
-        $node = $this->client->get("orders/{$orderId}");
-        $order = is_array($node) ? Order::fromNode($orderId, $node) : null;
-
-        if ($order === null) {
-            throw new InvalidArgumentException("No order with id [{$orderId}].");
-        }
-
-        return $order;
     }
 }

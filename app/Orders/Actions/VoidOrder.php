@@ -6,11 +6,10 @@ namespace App\Orders\Actions;
 
 use App\Cache\CashierQueueCache;
 use App\Orders\HandledBy;
-use App\Orders\Order;
+use App\Orders\Orders;
 use App\Orders\OrderStatus;
 use App\Orders\OrderTracker;
 use App\Rtdb\Contracts\RtdbClient;
-use InvalidArgumentException;
 
 /**
  * **Void** an order — the terminal tap that ends a **Rejected** (#27) or
@@ -35,18 +34,14 @@ final readonly class VoidOrder
 {
     public function __construct(
         private RtdbClient $client,
+        private Orders $orders,
         private OrderTracker $tracker,
         private CashierQueueCache $queue,
     ) {}
 
     public function __invoke(string $orderId, ?HandledBy $handledBy = null): void
     {
-        $node = $this->client->get("orders/{$orderId}");
-        $order = is_array($node) ? Order::fromNode($orderId, $node) : null;
-
-        if ($order === null) {
-            throw new InvalidArgumentException("No order with id [{$orderId}].");
-        }
+        $order = $this->orders->require($orderId);
 
         // Status-guarded: only a Rejected (#27) or Dismissed (#29) order is
         // voided here; any stale tap writes nothing.

@@ -8,6 +8,7 @@ use App\Catalog\Catalog;
 use App\Catalog\Product;
 use App\Orders\LineItem;
 use App\Orders\Order;
+use App\Orders\Orders;
 use App\Orders\OrderStatus;
 use App\Rtdb\Contracts\RtdbClient;
 use InvalidArgumentException;
@@ -26,6 +27,7 @@ final readonly class AddItemToWalkIn
 {
     public function __construct(
         private RtdbClient $client,
+        private Orders $orders,
         private Catalog $catalog,
     ) {}
 
@@ -83,13 +85,7 @@ final readonly class AddItemToWalkIn
 
     private function pendingOrder(string $orderId): Order
     {
-        $node = $this->client->get("orders/{$orderId}");
-
-        $order = is_array($node) ? Order::fromNode($orderId, $node) : null;
-
-        if ($order === null) {
-            throw new InvalidArgumentException("No order with id [{$orderId}].");
-        }
+        $order = $this->orders->require($orderId);
 
         if ($order->status !== OrderStatus::Pending) {
             throw new InvalidArgumentException('This order is already settled.');

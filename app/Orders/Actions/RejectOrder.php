@@ -7,12 +7,11 @@ namespace App\Orders\Actions;
 use App\Cache\CashierQueueCache;
 use App\Cache\KitchenBoardCache;
 use App\Orders\HandledBy;
-use App\Orders\Order;
+use App\Orders\Orders;
 use App\Orders\OrderStatus;
 use App\Orders\OrderTracker;
 use App\Orders\Rejection;
 use App\Rtdb\Contracts\RtdbClient;
-use InvalidArgumentException;
 
 /**
  * **Reject** a payment proof — the cashier's exception tap (PLAN §4 *Cashier
@@ -39,6 +38,7 @@ final readonly class RejectOrder
 {
     public function __construct(
         private RtdbClient $client,
+        private Orders $orders,
         private OrderTracker $tracker,
         private CashierQueueCache $queue,
         private KitchenBoardCache $board,
@@ -46,7 +46,7 @@ final readonly class RejectOrder
 
     public function __invoke(string $orderId, HandledBy $handledBy): void
     {
-        $order = $this->order($orderId);
+        $order = $this->orders->require($orderId);
 
         // Status-guarded: only a proof still awaiting a decision may be
         // rejected. A stale or duplicate tap never flips the order.
@@ -109,17 +109,5 @@ final readonly class RejectOrder
         $amount = $proof['amount'] ?? null;
 
         return is_numeric($amount) ? round((float) $amount, 2) : null;
-    }
-
-    private function order(string $orderId): Order
-    {
-        $node = $this->client->get("orders/{$orderId}");
-        $order = is_array($node) ? Order::fromNode($orderId, $node) : null;
-
-        if ($order === null) {
-            throw new InvalidArgumentException("No order with id [{$orderId}].");
-        }
-
-        return $order;
     }
 }

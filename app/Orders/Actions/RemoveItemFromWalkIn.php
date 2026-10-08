@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Orders\Actions;
 
 use App\Orders\LineItem;
-use App\Orders\Order;
+use App\Orders\Orders;
 use App\Orders\OrderStatus;
 use App\Rtdb\Contracts\RtdbClient;
 use InvalidArgumentException;
@@ -18,17 +18,14 @@ use InvalidArgumentException;
  */
 final readonly class RemoveItemFromWalkIn
 {
-    public function __construct(private RtdbClient $client) {}
+    public function __construct(
+        private RtdbClient $client,
+        private Orders $orders,
+    ) {}
 
     public function __invoke(string $orderId, string $productId): void
     {
-        $node = $this->client->get("orders/{$orderId}");
-
-        $order = is_array($node) ? Order::fromNode($orderId, $node) : null;
-
-        if ($order === null) {
-            throw new InvalidArgumentException("No order with id [{$orderId}].");
-        }
+        $order = $this->orders->require($orderId);
 
         if ($order->status !== OrderStatus::Pending) {
             throw new InvalidArgumentException('This order is already settled.');

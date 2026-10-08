@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace App\Stats\Actions;
 
 use App\Orders\HandledBy;
-use App\Orders\Order;
+use App\Orders\Orders;
 use App\Rtdb\Contracts\RtdbClient;
-use InvalidArgumentException;
 
 /**
  * **Mark refunded** — the admin-only action that settles a `refundOwed`
@@ -23,16 +22,14 @@ use InvalidArgumentException;
  */
 final readonly class MarkRefunded
 {
-    public function __construct(private RtdbClient $client) {}
+    public function __construct(
+        private RtdbClient $client,
+        private Orders $orders,
+    ) {}
 
     public function __invoke(string $orderId, HandledBy $refundedBy): void
     {
-        $node = $this->client->get("orders/{$orderId}");
-        $order = is_array($node) ? Order::fromNode($orderId, $node) : null;
-
-        if ($order === null) {
-            throw new InvalidArgumentException("No order with id [{$orderId}].");
-        }
+        $order = $this->orders->require($orderId);
 
         // Only an outstanding obligation is settled; a duplicate press writes
         // nothing.

@@ -8,13 +8,12 @@ use App\Cache\CashierQueueCache;
 use App\Cache\KitchenBoardCache;
 use App\Orders\HandledBy;
 use App\Orders\LineItem;
-use App\Orders\Order;
+use App\Orders\Orders;
 use App\Orders\OrderStatus;
 use App\Orders\OrderTracker;
 use App\Orders\Payment;
 use App\Rtdb\Contracts\RtdbClient;
 use App\Stats\Actions\TopThreeRanking;
-use InvalidArgumentException;
 
 /**
  * Marks an online pickup order **served** — the one happy-path tap (PLAN §4
@@ -46,6 +45,7 @@ final readonly class MarkServed
 {
     public function __construct(
         private RtdbClient $client,
+        private Orders $orders,
         private OrderTracker $tracker,
         private CashierQueueCache $queue,
         private KitchenBoardCache $board,
@@ -54,12 +54,7 @@ final readonly class MarkServed
 
     public function __invoke(string $orderId, HandledBy $handledBy): void
     {
-        $node = $this->client->get("orders/{$orderId}");
-        $order = is_array($node) ? Order::fromNode($orderId, $node) : null;
-
-        if ($order === null) {
-            throw new InvalidArgumentException("No order with id [{$orderId}].");
-        }
+        $order = $this->orders->require($orderId);
 
         // Status-guarded: only a verified, unserved order may be served. A
         // stale or duplicate tap never flips the order and writes no sale.

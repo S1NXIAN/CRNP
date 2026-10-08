@@ -9,6 +9,7 @@ use App\Orders\Cart;
 use App\Orders\LineItem;
 use App\Orders\Order;
 use App\Orders\OrderCode;
+use App\Orders\Orders;
 use App\Orders\OrderStatus;
 use App\Orders\OrderType;
 use App\Orders\PaymentWindow;
@@ -35,7 +36,10 @@ use Illuminate\Support\Str;
  */
 final readonly class PlaceOnlineOrder
 {
-    public function __construct(private RtdbClient $client) {}
+    public function __construct(
+        private RtdbClient $client,
+        private Orders $orders,
+    ) {}
 
     /**
      * Resolve an existing order for a replayed key, or null when the key is new.
@@ -54,9 +58,7 @@ final readonly class PlaceOnlineOrder
             return null;
         }
 
-        $order = $this->client->get("orders/{$orderId}");
-
-        return is_array($order) ? Order::fromNode($orderId, $order) : null;
+        return $this->orders->find($orderId);
     }
 
     public function __invoke(

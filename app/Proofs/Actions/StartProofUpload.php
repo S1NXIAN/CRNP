@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Proofs\Actions;
 
-use App\Orders\Order;
+use App\Orders\Orders;
 use App\Orders\OrderStatus;
 use App\Orders\OrderTracker;
 use App\Proofs\ProofNotAccepted;
 use App\Rtdb\Contracts\RtdbClient;
-use InvalidArgumentException;
 
 /**
  * Records that a proof upload has begun (PLAN §4 *Customer site* — proof of
@@ -28,17 +27,13 @@ final readonly class StartProofUpload
 {
     public function __construct(
         private RtdbClient $client,
+        private Orders $orders,
         private OrderTracker $tracker,
     ) {}
 
     public function __invoke(string $orderId): void
     {
-        $node = $this->client->get("orders/{$orderId}");
-        $order = is_array($node) ? Order::fromNode($orderId, $node) : null;
-
-        if ($order === null) {
-            throw new InvalidArgumentException("No order with id [{$orderId}].");
-        }
+        $order = $this->orders->require($orderId);
 
         if (! in_array($order->status, [OrderStatus::AwaitingPayment, OrderStatus::Verifying], true)) {
             throw ProofNotAccepted::for($orderId, $order->status);

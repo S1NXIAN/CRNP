@@ -7,12 +7,11 @@ namespace App\Orders\Actions;
 use App\Cache\CashierQueueCache;
 use App\Orders\AuditLog;
 use App\Orders\HandledBy;
-use App\Orders\Order;
+use App\Orders\Orders;
 use App\Orders\OrderStatus;
 use App\Orders\OrderTracker;
 use App\Orders\PaymentWindow;
 use App\Rtdb\Contracts\RtdbClient;
-use InvalidArgumentException;
 
 /**
  * Restores a **Dismissed** order — the explicit human act behind a re-armed
@@ -35,6 +34,7 @@ final readonly class Restore
 {
     public function __construct(
         private RtdbClient $client,
+        private Orders $orders,
         private OrderTracker $tracker,
         private CashierQueueCache $queue,
         private AuditLog $audit,
@@ -42,12 +42,7 @@ final readonly class Restore
 
     public function __invoke(string $orderId, HandledBy $handledBy): void
     {
-        $node = $this->client->get("orders/{$orderId}");
-        $order = is_array($node) ? Order::fromNode($orderId, $node) : null;
-
-        if ($order === null) {
-            throw new InvalidArgumentException("No order with id [{$orderId}].");
-        }
+        $order = $this->orders->require($orderId);
 
         // Status-guarded: only a Dismissed order may be restored. A Rejected
         // order is never Restored, and any stale tap writes nothing.

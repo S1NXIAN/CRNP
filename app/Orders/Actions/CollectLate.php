@@ -6,11 +6,10 @@ namespace App\Orders\Actions;
 
 use App\Cache\CashierQueueCache;
 use App\Orders\HandledBy;
-use App\Orders\Order;
+use App\Orders\Orders;
 use App\Orders\OrderStatus;
 use App\Orders\OrderTracker;
 use App\Rtdb\Contracts\RtdbClient;
-use InvalidArgumentException;
 
 /**
  * Collects an **Unclaimed** order late — the customer turns up after close
@@ -36,18 +35,14 @@ final readonly class CollectLate
 {
     public function __construct(
         private RtdbClient $client,
+        private Orders $orders,
         private OrderTracker $tracker,
         private CashierQueueCache $queue,
     ) {}
 
     public function __invoke(string $orderId, HandledBy $handledBy): void
     {
-        $node = $this->client->get("orders/{$orderId}");
-        $order = is_array($node) ? Order::fromNode($orderId, $node) : null;
-
-        if ($order === null) {
-            throw new InvalidArgumentException("No order with id [{$orderId}].");
-        }
+        $order = $this->orders->require($orderId);
 
         // Status-guarded: only an Unclaimed order may be collected late. A stale
         // tap on a served, cooking, or payment-state order writes nothing.
