@@ -104,8 +104,10 @@ WCAG 2.2.
 
 **Toolchain**
 
-- The CI gate runs `vendor/bin/pint --test`, then `vendor/bin/phpstan analyse`, then
-  `vendor/bin/pest --ci`.
+- The CI gate runs `vendor/bin/pint --test`, then `bun run lint:css`, then
+  `vendor/bin/phpstan analyse`, then `vendor/bin/pest --ci`. The CSS step is the only
+  one that needs `bun`; its rules and the conventions they hold live in
+  `stylelint.config.mjs`.
 - A test freezes time with `travel()`/`freezeTime()` and releases it with `travelBack()`,
   and blocks stray network calls with `Http::preventStrayRequests()`.
 - `--tia` runs locally only, never in the CI test command.

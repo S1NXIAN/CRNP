@@ -1430,6 +1430,10 @@
         opacity: 0;
     }
 
+    /* .chip and .segmented__option are unrelated components, so the specificity
+       ordering the linter sees is a false positive — it has no DOM access to
+       know a .chip span is never inside a .segmented__option. */
+    /* stylelint-disable-next-line no-descending-specificity */
     .chip span {
         display: inline-flex;
         align-items: center;

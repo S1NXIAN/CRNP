@@ -45,6 +45,7 @@
             "php artisan serve"
         ],
         "lint": "pint --test",
+        "lint:css": "bun run lint:css",
         "analyse": "phpstan analyse",
         "test": [
             "@php artisan config:clear --ansi",
@@ -52,6 +53,7 @@
         ],
         "gate": [
             "@lint",
+            "@lint:css",
             "@analyse",
             "@test"
         ],
