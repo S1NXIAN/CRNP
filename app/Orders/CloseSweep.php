@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Orders;
 
 use App\Rtdb\Contracts\RtdbClient;
-use App\Rtdb\RtdbQuery;
 use App\Stats\Actions\TopThreeRanking;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -39,6 +38,7 @@ final readonly class CloseSweep
 {
     public function __construct(
         private RtdbClient $client,
+        private Orders $orders,
         private TopThreeRanking $ranking,
     ) {}
 
@@ -52,20 +52,9 @@ final readonly class CloseSweep
     {
         $at = CarbonImmutable::instance($now ?? now('UTC'))->toIso8601ZuluString();
 
-        $rows = $this->client->query(
-            'orders',
-            RtdbQuery::orderBy('status')->equalTo(OrderStatus::Cooking->value),
-        );
-
         $unclaimed = [];
 
-        foreach ($rows as $id => $row) {
-            $order = Order::fromNode((string) $id, $row);
-
-            if ($order === null || $order->status !== OrderStatus::Cooking) {
-                continue;
-            }
-
+        foreach ($this->orders->byStatus(OrderStatus::Cooking) as $order) {
             $this->client->update("orders/{$order->id}", [
                 'status' => OrderStatus::Unclaimed->value,
                 'unclaimedAt' => $at,

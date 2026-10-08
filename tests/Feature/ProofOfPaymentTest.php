@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Orders\Orders;
 use App\Orders\OrderStatus;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
@@ -168,9 +167,7 @@ it('keeps the tracker state and the kitchen read free of image bytes', function 
 
     // Verified orders reach the kitchen board (#28); the board's read of the
     // order node never carries the sibling proof image either.
-    $kitchen = app(Orders::class)->kitchen();
-
-    expect($kitchen)->toHaveKey($id);
+    expect(onKitchenBoard())->toContain($id);
 
     $boardOrder = json_encode(rtdb()->get("orders/{$id}"));
 
@@ -197,7 +194,7 @@ it('auto-verifies when the amount matches the total and the ref# is present', fu
         ->and($order['verification']['verifiedAt'])->toBeString();
 
     // The kitchen ticket appears the same instant: the order is now cookable.
-    expect(app(Orders::class)->kitchen())->toHaveKey($id);
+    expect(onKitchenBoard())->toContain($id);
 });
 
 it('lands a flagged hold when the entered amount does not match the total', function (): void {
@@ -216,7 +213,7 @@ it('lands a flagged hold when the entered amount does not match the total', func
     // The kitchen waits on the cashier's one-tap Approve / Reject: a flagged
     // hold is approvable (Approve promotes it to cooking and the ticket appears),
     // but until the tap there is no ticket on the board.
-    expect(app(Orders::class)->kitchen())->not->toHaveKey($id);
+    expect(onKitchenBoard())->not->toContain($id);
 });
 
 it('lands a flagged hold when the ref# is blank', function (): void {

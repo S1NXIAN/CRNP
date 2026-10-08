@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Orders\Orders;
 use App\Orders\OrderStatus;
 use App\Staff\StaffDirectory;
 use App\Staff\StaffRole;
@@ -126,14 +125,14 @@ it('drops the ticket off the kitchen board the same instant', function (): void 
         'verification' => ['verifiedAt' => '2026-10-06T03:55:00Z', 'amount' => 400.0, 'ref' => 'GC999'],
     ]);
 
-    expect(app(Orders::class)->kitchen())->toHaveKey($id);
+    expect(onKitchenBoard())->toContain($id);
 
     rejectOrder($id)->assertRedirect(route('cashier.queue'));
 
     // The board mirrors verified, unserved only — a rejected ticket is gone.
     // Reject evicts the board's coalesced entry, so it drops the same instant
     // rather than after the 5 s TTL.
-    expect(app(Orders::class)->kitchen())->not->toHaveKey($id);
+    expect(onKitchenBoard())->not->toContain($id);
 });
 
 it('books refundOwed as the proof\'s stored amount when a verified order is spot-check rejected', function (): void {
@@ -244,7 +243,7 @@ it('rejoins the ticket by age on Approve without restarting the timer', function
     ]);
 
     rejectOrder($id)->assertRedirect(route('cashier.queue'));
-    expect(app(Orders::class)->kitchen())->not->toHaveKey($id);
+    expect(onKitchenBoard())->not->toContain($id);
 
     $this->travel(4)->minutes();
     approveOrder($id)->assertRedirect(route('cashier.queue'));
@@ -262,14 +261,14 @@ it('rejoins the ticket by age on Approve without restarting the timer', function
         ->and($order['rejection'])->toBeNull();
 
     // The ticket rejoins the board.
-    expect(app(Orders::class)->kitchen())->toHaveKey($id);
+    expect(onKitchenBoard())->toContain($id);
 });
 
 it('approves a flagged hold — promotes it to cooking, clears the flags, and stamps verifiedAt', function (): void {
     $id = seedCashierOrder();
 
     // No ticket on the board while the hold waits on the cashier's tap.
-    expect(app(Orders::class)->kitchen())->not->toHaveKey($id);
+    expect(onKitchenBoard())->not->toContain($id);
 
     approveOrder($id)->assertRedirect(route('cashier.queue'));
 
@@ -283,7 +282,7 @@ it('approves a flagged hold — promotes it to cooking, clears the flags, and st
         ->and($order['verifiedAt'])->toBe('2026-10-06T04:00:00Z');
 
     // The kitchen ticket appears the same instant.
-    expect(app(Orders::class)->kitchen())->toHaveKey($id);
+    expect(onKitchenBoard())->toContain($id);
 });
 
 it('treats a stale Approve on an order that was never rejected as a no-op', function (): void {

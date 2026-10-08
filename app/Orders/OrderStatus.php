@@ -39,15 +39,6 @@ enum OrderStatus: string
     case Unclaimed = 'unclaimed';
 
     /**
-     * Whether the kitchen board mirrors this status. Only a settled/verified,
-     * unserved order is cookable, so `Pending` walk-ins stay off the board.
-     */
-    public function kitchenVisible(): bool
-    {
-        return $this === self::Cooking;
-    }
-
-    /**
      * Whether the order tracker treats this as the customer's active order.
      */
     public function isActive(): bool

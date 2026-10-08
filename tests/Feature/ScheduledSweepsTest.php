@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Orders\CloseWindow;
 use App\Orders\Jobs\CloseOrdersJob;
 use App\Orders\Jobs\ExpireOrdersJob;
-use App\Orders\Orders;
 use App\Orders\OrderStatus;
 use App\Orders\Payment;
 use App\Proofs\Jobs\CleanupProofsJob;
@@ -273,13 +272,17 @@ it('leaves Served and Dismissed orders alone', function (): void {
 });
 
 it('clears the server-owned kitchen board when an order is closed out', function (): void {
+    // Freeze inside the ticket's 15-minute board window: the board's read
+    // applies the same expiry production does, so a real wall-clock run would
+    // have dropped this Oct-6 order before the assertion.
+    $this->travelTo(new DateTimeImmutable('2026-10-06 12:00:00', new DateTimeZone('Asia/Manila')));
     $id = seedSweepOrder(['status' => OrderStatus::Cooking->value]);
 
-    expect(app(Orders::class)->kitchen())->toHaveKey($id);
+    expect(onKitchenBoard())->toContain($id);
 
     $this->artisan('orders:close')->assertSuccessful();
 
-    expect(app(Orders::class)->kitchen())->not->toHaveKey($id);
+    expect(onKitchenBoard())->not->toContain($id);
 });
 
 // --- Proof cleanup --------------------------------------------------------

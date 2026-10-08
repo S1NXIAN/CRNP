@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Orders;
 
-use App\Rtdb\Contracts\RtdbClient;
-use App\Rtdb\RtdbQuery;
 use Carbon\CarbonImmutable;
 
 /**
@@ -49,7 +47,7 @@ final readonly class CashierQueue
      */
     public const POLL_SECONDS = 5;
 
-    public function __construct(private RtdbClient $client) {}
+    public function __construct(private Orders $orders) {}
 
     public function snapshot(): QueueSnapshot
     {
@@ -62,9 +60,9 @@ final readonly class CashierQueue
             recentlyVerified: $cooking['readyToPay'],
             awaitingProof: $this->awaitingProof($at),
             awaitingHandover: $cooking['awaitingHandover'],
-            dismissed: $this->byStatus(OrderStatus::Dismissed),
+            dismissed: $this->retiredByStatus(OrderStatus::Dismissed),
             rejected: $this->rejected(),
-            unclaimed: $this->byStatus(OrderStatus::Unclaimed),
+            unclaimed: $this->retiredByStatus(OrderStatus::Unclaimed),
         );
     }
 
@@ -76,12 +74,7 @@ final readonly class CashierQueue
      */
     private function flaggedHolds(): array
     {
-        $orders = $this->online(
-            $this->client->query(
-                'orders',
-                RtdbQuery::orderBy('status')->equalTo(OrderStatus::Verifying->value),
-            ),
-        );
+        $orders = $this->online($this->orders->byStatus(OrderStatus::Verifying));
 
         usort($orders, static fn(Order $a, Order $b): int => self::moment($a->flaggedAt) <=> self::moment($b->flaggedAt));
 
@@ -99,12 +92,7 @@ final readonly class CashierQueue
      */
     private function verifiedUnserved(CarbonImmutable $at): array
     {
-        $orders = $this->online(
-            $this->client->query(
-                'orders',
-                RtdbQuery::orderBy('status')->equalTo(OrderStatus::Cooking->value),
-            ),
-        );
+        $orders = $this->online($this->orders->byStatus(OrderStatus::Cooking));
 
         $ready = [];
         $handover = [];
@@ -133,14 +121,9 @@ final readonly class CashierQueue
      *
      * @return list<QueueOrder>
      */
-    private function byStatus(OrderStatus $status): array
+    private function retiredByStatus(OrderStatus $status): array
     {
-        $orders = $this->online(
-            $this->client->query(
-                'orders',
-                RtdbQuery::orderBy('status')->equalTo($status->value),
-            ),
-        );
+        $orders = $this->online($this->orders->byStatus($status));
 
         usort($orders, static fn(Order $a, Order $b): int => self::moment($a->placedAt) <=> self::moment($b->placedAt));
 
@@ -156,12 +139,7 @@ final readonly class CashierQueue
      */
     private function awaitingProof(CarbonImmutable $at): array
     {
-        $orders = $this->online(
-            $this->client->query(
-                'orders',
-                RtdbQuery::orderBy('status')->equalTo(OrderStatus::AwaitingPayment->value),
-            ),
-        );
+        $orders = $this->online($this->orders->byStatus(OrderStatus::AwaitingPayment));
 
         $awaiting = [];
 
@@ -188,12 +166,7 @@ final readonly class CashierQueue
      */
     private function rejected(): array
     {
-        $orders = $this->online(
-            $this->client->query(
-                'orders',
-                RtdbQuery::orderBy('status')->equalTo(OrderStatus::Rejected->value),
-            ),
-        );
+        $orders = $this->online($this->orders->byStatus(OrderStatus::Rejected));
 
         usort($orders, static fn(Order $a, Order $b): int => self::moment($a->placedAt) <=> self::moment($b->placedAt));
 
@@ -201,27 +174,24 @@ final readonly class CashierQueue
     }
 
     /**
-     * The online orders of a query result, skipping a row that cannot be parsed
-     * or that belongs to the walk-in stream.
+     * The online orders of a status read, dropping a row that belongs to the
+     * walk-in stream — a walk-in is rung up and handed over at the counter,
+     * never through the online queue.
      *
-     * @param  array<string, array<string, mixed>>  $rows
+     * @param  array<string, Order>  $orders
      * @return list<Order>
      */
-    private function online(array $rows): array
+    private function online(array $orders): array
     {
-        $orders = [];
+        $online = [];
 
-        foreach ($rows as $id => $row) {
-            $order = Order::fromNode((string) $id, $row);
-
-            if ($order === null || $order->type !== OrderType::Online->value) {
-                continue;
+        foreach ($orders as $order) {
+            if ($order->type === OrderType::Online->value) {
+                $online[] = $order;
             }
-
-            $orders[] = $order;
         }
 
-        return $orders;
+        return $online;
     }
 
     /**

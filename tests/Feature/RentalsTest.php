@@ -401,7 +401,7 @@ it('never writes a rental booking into the order stream or sales', function (): 
     // board never sees it.
     expect(rtdb()->get('orders'))->toBeNull()
         ->and(rtdb()->get('sales'))->toBeNull()
-        ->and(app(\App\Orders\Orders::class)->kitchen())->toBe([]);
+        ->and(onKitchenBoard())->toBe([]);
 });
 
 // --- Counter ops ----------------------------------------------------------
@@ -802,7 +802,7 @@ it('never lets a rental booking reach the kitchen board or Top 3', function (): 
         'ref' => 'GC1234567890',
     ])->assertNoContent();
 
-    expect(app(\App\Orders\Orders::class)->kitchen())->toBe([])
+    expect(onKitchenBoard())->toBe([])
         ->and(rtdb()->get('sales'))->toBeNull()
         ->and(rtdb()->get('stats/top3'))->toBeNull();
 });

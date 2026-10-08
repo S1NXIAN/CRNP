@@ -138,6 +138,25 @@ function rtdb(): RtdbClient
 }
 
 /**
+ * The ids of the tickets the kitchen board currently serves, across both lanes.
+ *
+ * The board's own read is the seam a test crosses to ask "is this order on the
+ * board?" — it applies the same status filter and the same expiry production
+ * does, so an assertion cannot pass while the real board has dropped the ticket.
+ *
+ * @return list<string>
+ */
+function onKitchenBoard(): array
+{
+    $snapshot = app(\App\Kitchen\KitchenBoard::class)->snapshot();
+
+    return array_map(
+        static fn(\App\Kitchen\KitchenTicket $ticket): string => $ticket->id,
+        [...$snapshot->now, ...$snapshot->later],
+    );
+}
+
+/**
  * Wrap the bound in-memory client in a read-counting double so a test can
  * assert that a page view did not re-read the heavy catalog node.
  *

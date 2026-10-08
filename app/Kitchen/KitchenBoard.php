@@ -6,9 +6,8 @@ namespace App\Kitchen;
 
 use App\Cache\KitchenBoardCache;
 use App\Orders\Order;
+use App\Orders\Orders;
 use App\Orders\OrderStatus;
-use App\Rtdb\Contracts\RtdbClient;
-use App\Rtdb\RtdbQuery;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
@@ -74,27 +73,21 @@ final readonly class KitchenBoard
      */
     public const CLEAR_AFTER_SECONDS = 15 * 60;
 
-    public function __construct(private RtdbClient $client) {}
+    public function __construct(private Orders $orders) {}
 
     public function snapshot(?CarbonInterface $now = null): KitchenSnapshot
     {
         $at = CarbonImmutable::instance($now ?? now('UTC'));
 
-        $rows = $this->client->query(
-            'orders',
-            RtdbQuery::orderBy('status')->equalTo(OrderStatus::Cooking->value),
-        );
+        // The board mirrors the orders in `cooking` — the one status whose
+        // tickets are cookable. The read routes through the shared order seam,
+        // so the rule lives with every other status read, not here.
+        $orders = $this->orders->byStatus(OrderStatus::Cooking);
 
         $nowTickets = [];
         $laterTickets = [];
 
-        foreach ($rows as $id => $row) {
-            $order = Order::fromNode((string) $id, $row);
-
-            if ($order === null || ! $order->status->kitchenVisible()) {
-                continue;
-            }
-
+        foreach ($orders as $order) {
             $ticket = $this->ticket($order, $at);
 
             if ($ticket === null) {

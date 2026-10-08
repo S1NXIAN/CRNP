@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Orders\Orders;
 use App\Staff\StaffDirectory;
 use App\Staff\StaffRole;
 
@@ -77,13 +76,13 @@ it('keeps the walk-in off the kitchen board until it is settled', function (): v
     addItem($orderId, 'p1');
 
     expect(rtdb()->get("orders/{$orderId}")['status'])->toBe('pending')
-        ->and(app(Orders::class)->kitchen())->toBe([]);
+        ->and(onKitchenBoard())->toBe([]);
 
     $this->post(route('cashier.walkins.settle', ['walkin' => $orderId]), ['cash' => '200'])
         ->assertRedirect(route('cashier.walkins.receipt', ['walkin' => $orderId]));
 
     expect(rtdb()->get("orders/{$orderId}")['status'])->toBe('cooking')
-        ->and(app(Orders::class)->kitchen())->toHaveKey($orderId);
+        ->and(onKitchenBoard())->toContain($orderId);
 });
 
 it('optionally carries a table name and prints it on the receipt', function (): void {
