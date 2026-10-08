@@ -19,7 +19,7 @@ use Tests\Support\RecordingRtdbClient;
  * `updatedAt > lastRun`, holding its watermark and checkpoint at `export/state`.
  * The first run **bootstraps in bounded pages of 500 rows**, checkpointed — never
  * one whole-database read. The small config trees (staff, settings, rentals,
- * stats) are read whole. **Proofs are excluded** — a backup is a durable record,
+ * stats, categories) are read whole. **Proofs are excluded** — a backup is a durable record,
  * not an evidence archive.
  */
 
@@ -51,6 +51,7 @@ it('exports the durable trees and the small config trees, and stamps export/stat
     seedSale('s1', ['code' => 'AAA1', 'total' => 200.0, 'soldAt' => '2026-10-06T04:00:00Z', 'updatedAt' => '2026-10-06T04:00:00Z']);
     seedAdminOrder('o1', ['code' => 'ORD1', 'updatedAt' => '2026-10-06T04:00:00Z']);
     seedStaff('owner@example.com', StaffRole::Admin, 'Owner Santos');
+    seedCategory('drinks', 'Drinks');
 
     $this->artisan('export:run')->assertSuccessful();
 
@@ -59,7 +60,10 @@ it('exports the durable trees and the small config trees, and stamps export/stat
     expect($backup['sales'])->toHaveKey('s1')
         ->and($backup['orders'])->toHaveKey('o1')
         ->and($backup['staff'])->toBeArray()
-        ->and($backup['settings'])->toBeArray();
+        ->and($backup['settings'])->toBeArray()
+        // A restore without categories would leave every product's categoryId
+        // pointing at nothing and the menu without its headings.
+        ->and($backup['categories'])->toHaveKey('drinks');
 
     $state = rtdb()->get('export/state');
 

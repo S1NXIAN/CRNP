@@ -48,7 +48,7 @@ final readonly class AddItemToWalkIn
 
         $this->client->update("orders/{$orderId}", [
             'lines' => array_map(static fn(LineItem $line): array => $line->toNode(), $lines),
-            'total' => self::total($lines),
+            'total' => LineItem::sum($lines),
         ]);
     }
 
@@ -92,19 +92,5 @@ final readonly class AddItemToWalkIn
         }
 
         return $order;
-    }
-
-    /**
-     * @param  list<LineItem>  $lines
-     */
-    private static function total(array $lines): float
-    {
-        $total = 0.0;
-
-        foreach ($lines as $line) {
-            $total += $line->lineTotal();
-        }
-
-        return round($total, 2);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Settings;
 
+use App\Support\BusinessTime;
 use Carbon\CarbonInterface;
 
 /**
@@ -35,7 +36,7 @@ final readonly class StoreStatus
      */
     public function stateFor(Settings $settings, CarbonInterface $when): StoreState
     {
-        $local = $when->copy()->setTimezone(self::timezone());
+        $local = $when->copy()->setTimezone(BusinessTime::timezone());
 
         if ($settings->forceClose) {
             return StoreState::closed(ClosedReason::ForceClose);
@@ -58,12 +59,5 @@ final readonly class StoreStatus
         return $hours->contains($local)
             ? StoreState::open()
             : StoreState::closed(ClosedReason::OutsideHours);
-    }
-
-    private static function timezone(): string
-    {
-        $timezone = config('settings.timezone');
-
-        return is_string($timezone) && $timezone !== '' ? $timezone : 'Asia/Manila';
     }
 }

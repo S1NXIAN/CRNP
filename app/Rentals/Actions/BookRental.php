@@ -16,6 +16,7 @@ use App\Rentals\RentalStatus;
 use App\Rentals\RentalTotal;
 use App\Rentals\Rentals;
 use App\Rtdb\Contracts\RtdbClient;
+use App\Support\BusinessTime;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
@@ -53,12 +54,12 @@ final readonly class BookRental
             throw RentalBlocked::withReason('That rental item no longer exists.');
         }
 
-        if ($period->from->lessThan(CarbonImmutable::instance(now(self::timezone()))->startOfDay())) {
+        if ($period->from->lessThan(CarbonImmutable::instance(now(BusinessTime::timezone()))->startOfDay())) {
             throw RentalBlocked::withReason('Pick a pickup date from today onward.');
         }
 
-        if ($period->days() > self::maxBookingDays()) {
-            throw RentalBlocked::withReason('That rental range is too long — book at most ' . self::maxBookingDays() . ' days.');
+        if ($period->days() > RentalPeriod::maxDays()) {
+            throw RentalBlocked::withReason('That rental range is too long — book at most ' . RentalPeriod::maxDays() . ' days.');
         }
 
         if ($qty < 1 || $qty > $item->units) {
@@ -117,20 +118,6 @@ final readonly class BookRental
      */
     private static function returnDue(RentalPeriod $period): CarbonImmutable
     {
-        return $period->to->setTimezone(self::timezone())->endOfDay();
-    }
-
-    private static function maxBookingDays(): int
-    {
-        $days = config('rentals.max_booking_days');
-
-        return is_numeric($days) && (int) $days > 0 ? (int) $days : 60;
-    }
-
-    private static function timezone(): string
-    {
-        $timezone = config('settings.timezone');
-
-        return is_string($timezone) && $timezone !== '' ? $timezone : 'Asia/Manila';
+        return $period->to->setTimezone(BusinessTime::timezone())->endOfDay();
     }
 }

@@ -63,12 +63,17 @@ final readonly class RentalCatalog
     {
         $days = self::windowDays();
 
+        // Read the overlapping bookings once for the whole window and share the
+        // set across items, so the catalog costs one query rather than one per
+        // item (rule 3).
+        $overlapping = $this->availability->overlapping($from, $days);
+
         $entries = [];
 
         foreach ($this->items->all() as $item) {
             $entries[] = new RentalCatalogEntry(
                 item: $item,
-                availability: $this->availability->forItem($item, $from, $days),
+                availability: $this->availability->forItem($item, $from, $days, $overlapping),
             );
         }
 

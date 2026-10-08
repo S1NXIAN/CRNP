@@ -6,16 +6,16 @@
       ".indexOn": ["status", "deadlineAt", "updatedAt", "settledAt"]
     },
     "proofs": {
-      ".indexOn": ["updatedAt", "rejectedAt"]
+      ".indexOn": ["rejectedAt"]
     },
     "sales": {
       ".indexOn": ["updatedAt", "soldAt"]
     },
     "products": {
-      ".indexOn": ["category", "categoryId", "updatedAt"]
+      ".indexOn": ["updatedAt"]
     },
     "categories": {
-      ".indexOn": ["order", "updatedAt"]
+      ".indexOn": ["updatedAt"]
     },
     "reservations": {
       ".indexOn": ["phone", "date", "updatedAt"]
@@ -29,11 +29,11 @@
     "staff": {
       ".indexOn": ["email", "updatedAt"]
     },
-    "users": {
-      ".indexOn": ["updatedAt"]
-    },
     "audit": {
       ".indexOn": ["orderId", "updatedAt"]
+    },
+    "idem": {
+      ".indexOn": ["updatedAt"]
     },
     "settings": {
       ".read": "auth != null",

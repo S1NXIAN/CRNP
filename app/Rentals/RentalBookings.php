@@ -13,7 +13,7 @@ use App\Rtdb\RtdbQuery;
  * Every read is bounded by the `dateFrom` index (PLAN §4 *Quota discipline*,
  * rule 3): a range of interest is turned into a bounded `dateFrom` window, and
  * a row is kept only when its own `dateTo` reaches into the range. Because a
- * booking can never span more than {@see self::maxBookingDays()}, a booking that
+ * booking can never span more than {@see RentalPeriod::maxDays()}, a booking that
  * overlaps a window must start no earlier than the window's start minus that
  * maximum — so the read never scans the whole tree.
  */
@@ -35,7 +35,7 @@ final readonly class RentalBookings
      */
     public function overlapping(RentalPeriod $period): array
     {
-        $floor = $period->from->subDays(self::maxBookingDays())->toDateString();
+        $floor = $period->from->subDays(RentalPeriod::maxDays())->toDateString();
 
         $rows = $this->client->query(
             'rentalBookings',
@@ -104,12 +104,5 @@ final readonly class RentalBookings
         }
 
         return $bookings;
-    }
-
-    private static function maxBookingDays(): int
-    {
-        $days = config('rentals.max_booking_days');
-
-        return is_numeric($days) && (int) $days > 0 ? (int) $days : 60;
     }
 }

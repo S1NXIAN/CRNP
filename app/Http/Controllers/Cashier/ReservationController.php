@@ -17,6 +17,7 @@ use App\Reservations\ReservationPrefill;
 use App\Reservations\Reservations;
 use App\Reservations\Typeahead;
 use App\Settings\ReservationArea;
+use App\Support\BusinessTime;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -114,7 +115,7 @@ final class ReservationController extends Controller
 
         return view('cashier.reservations.details', [
             'prefill' => $prefill,
-            'today' => now(self::timezone())->toDateString(),
+            'today' => now(BusinessTime::timezone())->toDateString(),
         ]);
     }
 
@@ -166,13 +167,6 @@ final class ReservationController extends Controller
             return $date;
         }
 
-        return now(self::timezone())->toDateString();
-    }
-
-    private static function timezone(): string
-    {
-        $timezone = config('settings.timezone');
-
-        return is_string($timezone) && $timezone !== '' ? $timezone : 'Asia/Manila';
+        return now(BusinessTime::timezone())->toDateString();
     }
 }

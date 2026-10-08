@@ -19,13 +19,16 @@ use Carbon\CarbonInterface;
  * (`proofs/rental-{id}`; the booking row is left intact). The order row, the
  * rejection record, the rental booking, and the sale are left untouched — only
  * the image bytes go, so the ledger keeps its scalar history and the image
- * storage stays inside the free tier.
+ * storage stays inside the free tier. The same run prunes the `idem/{key}`
+ * checkout-replay records once they are older than {@see IDEM_RETAIN_DAYS} —
+ * a key only matters within one checkout session, so the node never grows
+ * without bound.
  *
- * All three reads are bounded by an index **and by an age window** (PLAN §4
+ * All reads are bounded by an index **and by an age window** (PLAN §4
  * *Quota discipline*, rule 3): each run touches only the nodes that crossed the
- * 7-day threshold since the last run, never every proof ever stored. A daily
- * cadence means the one-day window is ample; the documented manual fallback
- * widens it to recover from a scheduler outage.
+ * threshold since the last run, never every node ever stored. A daily cadence
+ * means the window is ample; the documented manual fallback widens it to recover
+ * from a scheduler outage.
  */
 final readonly class ProofCleanupSweep
 {
@@ -40,6 +43,14 @@ final readonly class ProofCleanupSweep
      * fallback widens it after an outage.
      */
     public const DEFAULT_WINDOW_DAYS = 2;
+
+    /**
+     * The age after which a checkout idempotency record is pruned. A key only
+     * matters within one checkout session (a retry or refresh), so a couple of
+     * days is far more than enough and the `idem` tree never grows without
+     * bound.
+     */
+    public const IDEM_RETAIN_DAYS = 2;
 
     public function __construct(private RtdbClient $client) {}
 
@@ -101,6 +112,8 @@ final readonly class ProofCleanupSweep
             }
         }
 
+        $this->pruneIdempotency($at, $window);
+
         return array_values(array_unique($deleted));
     }
 
@@ -116,5 +129,26 @@ final readonly class ProofCleanupSweep
         $this->client->delete("proofs/{$proofId}");
 
         return true;
+    }
+
+    /**
+     * Prune the `idem/{key}` checkout-replay records older than the retention
+     * window, so the tree never grows without bound. Bounded by the `updatedAt`
+     * index and an age window, the same shape as the proof reads.
+     */
+    private function pruneIdempotency(CarbonImmutable $at, int $windowDays): void
+    {
+        $cutoff = $at->subDays(self::IDEM_RETAIN_DAYS);
+        $floor = $cutoff->subDays($windowDays)->toIso8601ZuluString();
+        $ceiling = $cutoff->toIso8601ZuluString();
+
+        $stale = $this->client->query(
+            'idem',
+            RtdbQuery::orderBy('updatedAt')->range($floor, $ceiling),
+        );
+
+        foreach ($stale as $key => $row) {
+            $this->client->delete('idem/' . (string) $key);
+        }
     }
 }

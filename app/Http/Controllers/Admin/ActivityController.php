@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Activity\ActivityFeed;
 use App\Http\Controllers\Controller;
+use App\Support\BusinessTime;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 
@@ -24,19 +25,12 @@ final class ActivityController extends Controller
 
     public function __invoke(): View
     {
-        $today = CarbonImmutable::instance(now('UTC'))->setTimezone($this->timezone())->toDateString();
+        $today = CarbonImmutable::instance(now('UTC'))->setTimezone(BusinessTime::timezone())->toDateString();
 
         return view('admin.activity', [
             'entries' => $this->feed->latest(),
             'totals' => $this->feed->dailyTotals($today),
             'date' => $today,
         ]);
-    }
-
-    private function timezone(): string
-    {
-        $timezone = config('settings.timezone');
-
-        return is_string($timezone) && $timezone !== '' ? $timezone : 'Asia/Manila';
     }
 }

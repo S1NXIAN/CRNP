@@ -24,7 +24,6 @@ it('declares an index for every field the data layer queries', function (): void
         ['proofs', 'rejectedAt'],
         ['reservations', 'phone'],
         ['reservations', 'date'],
-        ['products', 'category'],
         ['products', 'updatedAt'],
         ['rentalBookings', 'updatedAt'],
         ['rentalBookings', 'dateFrom'],
@@ -37,6 +36,7 @@ it('declares an index for every field the data layer queries', function (): void
         ['staff', 'email'],
         ['audit', 'orderId'],
         ['audit', 'updatedAt'],
+        ['idem', 'updatedAt'],
     ];
 
     foreach ($queries as [$path, $field]) {

@@ -36,15 +36,9 @@ final readonly class RemoveItemFromWalkIn
             static fn(LineItem $line): bool => $line->productId !== $productId,
         ));
 
-        $total = 0.0;
-
-        foreach ($lines as $line) {
-            $total += $line->lineTotal();
-        }
-
         $this->client->update("orders/{$orderId}", [
             'lines' => array_map(static fn(LineItem $line): array => $line->toNode(), $lines),
-            'total' => round($total, 2),
+            'total' => LineItem::sum($lines),
         ]);
     }
 }

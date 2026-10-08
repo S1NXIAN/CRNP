@@ -103,13 +103,7 @@ final readonly class Cart
 
     public function total(): float
     {
-        $cents = 0;
-
-        foreach ($this->lines as $line) {
-            $cents += (int) round($line->lineTotal() * 100);
-        }
-
-        return $cents / 100;
+        return LineItem::sum($this->lines);
     }
 
     /**

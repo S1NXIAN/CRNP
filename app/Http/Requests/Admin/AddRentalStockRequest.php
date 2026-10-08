@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Admin;
 
+use App\Support\BusinessTime;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -22,7 +23,7 @@ final class AddRentalStockRequest extends FormRequest
     {
         // The date defaults today when the admin does not change it.
         if (! $this->filled('date')) {
-            $this->merge(['date' => now(self::timezone())->toDateString()]);
+            $this->merge(['date' => now(BusinessTime::timezone())->toDateString()]);
         }
     }
 
@@ -60,12 +61,5 @@ final class AddRentalStockRequest extends FormRequest
         $validated = $this->validated();
 
         return $validated['date'];
-    }
-
-    private static function timezone(): string
-    {
-        $timezone = config('settings.timezone');
-
-        return is_string($timezone) && $timezone !== '' ? $timezone : 'Asia/Manila';
     }
 }

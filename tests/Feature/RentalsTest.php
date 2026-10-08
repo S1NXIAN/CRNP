@@ -3,11 +3,14 @@
 declare(strict_types=1);
 
 use App\Cache\AvailabilityCache;
+use App\Rentals\RentalCatalog;
 use App\Rentals\RentalStatus;
+use App\Rtdb\Contracts\RtdbClient;
 use App\Staff\StaffRole;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Tests\Support\RecordingRtdbClient;
 
 /**
  * #34 — Rentals: catalog, booking, handover/return.
@@ -144,6 +147,26 @@ it('serves the catalog from the shared availability cache', function (): void {
     $this->get('/rentals')->assertOk();
 
     expect(Cache::has(AvailabilityCache::RENTALS_KEY))->toBeTrue();
+});
+
+it('reads the overlapping bookings once for the whole catalog, not per item', function (): void {
+    seedRentalItem('r1');
+    seedRentalItem('r2');
+    seedRentalItem('r3');
+
+    $client = new RecordingRtdbClient(app(RtdbClient::class));
+    app()->instance(RtdbClient::class, $client);
+
+    app(RentalCatalog::class)->entries(now());
+
+    // Three items, one window: the availability read is shared, so the booking
+    // tree is queried once rather than once per item (rule 3).
+    $queries = array_filter(
+        $client->queries,
+        static fn(array $query): bool => $query['path'] === 'rentalBookings',
+    );
+
+    expect($queries)->toHaveCount(1);
 });
 
 it('evicts the rental availability cache on a booking write', function (): void {

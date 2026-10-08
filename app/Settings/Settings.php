@@ -90,11 +90,6 @@ final readonly class Settings
         return $this->hours[$day->value] ?? null;
     }
 
-    public function hasHours(): bool
-    {
-        return $this->hours !== [];
-    }
-
     public function capacityFor(ReservationArea $area): int
     {
         return $this->capacities[$area->value] ?? $area->defaultCapacity();

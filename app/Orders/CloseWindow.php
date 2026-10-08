@@ -7,6 +7,7 @@ namespace App\Orders;
 use App\Settings\Settings;
 use App\Settings\SettingsRepository;
 use App\Settings\Weekday;
+use App\Support\BusinessTime;
 use Carbon\CarbonInterface;
 
 /**
@@ -44,7 +45,7 @@ final readonly class CloseWindow
             return true;
         }
 
-        $local = $when->copy()->setTimezone(self::timezone());
+        $local = $when->copy()->setTimezone(BusinessTime::timezone());
         $hours = $settings->hoursFor(Weekday::fromDate($local));
 
         if ($hours === null) {
@@ -52,12 +53,5 @@ final readonly class CloseWindow
         }
 
         return $local->format('H:i') === $hours->close;
-    }
-
-    private static function timezone(): string
-    {
-        $timezone = config('settings.timezone');
-
-        return is_string($timezone) && $timezone !== '' ? $timezone : 'Asia/Manila';
     }
 }

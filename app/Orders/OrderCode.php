@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Orders;
 
-use InvalidArgumentException;
-
 /**
  * The short code identifying an order at the counter (CONTEXT — *Order code*).
  *
@@ -23,17 +21,6 @@ final readonly class OrderCode
     private const LENGTH = 4;
 
     private function __construct(public string $value) {}
-
-    public static function fromString(string $value): self
-    {
-        $value = strtoupper(trim($value));
-
-        if ($value === '' || preg_match('/^[0-9A-Z]+$/', $value) !== 1) {
-            throw new InvalidArgumentException("The order code [{$value}] is not valid.");
-        }
-
-        return new self($value);
-    }
 
     /**
      * Draw a fresh code from the shared alphabet.

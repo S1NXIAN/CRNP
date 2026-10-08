@@ -7,6 +7,7 @@ namespace App\Activity;
 use App\Orders\HandledBy;
 use App\Rtdb\Contracts\RtdbClient;
 use App\Rtdb\RtdbQuery;
+use App\Support\BusinessTime;
 use Carbon\CarbonImmutable;
 
 /**
@@ -139,10 +140,7 @@ final readonly class ActivityFeed
      */
     private static function utcRange(string $date): array
     {
-        $timezone = config('settings.timezone');
-        $timezone = is_string($timezone) && $timezone !== '' ? $timezone : 'Asia/Manila';
-
-        $start = CarbonImmutable::parse($date, $timezone)->startOfDay();
+        $start = CarbonImmutable::parse($date, BusinessTime::timezone())->startOfDay();
         $end = $start->endOfDay();
 
         return [$start->toIso8601ZuluString(), $end->toIso8601ZuluString()];

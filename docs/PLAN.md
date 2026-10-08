@@ -425,7 +425,8 @@ order of work.
      tree **by `updatedAt > lastRun`**, watermark and checkpoint held
      at `export/state`: `orders`, `sales`, `products`, `reservations`,
      and `rental bookings` (watermarked), plus the small config trees
-     read whole (`staff`, `settings`, `rentals`, `stats`). The
+     read whole (`staff`, `settings`, `rentals`, `stats`,
+     `categories`). The
      **first run bootstraps in bounded pages of 500 rows**,
      checkpointed — never one whole-database read, which rule 3 bans
      and which at 800 MB alone costs ~3.5 GB/month: a third of the

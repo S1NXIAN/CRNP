@@ -15,8 +15,8 @@ use Illuminate\Contracts\Filesystem\Filesystem;
  * It reads every **durable** tree by `updatedAt > lastRun` — `orders`, `sales`,
  * `products`, `reservations`, and `rentalBookings` (when #34 has written any) —
  * and holds its **watermark and checkpoint** at `export/state`. The small config
- * trees (`staff`, `settings`, `rentals`, `stats`) are read whole, the one
- * exception rule 3 allows.
+ * trees (`staff`, `settings`, `rentals`, `stats`, `categories`) are read whole,
+ * the one exception rule 3 allows.
  *
  * The **first run bootstraps in bounded pages of 500 rows**, checkpointing after
  * every page: never one whole-database read (which rule 3 bans and which, at
@@ -55,7 +55,7 @@ final readonly class ExportBackup
      *
      * @var list<string>
      */
-    public const CONFIG_TREES = ['staff', 'settings', 'rentals', 'stats'];
+    public const CONFIG_TREES = ['staff', 'settings', 'rentals', 'stats', 'categories'];
 
     public function __construct(
         private RtdbClient $client,

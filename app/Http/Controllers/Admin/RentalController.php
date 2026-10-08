@@ -13,6 +13,7 @@ use App\Rentals\Actions\AdjustRentalStock;
 use App\Rentals\Actions\DeleteRentalItem;
 use App\Rentals\Actions\SaveRentalItem;
 use App\Rentals\Rentals;
+use App\Support\BusinessTime;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 
@@ -44,7 +45,7 @@ final class RentalController extends Controller
             'items' => $items,
             'lowStock' => $lowStock,
             'threshold' => $threshold,
-            'today' => now(self::timezone())->toDateString(),
+            'today' => now(BusinessTime::timezone())->toDateString(),
         ]);
     }
 
@@ -118,12 +119,5 @@ final class RentalController extends Controller
         $threshold = config('rentals.low_stock_threshold');
 
         return is_numeric($threshold) ? (int) $threshold : 3;
-    }
-
-    private static function timezone(): string
-    {
-        $timezone = config('settings.timezone');
-
-        return is_string($timezone) && $timezone !== '' ? $timezone : 'Asia/Manila';
     }
 }

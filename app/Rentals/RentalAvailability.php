@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Rentals;
 
+use App\Support\BusinessTime;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
@@ -21,6 +22,10 @@ use Carbon\CarbonInterface;
  * The read is bounded by the `dateFrom` index to the window plus the maximum
  * booking length, so a catalog view never scans the booking tree. The computed
  * result is what the shared availability cache coalesces.
+ *
+ * A caller rendering many items for one window (the public catalog) reads the
+ * overlapping bookings **once** with {@see overlapping()} and passes the set
+ * into {@see forItem()}, so N items cost one query rather than N.
  */
 final readonly class RentalAvailability
 {
@@ -29,17 +34,28 @@ final readonly class RentalAvailability
     ) {}
 
     /**
+     * The bookings overlapping the window starting at $from's date — the single
+     * read the catalog shares across items.
+     *
+     * @return array<string, RentalBooking>
+     */
+    public function overlapping(CarbonInterface $from, int $days): array
+    {
+        return $this->bookings->overlapping($this->window($from, $days));
+    }
+
+    /**
      * The availability of one item over $days days starting at $from's date.
      *
+     * @param  array<string, RentalBooking>|null  $overlapping  a pre-read set for the window, or null to read
      * @return list<RentalAvailabilityDay>
      */
-    public function forItem(RentalItem $item, CarbonInterface $from, int $days): array
+    public function forItem(RentalItem $item, CarbonInterface $from, int $days, ?array $overlapping = null): array
     {
-        $start = CarbonImmutable::instance($from)->setTimezone(self::timezone())->startOfDay();
-        $end = $start->addDays(max(0, $days - 1));
-        $period = RentalPeriod::fromStrings($start->toDateString(), $end->toDateString());
+        $period = $this->window($from, $days);
+        $start = $period->from;
 
-        $reserved = $this->reservedByDate($item, $period);
+        $reserved = $this->reservedByDate($item, $period, null, $overlapping);
 
         $availability = [];
 
@@ -86,13 +102,14 @@ final readonly class RentalAvailability
      * The units reserved per date by confirmed bookings of an item that overlap
      * the range, keyed by `Y-m-d`.
      *
+     * @param  array<string, RentalBooking>|null  $overlapping  a pre-read set for the window, or null to read
      * @return array<string, int>
      */
-    private function reservedByDate(RentalItem $item, RentalPeriod $period, ?string $exceptId = null): array
+    private function reservedByDate(RentalItem $item, RentalPeriod $period, ?string $exceptId = null, ?array $overlapping = null): array
     {
         $reserved = [];
 
-        foreach ($this->bookings->overlapping($period) as $id => $booking) {
+        foreach ($overlapping ?? $this->bookings->overlapping($period) as $id => $booking) {
             if ($id === $exceptId || $booking->itemId !== $item->id || ! $booking->reservesStock()) {
                 continue;
             }
@@ -110,10 +127,14 @@ final readonly class RentalAvailability
         return $reserved;
     }
 
-    private static function timezone(): string
+    /**
+     * The date window an availability read covers.
+     */
+    private function window(CarbonInterface $from, int $days): RentalPeriod
     {
-        $timezone = config('settings.timezone');
+        $start = CarbonImmutable::instance($from)->setTimezone(BusinessTime::timezone())->startOfDay();
+        $end = $start->addDays(max(0, $days - 1));
 
-        return is_string($timezone) && $timezone !== '' ? $timezone : 'Asia/Manila';
+        return RentalPeriod::fromStrings($start->toDateString(), $end->toDateString());
     }
 }

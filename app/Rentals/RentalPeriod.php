@@ -20,6 +20,18 @@ use InvalidArgumentException;
  */
 final readonly class RentalPeriod
 {
+    /**
+     * The longest range a customer may book, from config — the one place the
+     * booking cap is read. It also bounds the availability overlap lookback (a
+     * booking can never span more than this).
+     */
+    public static function maxDays(): int
+    {
+        $days = config('rentals.max_booking_days');
+
+        return is_numeric($days) && (int) $days > 0 ? (int) $days : 60;
+    }
+
     private function __construct(
         public CarbonImmutable $from,
         public CarbonImmutable $to,

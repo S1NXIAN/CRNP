@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Orders;
 
+use App\Support\BusinessTime;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use InvalidArgumentException;
@@ -56,7 +57,7 @@ final readonly class PickupTime
         }
 
         try {
-            $at = CarbonImmutable::parse(trim($input), self::timezone());
+            $at = CarbonImmutable::parse(trim($input), BusinessTime::timezone());
         } catch (\Throwable) {
             throw new InvalidArgumentException('That pickup time could not be read.');
         }
@@ -89,13 +90,6 @@ final readonly class PickupTime
      */
     public static function minInput(DateTimeInterface $now): string
     {
-        return self::earliest($now)->setTimezone(self::timezone())->format('Y-m-d\TH:i');
-    }
-
-    private static function timezone(): string
-    {
-        $timezone = config('settings.timezone');
-
-        return is_string($timezone) && $timezone !== '' ? $timezone : 'Asia/Manila';
+        return self::earliest($now)->setTimezone(BusinessTime::timezone())->format('Y-m-d\TH:i');
     }
 }

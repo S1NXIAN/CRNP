@@ -15,6 +15,7 @@ use App\Staff\StaffDirectory;
 use App\Stats\Actions\MarkRefunded;
 use App\Stats\RefundsOwed;
 use App\Stats\SalesLedger;
+use App\Support\BusinessTime;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -131,7 +132,7 @@ final class ReportsController extends Controller
      */
     private function range(mixed $from, mixed $to): array
     {
-        $today = CarbonImmutable::instance(now('UTC'))->setTimezone($this->timezone())->toDateString();
+        $today = CarbonImmutable::instance(now('UTC'))->setTimezone(BusinessTime::timezone())->toDateString();
 
         $start = is_string($from) && $from !== '' ? $from : $today;
         $end = is_string($to) && $to !== '' ? $to : $start;
@@ -148,12 +149,5 @@ final class ReportsController extends Controller
         }
 
         return HandledBy::fromStaff($staff);
-    }
-
-    private function timezone(): string
-    {
-        $timezone = config('settings.timezone');
-
-        return is_string($timezone) && $timezone !== '' ? $timezone : 'Asia/Manila';
     }
 }

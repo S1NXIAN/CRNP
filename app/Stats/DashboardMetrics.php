@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Stats;
 
+use App\Support\BusinessTime;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
@@ -68,7 +69,7 @@ final readonly class DashboardMetrics
                 continue;
             }
 
-            $at = CarbonImmutable::parse($soldAt)->setTimezone(self::timezone());
+            $at = CarbonImmutable::parse($soldAt)->setTimezone(BusinessTime::timezone());
             $date = $at->toDateString();
             $hour = $at->format('H:00');
 
@@ -124,7 +125,7 @@ final readonly class DashboardMetrics
      */
     private static function days(CarbonInterface $now): array
     {
-        $today = CarbonImmutable::instance($now)->setTimezone(self::timezone())->startOfDay();
+        $today = CarbonImmutable::instance($now)->setTimezone(BusinessTime::timezone())->startOfDay();
         $days = [];
 
         for ($offset = self::WINDOW_DAYS - 1; $offset >= 0; $offset--) {
@@ -136,13 +137,6 @@ final readonly class DashboardMetrics
 
     private static function businessDate(CarbonInterface $now): string
     {
-        return CarbonImmutable::instance($now)->setTimezone(self::timezone())->toDateString();
-    }
-
-    private static function timezone(): string
-    {
-        $timezone = config('settings.timezone');
-
-        return is_string($timezone) && $timezone !== '' ? $timezone : 'Asia/Manila';
+        return CarbonImmutable::instance($now)->setTimezone(BusinessTime::timezone())->toDateString();
     }
 }

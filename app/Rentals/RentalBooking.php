@@ -44,15 +44,11 @@ final readonly class RentalBooking
         public ?string $lapsedAt = null,
         public ?string $cancelledAt = null,
         public ?string $terminalAt = null,
-        public ?string $handledBy = null,
-        public ?string $handledByName = null,
         public ?string $gcashRef = null,
         public ?float $enteredAmount = null,
         public bool $proofInFlight = false,
         public ?string $proofReceivedAt = null,
         public ?string $verifiedAt = null,
-        public ?string $createdAt = null,
-        public ?string $updatedAt = null,
     ) {}
 
     /**
@@ -87,7 +83,6 @@ final readonly class RentalBooking
         $qty = $node['qty'] ?? 1;
         $total = $node['total'] ?? 0;
         $pricePerDay = $node['pricePerDay'] ?? 0;
-        $handledBy = $node['handledBy'] ?? null;
         $enteredAmount = $node['enteredAmount'] ?? null;
 
         return new self(
@@ -108,15 +103,11 @@ final readonly class RentalBooking
             lapsedAt: self::stringOrNull($node['lapsedAt'] ?? null),
             cancelledAt: self::stringOrNull($node['cancelledAt'] ?? null),
             terminalAt: self::stringOrNull($node['terminalAt'] ?? null),
-            handledBy: is_array($handledBy) ? self::stringOrNull($handledBy['uid'] ?? null) : null,
-            handledByName: is_array($handledBy) ? self::stringOrNull($handledBy['name'] ?? null) : null,
             gcashRef: self::stringOrNull($node['gcashRef'] ?? null),
             enteredAmount: is_numeric($enteredAmount) ? (float) $enteredAmount : null,
             proofInFlight: ($node['proofInFlight'] ?? false) === true,
             proofReceivedAt: self::stringOrNull($node['proofReceivedAt'] ?? null),
             verifiedAt: self::stringOrNull($node['verifiedAt'] ?? null),
-            createdAt: self::stringOrNull($node['createdAt'] ?? null),
-            updatedAt: self::stringOrNull($node['updatedAt'] ?? null),
         );
     }
 

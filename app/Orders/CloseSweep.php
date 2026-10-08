@@ -21,7 +21,9 @@ use Carbon\CarbonInterface;
  * The status flip to `Unclaimed` is what **clears the server-owned rows**: the
  * kitchen board reads `cooking` and the cashier queue reads the payment states,
  * so both drop the ticket with no extra write and no dependence on the board's
- * timer (the counter's ready-awaiting-handover row is #26/#28's read).
+ * timer (the counter's ready-awaiting-handover row is #26/#28's read). The write
+ * also stamps `settledAt` — an Unclaimed order never settles through Mark
+ * served — so the daily proof-cleanup sweep expires its screenshot 7 days on.
  *
  * Only orders that were already paid and cooking are touched. A **Rejected**
  * order is left alone — its refund obligation is #27's invariant and the owner
@@ -58,6 +60,11 @@ final readonly class CloseSweep
             $this->client->update("orders/{$order->id}", [
                 'status' => OrderStatus::Unclaimed->value,
                 'unclaimedAt' => $at,
+                // The terminal instant the daily proof-cleanup sweep keys off
+                // to expire the screenshot 7 days on. A walk-in already stamped
+                // its counter `settledAt` (the receipt prints it), so keep it;
+                // only an order that never settled gets the close instant.
+                'settledAt' => $order->settledAt ?? $at,
             ]);
 
             // The sale is 1:1 with the order key; a walk-in settled its own at

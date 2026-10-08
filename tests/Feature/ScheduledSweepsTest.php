@@ -285,6 +285,40 @@ it('clears the server-owned kitchen board when an order is closed out', function
     expect(onKitchenBoard())->not->toContain($id);
 });
 
+it('stamps settledAt on an Unclaimed order so its proof expires on schedule', function (): void {
+    $this->travelTo(new DateTimeImmutable('2026-10-06 21:00:00', new DateTimeZone('Asia/Manila')));
+    $id = seedSweepOrder(['status' => OrderStatus::Cooking->value]);
+    seedProofNode($id);
+
+    $this->artisan('orders:close')->assertSuccessful();
+
+    // The close is the terminal instant an Unclaimed order never reaches
+    // through Mark served; the cleanup sweep keys off it.
+    expect(rtdb()->get("orders/{$id}")['settledAt'])->toBeString();
+
+    $this->travelTo(new DateTimeImmutable('2026-10-13 23:59:00', new DateTimeZone('Asia/Manila')));
+    $this->artisan('proofs:cleanup')->assertSuccessful();
+
+    expect(rtdb()->get("proofs/{$id}"))->toBeNull();
+});
+
+it('keeps a walk-in\'s counter settledAt when the close decides it Unclaimed', function (): void {
+    $this->travelTo(new DateTimeImmutable('2026-10-06 21:00:00', new DateTimeZone('Asia/Manila')));
+    $id = seedSweepOrder([
+        'code' => 'WALK9',
+        'type' => 'walkin',
+        'status' => OrderStatus::Cooking->value,
+        'settledAt' => '2026-10-06T04:05:00Z',
+        'handledBy' => ['uid' => 'staff-1', 'name' => 'Maria'],
+    ]);
+
+    $this->artisan('orders:close')->assertSuccessful();
+
+    // The walk-in settled at the counter (the receipt prints this instant), so
+    // the close must not overwrite it with its own time.
+    expect(rtdb()->get("orders/{$id}")['settledAt'])->toBe('2026-10-06T04:05:00Z');
+});
+
 // --- Proof cleanup --------------------------------------------------------
 
 it('deletes a proof seven days after a terminal order settled', function (): void {
@@ -395,6 +429,20 @@ it('expires a rental proof seven days after a cancelled booking', function (): v
 
     expect(rtdb()->get('proofs/rental-r1'))->toBeNull()
         ->and(rtdb()->get('rentalBookings/r1')['status'])->toBe('cancelled');
+});
+
+it('prunes stale checkout idempotency records, keeping fresh ones', function (): void {
+    $this->travelTo(new DateTimeImmutable('2026-10-06 23:59:00', new DateTimeZone('Asia/Manila')));
+
+    // A record that crossed the two-day retention on the previous daily run,
+    // and one still inside it — the `idem` tree must never grow without bound.
+    rtdb()->seed('idem/old-key', ['orderId' => 'o1', 'updatedAt' => '2026-10-04T04:00:00Z']);
+    rtdb()->seed('idem/new-key', ['orderId' => 'o2', 'updatedAt' => '2026-10-06T04:00:00Z']);
+
+    $this->artisan('proofs:cleanup')->assertSuccessful();
+
+    expect(rtdb()->get('idem/old-key'))->toBeNull()
+        ->and(rtdb()->get('idem/new-key'))->toBeArray();
 });
 
 // --- Scheduler & timezone -------------------------------------------------

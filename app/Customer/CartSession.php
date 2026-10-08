@@ -57,14 +57,6 @@ final readonly class CartSession
     }
 
     /**
-     * Persist a rebuilt cart's normalized selection back to the session.
-     */
-    public function store(Cart $cart): void
-    {
-        $this->session->put(self::KEY, $cart->toSession());
-    }
-
-    /**
      * Forget the selection — after an order is placed, the cart is spent.
      */
     public function clear(): void

@@ -20,6 +20,7 @@ use App\Rentals\RentalTracker;
 use App\Rentals\RentalTrackerState;
 use App\Settings\SettingsRepository;
 use App\Settings\StoreStatus;
+use App\Support\BusinessTime;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -66,7 +67,7 @@ final class RentalBookingController extends Controller
         return view('rentals.show', [
             'entry' => $entry,
             'gate' => OrderingGate::for($settings, $this->status, now()),
-            'today' => now($this->timezone())->toDateString(),
+            'today' => now(BusinessTime::timezone())->toDateString(),
         ]);
     }
 
@@ -196,12 +197,5 @@ final class RentalBookingController extends Controller
         abort_unless($state->uid === $user->sub, 403);
 
         return $state;
-    }
-
-    private static function timezone(): string
-    {
-        $timezone = config('settings.timezone');
-
-        return is_string($timezone) && $timezone !== '' ? $timezone : 'Asia/Manila';
     }
 }

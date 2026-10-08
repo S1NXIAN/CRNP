@@ -7,6 +7,7 @@ namespace App\Reservations;
 use App\Settings\ReservationArea;
 use App\Settings\Settings;
 use App\Settings\SettingsRepository;
+use App\Support\BusinessTime;
 use Carbon\CarbonInterface;
 
 /**
@@ -40,7 +41,7 @@ final readonly class Occupancy
      */
     public function week(CarbonInterface $from): array
     {
-        $start = $from->copy()->setTimezone(self::timezone())->startOfDay();
+        $start = $from->copy()->setTimezone(BusinessTime::timezone())->startOfDay();
         $dates = [];
 
         for ($offset = 0; $offset < self::WINDOW_DAYS; $offset++) {
@@ -101,12 +102,5 @@ final readonly class Occupancy
         }
 
         return $slots;
-    }
-
-    private static function timezone(): string
-    {
-        $timezone = config('settings.timezone');
-
-        return is_string($timezone) && $timezone !== '' ? $timezone : 'Asia/Manila';
     }
 }

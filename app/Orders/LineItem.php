@@ -39,6 +39,24 @@ final readonly class LineItem
     }
 
     /**
+     * The sum of a set of lines, in integer centavos so no floating-point drift
+     * creeps in — the one rule the cart total and the walk-in ring-up total
+     * share.
+     *
+     * @param  list<LineItem>  $lines
+     */
+    public static function sum(array $lines): float
+    {
+        $cents = 0;
+
+        foreach ($lines as $line) {
+            $cents += (int) round($line->lineTotal() * 100);
+        }
+
+        return $cents / 100;
+    }
+
+    /**
      * @param  array<mixed, mixed>  $node
      */
     public static function fromNode(array $node): ?self
